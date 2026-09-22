@@ -11,8 +11,7 @@ React + TypeScript + Vite.
 - CSS: `normalize.css` подключается первым через `@import` в `src/index.css`.
 - Визуализация: `d3-force` + `d3-selection`/`d3-drag`/`d3-zoom` — граф в `src/components/ForceGraph`
   (порт ноутбука [@d3/disjoint-force-directed-graph/2](https://observablehq.com/@d3/disjoint-force-directed-graph/2),
-  его и рендерит `App`). В `src/components/ForceBubbles` лежит отдельное демо
-  [Collision Detection](https://d3js.org/d3-force/collide) — на страницу сейчас не выводится.
+  его и рендерит `App`).
 - Данные графа: `src/data/graph.ts` — типизированный модуль (336 узлов, 275 связей), импортируется
   напрямую, без запроса; состояние «Загрузка графа…» эмулируется `setTimeout`. Типы данных —
   в `src/types/graph.ts`.
