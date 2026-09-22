@@ -1,0 +1,16 @@
+# сборка
+dist
+build
+coverage
+
+# зависимости
+node_modules
+
+# статика
+public
+
+# служебное
+.git
+.vscode
+*.log
+package-lock.json
