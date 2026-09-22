@@ -93,6 +93,11 @@ function createDrag(
 		.on('end', dragended)
 }
 
+/** Подсказка узла: короткий заголовок и, если он есть, полный текст описания. */
+function nodeTooltip(node: GraphNode): string {
+	return [node.title, node.description].filter(Boolean).join('\n')
+}
+
 /** Узлы: радиус и белая обводка из ноутбука, цвет — по типу узла, в подсказке — заголовок и описание. */
 function appendNodes(
 	content: ContentSelection,
@@ -111,7 +116,7 @@ function appendNodes(
 		.attr('fill', (datum) => color(datum.type))
 		.attr('cursor', 'grab')
 
-	node.append('title').text((datum) => `${datum.title}\n${datum.description}`)
+	node.append('title').text(nodeTooltip)
 	return node.call(createDrag(simulation))
 }
 
