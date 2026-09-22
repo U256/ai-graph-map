@@ -6,6 +6,16 @@ React + TypeScript + Vite.
 
 - Vite 8 + React 19 + TypeScript (`strict`, три `tsconfig`: `app`, `node` и solution-файл в корне).
 - CSS: `normalize.css` подключается первым через `@import` в `src/index.css`.
+- Визуализация: `d3-force` + `d3-selection`/`d3-drag`/`d3-zoom` — граф в `src/components/ForceGraph`
+  (порт ноутбука [@d3/disjoint-force-directed-graph/2](https://observablehq.com/@d3/disjoint-force-directed-graph/2),
+  его и рендерит `App`). В `src/components/ForceBubbles` лежит отдельное демо
+  [Collision Detection](https://d3js.org/d3-force/collide) — на страницу сейчас не выводится.
+- Данные графа: `public/graph.json` (336 узлов, 275 связей) — грузится запросом, как `FileAttachment` в ноутбуке.
+- Ноутбук перенесён 1:1: `forceLink` + `forceManyBody` + `forceX`/`forceY` (позиционирующие силы
+  вместо `forceCenter`, иначе несвязные подграфы разлетаются), радиус узла 5, `stroke-width: √value`,
+  цвета групп как `scaleOrdinal(schemeCategory10)`, drag узла через `alphaTarget(0.3)` + `fx`/`fy`.
+  Добавлено сверх ноутбука и опционально (`options` в `createForceGraph`): сетка на фоне (`grid`)
+  и панорама/зум (`panZoom`, пределы 0.5–8).
 - Линтеры: ESLint (`airbnb` + `airbnb-typescript` + `prettier`) и Prettier.
 
 ## Команды

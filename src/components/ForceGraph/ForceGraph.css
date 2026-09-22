@@ -1,0 +1,34 @@
+.force-graph {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0;
+	padding: 1rem;
+}
+
+/* сцена 928×680 из ноутбука: ширину подстраивает css, пропорции держит viewBox */
+.force-graph__canvas {
+	width: 100%;
+	max-width: 928px;
+}
+
+.force-graph__canvas svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	max-height: 92vh;
+	cursor: grab;
+}
+
+.force-graph__canvas svg:active {
+	cursor: grabbing;
+}
+
+.force-graph__hint,
+.force-graph__status {
+	margin: 0;
+	font-size: 0.85rem;
+	text-align: center;
+	opacity: 0.7;
+}
