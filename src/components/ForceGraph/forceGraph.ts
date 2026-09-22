@@ -18,8 +18,8 @@ export const GRAPH_HEIGHT = 680
 /** Радиус узла в пикселях сцены — как в ноутбуке (поля radius и citing_patents_count он не использует). */
 export const NODE_RADIUS = 5
 
-/** Вес связи по умолчанию, если его нет в данных: в ноутбуке value у всех связей равно 2. */
-export const LINK_VALUE_DEFAULT = 2
+/** Сила связи по умолчанию, если её нет в данных: в ноутбуке у всех связей было 2. */
+export const LINK_FORCE_DEFAULT = 2
 
 /** Симуляция мутирует узлы и связи, поэтому ей отдаются копии данных — как в ноутбуке. */
 export function prepareGraph(data: GraphData): { nodes: GraphNode[]; links: GraphLink[] } {

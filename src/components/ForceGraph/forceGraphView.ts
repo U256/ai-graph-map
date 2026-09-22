@@ -6,7 +6,7 @@ import type { DrawnLink, GraphData, GraphLink, GraphNode, GraphNodeType } from '
 import {
 	GRAPH_HEIGHT,
 	GRAPH_WIDTH,
-	LINK_VALUE_DEFAULT,
+	LINK_FORCE_DEFAULT,
 	NODE_RADIUS,
 	asDrawnLinks,
 	createSimulation,
@@ -47,7 +47,7 @@ const ARIA_LABEL = 'Граф связей научных работ и пате�
 /** Пределы зума: без них граф легко потерять за краем экрана. */
 const ZOOM_EXTENT: [number, number] = [0.5, 8]
 
-/** Толщина связи — корень из веса, как в ноутбуке; без веса берётся значение по умолчанию. */
+/** Толщина связи — √force, как в ноутбуке; если силы в данных нет, берётся значение по умолчанию. */
 function appendLinks(content: ContentSelection, links: DrawnLink[]): LineSelection {
 	return content
 		.append('g')
@@ -56,7 +56,7 @@ function appendLinks(content: ContentSelection, links: DrawnLink[]): LineSelecti
 		.selectAll<SVGLineElement, DrawnLink>('line')
 		.data(links)
 		.join('line')
-		.attr('stroke-width', (link) => Math.sqrt(link.value ?? LINK_VALUE_DEFAULT))
+		.attr('stroke-width', (link) => Math.sqrt(link.force ?? LINK_FORCE_DEFAULT))
 }
 
 /**

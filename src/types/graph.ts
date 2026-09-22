@@ -16,7 +16,7 @@ export interface GraphNodeInput {
 	title: string
 	/** Полное название работы или другое пояснение к ней; у патента описания нет и оно необязательно. */
 	description?: string
-	/** Признак «нужно предупредить». Данные для будущей подсветки, отрисовка его пока не читает. */
+	/** Признак «нужно предупредить»: у узла-облака появится красная точка сбоку. Данные, отрисовка не читает. */
 	hasWarning: boolean
 	/** Тип узла — вместе с ним приходит и цвет. */
 	type: GraphNodeType
@@ -27,10 +27,11 @@ export interface GraphLinkInput {
 	source: string
 	target: string
 	/**
-	 * Вес связи: толщина линии = √value, как в ноутбуке (там value у всех связей равно 2).
-	 * Необязателен: если его нет, рисуется толщина по умолчанию (LINK_VALUE_DEFAULT).
+	 * Сила связи — как крепко её концы держатся друг за друга. Физика её пока не читает: поле
+	 * хранится на будущее. Толщина линии = √force, как в ноутбуке (там у всех связей 2).
+	 * Необязательна: если её нет, берётся значение по умолчанию (LINK_FORCE_DEFAULT).
 	 */
-	value?: number
+	force?: number
 }
 
 /** Данные графа целиком. */
@@ -43,11 +44,11 @@ export interface GraphData {
 export type GraphNode = SimulationNodeDatum & GraphNodeInput
 
 /** Связь внутри симуляции: forceLink заменяет строковые концы на сами узлы. */
-export type GraphLink = SimulationLinkDatum<GraphNode> & { value?: number }
+export type GraphLink = SimulationLinkDatum<GraphNode> & { force?: number }
 
 /** Связь после инициализации: у обоих концов можно читать координаты. */
 export interface DrawnLink {
 	source: GraphNode
 	target: GraphNode
-	value?: number
+	force?: number
 }

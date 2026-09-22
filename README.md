@@ -17,7 +17,7 @@ React + TypeScript + Vite.
   в `src/types/graph.ts`.
 - Ноутбук перенесён 1:1: `forceLink` + `forceManyBody` + `forceX`/`forceY` (позиционирующие силы
   вместо `forceCenter`, иначе несвязные подграфы разлетаются), радиус узла 5,
-  `stroke-width: √(value ?? LINK_VALUE_DEFAULT)`, цвета как `scaleOrdinal(schemeCategory10)` — но
+  `stroke-width: √(force ?? LINK_FORCE_DEFAULT)`, цвета как `scaleOrdinal(schemeCategory10)` — но
   уже по `type` узла (`node`/`subNode`), drag узла через `alphaTarget(0.3)` + `fx`/`fy`.
   Добавлено сверх ноутбука и опционально (`options` в `createForceGraph`): сетка на фоне (`grid`)
   и панорама/зум (`panZoom`, пределы 0.5–8).
