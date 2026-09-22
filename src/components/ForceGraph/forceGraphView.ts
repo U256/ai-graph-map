@@ -2,14 +2,15 @@ import { drag, type D3DragEvent, type DragBehavior } from 'd3-drag'
 import type { Simulation } from 'd3-force'
 import { select, type Selection } from 'd3-selection'
 import { zoom, type D3ZoomEvent } from 'd3-zoom'
-import type { DrawnLink, GraphData, GraphLink, GraphNode } from './forceGraph'
+import type { DrawnLink, GraphData, GraphLink, GraphNode, GraphNodeType } from '../../types/graph'
 import {
 	GRAPH_HEIGHT,
 	GRAPH_WIDTH,
+	LINK_VALUE_DEFAULT,
 	NODE_RADIUS,
 	asDrawnLinks,
-	createGroupColors,
 	createSimulation,
+	createTypeColors,
 	prepareGraph,
 } from './forceGraph'
 import { createGridPattern, type GridPattern } from './forceGraphGrid'
@@ -46,7 +47,7 @@ const ARIA_LABEL = 'Граф связей научных работ и пате�
 /** Пределы зума: без них граф легко потерять за краем экрана. */
 const ZOOM_EXTENT: [number, number] = [0.5, 8]
 
-/** Толщина связи — корень из value, как в ноутбуке (в данных value всегда равен 2). */
+/** Толщина связи — корень из веса, как в ноутбуке; без веса берётся значение по умолчанию. */
 function appendLinks(content: ContentSelection, links: DrawnLink[]): LineSelection {
 	return content
 		.append('g')
@@ -55,7 +56,7 @@ function appendLinks(content: ContentSelection, links: DrawnLink[]): LineSelecti
 		.selectAll<SVGLineElement, DrawnLink>('line')
 		.data(links)
 		.join('line')
-		.attr('stroke-width', (link) => Math.sqrt(link.value))
+		.attr('stroke-width', (link) => Math.sqrt(link.value ?? LINK_VALUE_DEFAULT))
 }
 
 /**
@@ -92,11 +93,11 @@ function createDrag(
 		.on('end', dragended)
 }
 
-/** Узлы: радиус и белая обводка из ноутбука, цвет — по группе, во всплывающей подсказке — id. */
+/** Узлы: радиус и белая обводка из ноутбука, цвет — по типу узла, в подсказке — заголовок и описание. */
 function appendNodes(
 	content: ContentSelection,
 	nodes: GraphNode[],
-	color: (group: string) => string,
+	color: (type: GraphNodeType) => string,
 	simulation: Simulation<GraphNode, GraphLink>,
 ): NodeSelection {
 	const node = content
@@ -107,10 +108,10 @@ function appendNodes(
 		.data(nodes)
 		.join('circle')
 		.attr('r', NODE_RADIUS)
-		.attr('fill', (datum) => color(datum.group))
+		.attr('fill', (datum) => color(datum.type))
 		.attr('cursor', 'grab')
 
-	node.append('title').text((datum) => datum.id)
+	node.append('title').text((datum) => `${datum.title}\n${datum.description}`)
 	return node.call(createDrag(simulation))
 }
 
@@ -157,7 +158,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	const grid = optionGrid ? createGridPattern(svg, gridId) : null
 	const content = root.append('g')
 	const link = appendLinks(content, asDrawnLinks(links))
-	const node = appendNodes(content, nodes, createGroupColors(nodes), simulation)
+	const node = appendNodes(content, nodes, createTypeColors(nodes), simulation)
 
 	simulation.on('tick', () => drawTick(link, node))
 	if (panZoom) attachPanZoom(root, content, grid)

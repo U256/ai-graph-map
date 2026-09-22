@@ -108,5 +108,12 @@ module.exports = {
 				'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
 			},
 		},
+		{
+			// данные графа — сгенерированный массив на тысячи строк, поэтому лимит строк к ним не применяется
+			files: ['src/data/**/*.ts'],
+			rules: {
+				'max-lines': 0,
+			},
+		},
 	],
 }

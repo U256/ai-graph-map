@@ -1,14 +1,6 @@
-import {
-	forceLink,
-	forceManyBody,
-	forceSimulation,
-	forceX,
-	forceY,
-	type Simulation,
-	type SimulationLinkDatum,
-	type SimulationNodeDatum,
-} from 'd3-force'
+import { forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulation } from 'd3-force'
 import { schemeCategory10 } from 'd3-scale-chromatic'
+import type { DrawnLink, GraphData, GraphLink, GraphNode, GraphNodeType } from '../../types/graph'
 
 /**
  * Перенос демо «Disjoint force-directed graph»:
@@ -23,41 +15,11 @@ import { schemeCategory10 } from 'd3-scale-chromatic'
 export const GRAPH_WIDTH = 928
 export const GRAPH_HEIGHT = 680
 
-/** Радиус узла в пикселях сцены — как в ноутбуке (поле radius в данных он не использует). */
+/** Радиус узла в пикселях сцены — как в ноутбуке (поля radius и citing_patents_count он не использует). */
 export const NODE_RADIUS = 5
 
-/** Узел в исходных данных: в graph.json есть ещё radius и citing_patents_count. */
-export interface GraphNodeInput {
-	/** Подпись узла: у статей — название работы, у патентов — номер. */
-	id: string
-	/** Группа для раскраски: «Cited Works» или «Citing Patents». */
-	group: string
-}
-
-/** Связь в исходных данных: концы заданы идентификаторами узлов. */
-export interface GraphLinkInput {
-	source: string
-	target: string
-	value: number
-}
-
-export interface GraphData {
-	nodes: GraphNodeInput[]
-	links: GraphLinkInput[]
-}
-
-/** Узел внутри симуляции: d3-force дописывает сюда x, y, vx, vy и index. */
-export type GraphNode = SimulationNodeDatum & GraphNodeInput
-
-/** Связь внутри симуляции: forceLink заменяет строковые концы на сами узлы. */
-export type GraphLink = SimulationLinkDatum<GraphNode> & { value: number }
-
-/** Связь после инициализации: у обоих концов можно читать координаты. */
-export interface DrawnLink {
-	source: GraphNode
-	target: GraphNode
-	value: number
-}
+/** Вес связи по умолчанию, если его нет в данных: в ноутбуке value у всех связей равно 2. */
+export const LINK_VALUE_DEFAULT = 2
 
 /** Симуляция мутирует узлы и связи, поэтому ей отдаются копии данных — как в ноутбуке. */
 export function prepareGraph(data: GraphData): { nodes: GraphNode[]; links: GraphLink[] } {
@@ -85,13 +47,13 @@ export function asDrawnLinks(links: GraphLink[]): DrawnLink[] {
 }
 
 /**
- * Цвет группы — аналог d3.scaleOrdinal(schemeCategory10) из ноутбука: оттенки выдаются
- * в порядке первого появления группы в данных, поэтому легенда не нужна.
+ * Цвет типа узла — аналог d3.scaleOrdinal(schemeCategory10) из ноутбука: оттенки выдаются
+ * в порядке первого появления типа в данных, поэтому легенда не нужна.
  */
-export function createGroupColors(nodes: GraphNode[]): (group: string) => string {
-	const byGroup = new Map<string, string>()
+export function createTypeColors(nodes: GraphNode[]): (type: GraphNodeType) => string {
+	const byType = new Map<GraphNodeType, string>()
 	nodes.forEach((node) => {
-		if (!byGroup.has(node.group)) byGroup.set(node.group, schemeCategory10[byGroup.size % schemeCategory10.length])
+		if (!byType.has(node.type)) byType.set(node.type, schemeCategory10[byType.size % schemeCategory10.length])
 	})
-	return (group) => byGroup.get(group) ?? schemeCategory10[0]
+	return (type) => byType.get(type) ?? schemeCategory10[0]
 }

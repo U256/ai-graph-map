@@ -11,7 +11,9 @@
 
 `src/App.tsx` рендерит ровно один компонент — `ForceGraph`: порт ноутбука
 [@d3/disjoint-force-directed-graph/2](https://observablehq.com/@d3/disjoint-force-directed-graph/2)
-(336 узлов, 275 связей: статьи и цитирующие патенты).
+(336 узлов, 275 связей: научные работы и цитирующие их патенты). Данные лежат TS-модулем в
+`src/data/graph.ts`, типы — в `src/types/graph.ts`; запроса к серверу нет, состояние загрузки
+эмулируется `setTimeout`.
 
 ## Команды
 
@@ -27,17 +29,21 @@
 ## Структура
 
 - `src/components/ForceGraph/forceGraph.ts` — чистая логика без DOM: константы сцены
-  (`GRAPH_WIDTH` 928, `GRAPH_HEIGHT` 680, `NODE_RADIUS` 5), `prepareGraph`, `createSimulation`,
-  `asDrawnLinks`, `createGroupColors`.
+  (`GRAPH_WIDTH` 928, `GRAPH_HEIGHT` 680, `NODE_RADIUS` 5, `LINK_VALUE_DEFAULT` 2), `prepareGraph`,
+  `createSimulation`, `asDrawnLinks`, `createTypeColors`.
 - `src/components/ForceGraph/forceGraphView.ts` — сборка svg через d3-selection: связи, узлы
   с `<title>`, drag, панорама/зум. Единственный модуль, который знает про DOM.
 - `src/components/ForceGraph/forceGraphGrid.ts` — узор сетки и подложка (добавка к ноутбуку).
-- `src/components/ForceGraph/ForceGraph.tsx` — React-обёртка: запрос данных, монтирование svg
-  в контейнер, состояния загрузки/ошибки. React владеет только контейнером, svg императивный.
+- `src/components/ForceGraph/ForceGraph.tsx` — React-обёртка: эмуляция загрузки на `setTimeout` и
+  монтирование svg в контейнер. React владеет только контейнером, svg императивный.
 - `src/components/ForceGraph/ForceGraph.css` — раскладка фигуры и сцены (классы `force-graph__*`).
+- `src/data/graph.ts` — данные графа одним типизированным модулем (`graphData`), импортируются
+  напрямую, без `fetch`. Файл ~3700 строк, поэтому `max-lines` для `src/data` отключён оверрайдом
+  в `.eslintrc.cjs`.
+- `src/types/graph.ts` — типы данных: `GraphNodeType`, `GraphNodeInput`, `GraphLinkInput`,
+  `GraphData` и типы уровня симуляции (`GraphNode`, `GraphLink`, `DrawnLink`).
 - `src/components/ForceBubbles/` — более раннее демо [Collision Detection](https://d3js.org/d3-force/collide).
   Компонент рабочий, но **сейчас на страницу не выводится**.
-- `public/graph.json` — данные графа; `public/` отдан Vite как статика.
 
 ## Конвенции кода
 
@@ -52,7 +58,8 @@
 - Не мутировать параметры обработчиков (`no-param-reassign`): в drag-хендлерах предмет жеста
   берётся в локальную переменную (`const { subject } = event`).
 - Лимиты: файл — 150 строк, функция — 50 (комментарии и пустые строки не считаются). При
-  упоре лимита делить модуль по ответственности, а не ужимать код.
+  упоре лимита делить модуль по ответственности, а не ужимать код. Исключение — `src/data/graph.ts`:
+  там данные, а не логика, и `max-lines` для `src/data` погашен оверрайдом в `.eslintrc.cjs`.
 - Логика отделяется от отрисовки: физику и данные тестируем в Node (без DOM), svg собирается
   только в `forceGraphView.ts`/`forceGraphGrid.ts`.
 - Типам d3 нужны явные дженерики, иначе получаются union-типы: `selectAll<SVGLineElement, DrawnLink>('line')`,
@@ -65,16 +72,21 @@
   пределы сцены.
 - Drag узла: `alphaTarget(0.3).restart()` на старте, `fx`/`fy` в точке узла, сброс в `null` и
   `alphaTarget(0)` на отпускании.
-- `link.value` в данных всегда `2`, поэтому толщина (`√value`) у всех связей одинаковая; `radius`
-  и `citing_patents_count` ноутбук не использует — не используются и здесь.
-- Цвет группы — аналог `scaleOrdinal(schemeCategory10)`: оттенки в порядке первого появления
-  группы. Сейчас две группы: `Cited Works` (#1f77b4), `Citing Patents` (#ff7f0e).
+- `link.value` — необязательный вес связи: толщина линии `√(value ?? LINK_VALUE_DEFAULT)`. В данных
+  ноутбука `value` у всех связей равно `2`, поэтому разной толщины нет; поля `radius` и
+  `citing_patents_count` ноутбук не использует — в данные они не перенесены.
+- Цвет — по `type` узла, как аналог `scaleOrdinal(schemeCategory10)`: оттенки выдаются в порядке
+  первого появления типа. Сейчас два типа: `node` (#1f77b4, научные работы) и `subNode` (#ff7f0e,
+  цитирующие патенты) — палитра та же, что была у групп `Cited Works`/`Citing Patents`.
+- Узел несёт `title` и `description`, оба видны в нативной подсказке (`<title>`). Поле `hasWarning`
+  пока только данные: отрисовка его не читает (все узлы в `src/data/graph.ts` — `false`).
 - Сверх ноутбука добавлены сетка и панорама/зум, обе опциональны:
   `createForceGraph(data, { grid, panZoom, gridId })`. У панорамы пределы 0.5–8, сетка живёт в
   экранных координатах и сдвигается через `patternTransform`, узлы жест не перехватывают
   (d3-drag глушит всплытие).
-- В `tsconfig` нет `resolveJsonModule`, поэтому данные грузятся `fetch` из `public/` — это
-  соответствует `FileAttachment` в ноутбуке, а не случайность.
+- Данные не грузятся запросом: `ForceGraph` импортирует `graphData` из `src/data/graph.ts`, поэтому
+  состояние «Загрузка графа…» — чистая эмуляция (`setTimeout`, 400 мс). Если данные когда-нибудь
+  вернутся в запрос, `resolveJsonModule` в `tsconfig` не включён — импорт JSON не «просто заработает».
 
 ## Как проверять изменения
 
@@ -92,10 +104,12 @@
    const mod = await server.ssrLoadModule('/src/components/ForceGraph/forceGraph.ts')
    ```
 
-3. Проверить инварианты: 336 узлов / 275 связей; `link.source`/`link.target` после
-   `createSimulation` — объекты-узлы, а не id; `prepareGraph` не портит исходный JSON; после
+3. Проверить инварианты: 336 узлов / 275 связей (из них 100 `node` и 236 `subNode`); id уникальны,
+   концы всех связей найдены; `link.source`/`link.target` после `createSimulation` — объекты-узлы,
+   а не id; `prepareGraph` не портит `graphData` (сравнить `JSON.stringify` до и после); после
    `tick(300)` `alpha()` равно `alphaMin` (0.001), нет нечисловых/`null` координат, узлы внутри
-   `[-464, 464] × [-340, 340]`; две группы дают два разных цвета.
+   `[-464, 464] × [-340, 340]`; `createTypeColors` даёт `node` и `subNode` два разных цвета
+   (#1f77b4 и #ff7f0e).
 4. Удалить временный скрипт (он не должен попадать в коммит).
 
 Проверка интерфейса — headless Chromium через Playwright без правок репозитория:
@@ -114,17 +128,25 @@
 
 ## Грабли, которые уже стоили времени
 
-- Dev-режим с `StrictMode` выполняет эффект дважды, первый `fetch` `graph.json` аборчится — в
-  консоли видно «запрос упал». Это не ошибка, в продакшене такого нет.
+- Эмуляция загрузки в `ForceGraph` держится на `setTimeout`: в `StrictMode` эффект выполняется дважды,
+  но первый таймер снимается очисткой, поэтому данные приходят один раз — это норма (раньше на этом
+  месте был `fetch`, который абортился и давал ложное «запрос упал» в консоли).
 - `npm run lint` запускает prettier по всему проекту, поэтому новый файл в корне будет
   переформатирован; `.prettierignore` исключает `public`, `dist`, `.vscode`, логи и lock-файл.
-- Данные ноутбука раздаются gzip-ом: при первой загрузке `curl` без `--compressed` вернёт мусор.
+- `src/data/graph.ts` prettier разворачивает в ~3700 строк (по узлу уходит ~6 строк): файл не стоит
+  править вручную и не стоит пугаться его размера — лимит `max-lines` для `src/data` отключён.
+- Исходные данные ноутбука раздаются gzip-ом: если понадобится скачать их заново, `curl` без
+  `--compressed` вернёт мусор.
 - Порядок объявлений в модуле важен для линтера (см. конвенции), а разбивка по файлам — для
   лимита в 150 строк: при добавлении кода в `forceGraphView.ts` сначала искать, что вынести.
 
 ## Состояние и следующий шаг
 
 - Порт графа завершён: коммит `1327728` (данные, компонент, README, зависимости).
+- Данные переехали из `public/graph.json` в типизированный модуль `src/data/graph.ts` (импорт вместо
+  `fetch`, загрузка осталась эмуляцией), типы — в `src/types/graph.ts`; у узла появились `title`,
+  `description`, `hasWarning` и `type: 'node' | 'subNode'`, по типу идёт раскраска. `public/graph.json`
+  удалён.
 - Открытый вопрос: `ForceBubbles` оставлен в репозитории, но не рендерится. Варианты — удалить или
   вернуть на страницу переключателем вместе с `ForceGraph`.
 - Панорама и зум доступны только мышью/трекпадом (клавиатурных обработчиков нет), подсказки узлов —
