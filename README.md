@@ -2,6 +2,9 @@
 
 React + TypeScript + Vite.
 
+Контекст для агентов (структура, конвенции, порядок проверки и известные грабли) — в
+[`AGENTS.md`](./AGENTS.md).
+
 ## Стек
 
 - Vite 8 + React 19 + TypeScript (`strict`, три `tsconfig`: `app`, `node` и solution-файл в корне).
