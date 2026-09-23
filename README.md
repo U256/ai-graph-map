@@ -8,10 +8,14 @@ React + TypeScript + Vite.
 ## Стек
 
 - Vite 8 + React 19 + TypeScript (`strict`, три `tsconfig`: `app`, `node` и solution-файл в корне).
-- CSS: `normalize.css` подключается первым через `@import` в `src/index.css`.
+- CSS: `normalize.css` подключается первым через `@import` в `src/index.css` — там же системный шрифт
+  `system-ui`.
+- Раскладка: `src/App.css` — каркас страницы шириной до 1920px (хедер «Карта», пустой футер,
+  `aside` 450px слева), карта растягивается на остаток `main`; высота каркаса — `100dvh`, но не
+  меньше 400px. Хедер, `aside` и футер различаются светлыми фонами.
 - Визуализация: `d3-force` + `d3-selection`/`d3-drag`/`d3-zoom` — граф в `src/components/ForceGraph`
   (порт ноутбука [@d3/disjoint-force-directed-graph/2](https://observablehq.com/@d3/disjoint-force-directed-graph/2),
-  его и рендерит `App`).
+  рендерится в `main`).
 - Данные графа: `src/data/graph.ts` — типизированный модуль (336 узлов, 275 связей), импортируется
   напрямую, без запроса; состояние «Загрузка графа…» эмулируется `setTimeout`. Типы данных —
   в `src/types/graph.ts`.
@@ -42,5 +46,5 @@ React + TypeScript + Vite.
 ## Стиль кода
 
 - Prettier: табы (ширина 3), без точек с запятой, одинарные кавычки, ширина строки 120, LF.
-- ESLint: лимиты `max-lines` 300 и `max-lines-per-function` 100. Для данных графа
+- ESLint: лимиты `max-lines` 300 и `max-lines-per-function` 120. Для данных графа
   (`src/data/**`) лимит строк отключён: это большой сгенерированный массив, а не код.

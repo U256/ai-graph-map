@@ -1,0 +1,61 @@
+/* Каркас страницы: колонка на всю высоту окна — хедер, тело (aside + main) и футер.
+   Высота берётся в dvh, а не vh: на мобильных адресная строка иначе срезает низ страницы. */
+.app {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 1920px;
+	/* высота окна, но не меньше 400px: на низком экране карта всё равно должна помещаться */
+	min-height: max(400px, 100dvh);
+	margin: 0 auto;
+}
+
+/* хедер и футер по высоте контента, остальное забирает тело страницы */
+.app__header,
+.app__footer {
+	flex: none;
+	padding: 0.75rem 1rem;
+}
+
+/* хедер — голубой */
+.app__header {
+	background: #d6e4f5;
+	border-bottom: 1px solid rgb(0 0 0 / 12%);
+}
+
+/* футер пока пустой: высоту держит только зелёная полоса */
+.app__footer {
+	min-height: 2.5rem;
+	background: #d6e4f5;
+	border-top: 1px solid rgb(0 0 0 / 12%);
+}
+
+.app__title {
+	margin: 0;
+	font-size: 1.25rem;
+	line-height: 1.2;
+}
+
+/* тело занимает всё, что осталось от хедера и футера; min-height: 0 разрешает ему ужиматься */
+.app__body {
+	display: flex;
+	flex: 1 1 0;
+	min-height: 0;
+}
+
+/* панель слева — фиксированные 450px под будущий контент, серая */
+.app__aside {
+	flex: 0 0 450px;
+	background: #f6f6f7;
+	border-right: 1px solid rgb(0 0 0 / 12%);
+}
+
+/* карта растягивается на остаток ширины и высоты; min-*: 0 не дают main распирать колонку */
+.app__main {
+	display: flex;
+	flex: 1 1 0;
+	min-width: 0;
+	min-height: 0;
+	background: #fff;
+}
