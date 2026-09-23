@@ -4,6 +4,7 @@ import { select, type Selection } from 'd3-selection'
 import { zoom, type D3ZoomEvent } from 'd3-zoom'
 import type { DrawnLink, GraphData, GraphLink, GraphNode, GraphNodeType } from '../../types/graph'
 import {
+	DRAG_ALPHA_TARGET,
 	GRAPH_HEIGHT,
 	GRAPH_WIDTH,
 	LINK_FORCE_DEFAULT,
@@ -11,6 +12,7 @@ import {
 	createSimulation,
 	createTypeColors,
 	prepareGraph,
+	tintToWhite,
 } from './forceGraph'
 import {
 	CLOUD_RADIUS,
@@ -56,8 +58,7 @@ const ARIA_LABEL = 'Граф связей научных работ и пате�
 /** Пределы зума: без них граф легко потерять за краем экрана. */
 const ZOOM_EXTENT: [number, number] = [0.5, 8]
 
-/** Тело узла — цвет типа: заливка сильно прозрачная, обводка в полную силу. */
-const BODY_FILL_OPACITY = 0.12
+/** Обводка тела узла — цвет типа в полную силу, потому что заливка светлая. */
 const BODY_STROKE_WIDTH = 1.5
 /** Цвета подписей облака: заголовок темнее, описание приглушённое. */
 const TITLE_COLOR = '#1a1a1a'
@@ -75,7 +76,11 @@ function appendLinks(content: ContentSelection, links: DrawnLink[]): LineSelecti
 		.attr('stroke-width', (link) => Math.sqrt(link.force ?? LINK_FORCE_DEFAULT))
 }
 
-/** Тело узла — скруглённый прямоугольник вокруг центра: у облака крупное скругление, у иконки — почти круг. */
+/**
+ * Тело узла — скруглённый прямоугольник вокруг центра: у облака крупное скругление, у иконки почти
+ * круг. Заливка — светлый оттенок цвета типа (тело не прозрачное: связи под ним не просвечивают),
+ * обводка — цвет типа в полную силу.
+ */
 function appendNodeBody(group: NodeGroupSelection, layout: CloudLayout, fill: string, radius: number): void {
 	group
 		.append('rect')
@@ -85,8 +90,7 @@ function appendNodeBody(group: NodeGroupSelection, layout: CloudLayout, fill: st
 		.attr('height', layout.height)
 		.attr('rx', radius)
 		.attr('ry', radius)
-		.attr('fill', fill)
-		.attr('fill-opacity', BODY_FILL_OPACITY)
+		.attr('fill', tintToWhite(fill))
 		.attr('stroke', fill)
 		.attr('stroke-width', BODY_STROKE_WIDTH)
 }
@@ -134,13 +138,13 @@ function nodeTooltip(node: GraphNode): string {
 
 /**
  * Drag из ноутбука: узел держится под курсором, симуляция разогревается на время жеста
- * и остывает после отпускания. Предмет жеста берётся в локальную переменную, чтобы
- * не мутировать параметр обработчика.
+ * (`DRAG_ALPHA_TARGET` — слабо, чтобы не разъезжалась вся карта) и остывает после отпускания.
+ * Предмет жеста берётся в локальную переменную, чтобы не мутировать параметр обработчика.
  */
 function createDrag(simulation: Simulation<GraphNode, GraphLink>): DragBehavior<SVGGElement, GraphNode, GraphNode> {
 	function dragstarted(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
 		const { subject } = event
-		if (!event.active) simulation.alphaTarget(0.3).restart()
+		if (!event.active) simulation.alphaTarget(DRAG_ALPHA_TARGET).restart()
 		subject.fx = subject.x
 		subject.fy = subject.y
 	}

@@ -57,6 +57,7 @@ module.exports = {
 		'max-len': 0,
 		'import/extensions': 0, // laggy
 		'linebreak-style': ['error', 'unix'],
+		'no-bitwise': 0,
 		'no-underscore-dangle': 0,
 		'no-use-before-define': 0,
 		'max-lines-per-function': ['error', { max: 120, skipComments: true, IIFEs: true, skipBlankLines: true }],

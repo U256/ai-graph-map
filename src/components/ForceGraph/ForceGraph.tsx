@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { graphData } from '../../data/graph'
 import type { GraphData } from '../../types/graph'
+import type { GraphSettings } from '../../types/settings'
 import './ForceGraph.css'
 import { createForceGraph } from './forceGraphView'
 
 /** Данные подключены модулем, поэтому загрузка только эмулируется — чтобы состояние было заметно. */
 const LOAD_DELAY_MS = 400
 
+type ForceGraphProps = {
+	/**
+	 * Настройки панели слева. Пока только принимаются: сцена строится один раз и настроек не читает,
+	 * поэтому поле помечено подчёркиванием как намеренно неиспользуемое (иначе `noUnusedLocals`).
+	 */
+	settings: GraphSettings
+}
+
 /** Граф из ноутбука @d3/disjoint-force-directed-graph/2: научные работы и цитирующие их патенты. */
-function ForceGraph() {
+function ForceGraph({ settings: _settings }: ForceGraphProps) {
 	const containerRef = useRef<HTMLDivElement | null>(null)
 	const [data, setData] = useState<GraphData | null>(null)
 
@@ -30,9 +39,6 @@ function ForceGraph() {
 		<figure className="force-graph">
 			<div className="force-graph__canvas" ref={containerRef} />
 			{!data && <p className="force-graph__status">Загрузка графа…</p>}
-			<figcaption className="force-graph__hint">
-				Тащите узлы мышью — сетка связей натягивается за ними. Пустое место — панорама, колесо — масштаб.
-			</figcaption>
 		</figure>
 	)
 }

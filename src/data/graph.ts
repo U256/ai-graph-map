@@ -1,12 +1,17 @@
 import type { GraphData } from '../types/graph'
 
 /**
- * Данные графа — порт `graph.json` из ноутбука @d3/disjoint-force-directed-graph/2:
- * 100 научных работ и 236 цитирующих их патентов, 275 связей «работа → патент».
+ * Данные графа для карты цитирований: 100 научных работ и 112 цитирующих их патентов,
+ * 201 связь «работа → патент».
  *
- * Исходные идентификаторы заменены на ключи (work-1…, patent-1…), человекочитаемые подписи уехали
- * в title. У работы title — короткая подпись для сцены, а полное название статьи — в description;
- * у патента description нет, и во всплывающей подсказке остаётся только номер.
+ * Связи перепакованы искусственно, чтобы карта показывала кластеры, а не россыпь пар: часть патентов
+ * удалена, их ссылки заменены ссылками на оставшиеся. Работы не менялись. Данные — больше не буквальный
+ * граф цитирований, а его форма для раскладки.
+ *
+ * Идентификаторы остались от исходных данных (patent-N с пропусками: удалённые патенты своих номеров не
+ * отдают), человекочитаемые подписи уехали в title. У работы title — короткая подпись для сцены, а
+ * полное название статьи — в description; у патента description нет, и во всплывающей подсказке
+ * остаётся только номер.
  */
 export const graphData: GraphData = {
 	nodes: [
@@ -804,12 +809,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-8',
-			title: '018-515-082-074-296',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-9',
 			title: '027-228-373-793-594',
 			hasWarning: false,
@@ -888,12 +887,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-22',
-			title: '178-739-712-688-618',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-23',
 			title: '131-486-498-702-07X',
 			hasWarning: false,
@@ -926,60 +919,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-28',
 			title: '019-827-938-996-490',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-29',
-			title: '184-646-935-269-773',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-30',
-			title: '186-230-275-872-748',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-31',
-			title: '165-291-395-706-725',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-32',
-			title: '047-113-007-956-15X',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-33',
-			title: '089-019-916-582-397',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-34',
-			title: '136-000-598-663-919',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-35',
-			title: '051-072-189-723-758',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-36',
-			title: '040-766-915-457-886',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-37',
-			title: '141-482-415-400-338',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1050,36 +989,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-49',
-			title: '179-033-965-606-598',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-50',
-			title: '113-229-447-433-64X',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-51',
-			title: '077-771-399-719-227',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-52',
-			title: '183-966-651-664-305',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-53',
-			title: '013-467-292-050-692',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-54',
 			title: '079-314-054-163-947',
 			hasWarning: false,
@@ -1088,18 +997,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-55',
 			title: '110-082-309-221-187',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-56',
-			title: '128-382-566-327-896',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-57',
-			title: '143-543-676-408-839',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1134,18 +1031,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-63',
-			title: '170-781-236-728-970',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-64',
-			title: '144-284-594-583-951',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-65',
 			title: '139-409-891-293-77X',
 			hasWarning: false,
@@ -1154,18 +1039,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-66',
 			title: '081-017-751-048-013',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-67',
-			title: '114-963-910-586-828',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-68',
-			title: '162-513-842-046-362',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1196,24 +1069,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-73',
 			title: '133-935-409-400-672',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-74',
-			title: '046-588-899-387-353',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-75',
-			title: '049-222-171-973-678',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-76',
-			title: '074-598-665-914-143',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1296,24 +1151,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-90',
-			title: '028-992-308-265-357',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-91',
-			title: '044-207-676-689-405',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-92',
-			title: '030-350-713-791-200',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-93',
 			title: '093-997-239-092-949',
 			hasWarning: false,
@@ -1338,32 +1175,14 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-97',
-			title: '186-389-876-954-313',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-98',
 			title: '168-483-508-794-377',
 			hasWarning: false,
 			type: 'subNode',
 		},
 		{
-			id: 'patent-99',
-			title: '029-748-240-628-036',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-100',
 			title: '184-507-509-452-559',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-101',
-			title: '069-961-069-943-549',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1392,66 +1211,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-106',
-			title: '063-617-165-524-327',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-107',
-			title: '019-872-586-012-269',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-108',
-			title: '103-648-347-913-447',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-109',
-			title: '007-245-406-573-328',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-110',
-			title: '008-337-248-044-723',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-111',
-			title: '197-071-041-313-103',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-112',
-			title: '098-538-513-984-747',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-113',
-			title: '019-125-805-246-964',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-114',
-			title: '172-064-016-145-117',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-115',
-			title: '007-417-942-335-284',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-116',
 			title: '005-947-025-410-764',
 			hasWarning: false,
@@ -1460,48 +1219,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-117',
 			title: '116-404-026-640-450',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-118',
-			title: '090-437-295-781-023',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-119',
-			title: '197-158-559-918-854',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-120',
-			title: '076-225-263-850-117',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-121',
-			title: '049-199-509-181-561',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-122',
-			title: '179-045-041-176-506',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-123',
-			title: '004-301-778-674-378',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-124',
-			title: '111-313-231-732-367',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1524,42 +1241,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-128',
-			title: '175-263-797-963-040',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-129',
-			title: '141-694-167-791-759',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-130',
-			title: '081-203-444-563-604',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-131',
-			title: '125-348-249-762-351',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-132',
-			title: '125-850-986-196-787',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-133',
-			title: '119-397-162-706-860',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-134',
 			title: '133-023-408-974-285',
 			hasWarning: false,
@@ -1568,180 +1249,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-135',
 			title: '039-847-299-166-952',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-136',
-			title: '076-641-402-312-988',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-137',
-			title: '102-485-198-725-150',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-138',
-			title: '168-829-456-947-639',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-139',
-			title: '098-813-369-162-741',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-140',
-			title: '023-180-369-416-862',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-141',
-			title: '189-473-046-734-005',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-142',
-			title: '019-633-684-883-828',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-143',
-			title: '174-501-376-407-235',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-144',
-			title: '129-062-448-949-030',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-145',
-			title: '162-916-741-322-002',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-146',
-			title: '080-026-305-809-343',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-147',
-			title: '016-698-167-713-829',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-148',
-			title: '091-325-080-234-401',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-149',
-			title: '032-206-614-235-635',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-150',
-			title: '143-271-017-351-983',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-151',
-			title: '169-312-245-869-778',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-152',
-			title: '089-818-979-077-305',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-153',
-			title: '187-517-157-601-239',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-154',
-			title: '111-583-988-147-450',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-155',
-			title: '058-026-435-099-506',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-156',
-			title: '153-651-762-444-327',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-157',
-			title: '159-766-711-047-610',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-158',
-			title: '058-933-099-316-100',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-159',
-			title: '023-452-662-674-373',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-160',
-			title: '047-432-030-246-04X',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-161',
-			title: '139-008-712-602-518',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-162',
-			title: '137-720-748-139-162',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-163',
-			title: '192-136-893-476-749',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-164',
-			title: '172-890-893-515-719',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1766,30 +1273,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-168',
 			title: '127-642-274-375-054',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-169',
-			title: '036-708-909-192-156',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-170',
-			title: '193-863-590-855-263',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-171',
-			title: '150-028-859-997-047',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-172',
-			title: '132-394-716-226-832',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1824,12 +1307,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-178',
-			title: '130-316-719-983-242',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-179',
 			title: '036-668-261-470-040',
 			hasWarning: false,
@@ -1842,20 +1319,8 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-181',
-			title: '107-556-164-321-147',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-182',
 			title: '066-190-726-252-149',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-183',
-			title: '140-900-012-438-14X',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1874,42 +1339,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-186',
 			title: '193-040-307-473-220',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-187',
-			title: '188-718-220-131-362',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-188',
-			title: '087-577-350-425-176',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-189',
-			title: '191-670-060-004-126',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-190',
-			title: '041-699-843-843-567',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-191',
-			title: '180-366-233-781-99X',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-192',
-			title: '122-739-962-072-793',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -1944,72 +1373,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-198',
-			title: '133-997-520-845-569',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-199',
-			title: '115-381-943-359-61X',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-200',
-			title: '022-078-711-389-998',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-201',
-			title: '132-854-391-972-865',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-202',
-			title: '171-143-110-884-468',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-203',
-			title: '003-946-199-636-328',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-204',
-			title: '009-649-401-227-606',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-205',
-			title: '170-042-571-881-121',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-206',
-			title: '033-301-273-471-462',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-207',
-			title: '040-826-560-477-838',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-208',
-			title: '135-293-472-746-415',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-209',
 			title: '153-999-081-812-523',
 			hasWarning: false,
@@ -2024,30 +1387,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-211',
 			title: '085-065-777-135-758',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-212',
-			title: '152-366-692-522-975',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-213',
-			title: '167-869-142-610-582',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-214',
-			title: '191-676-336-200-724',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-215',
-			title: '056-387-403-639-935',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -2076,30 +1415,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-220',
-			title: '147-466-934-435-143',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-221',
-			title: '114-647-123-099-321',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-222',
-			title: '058-829-130-504-901',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-223',
-			title: '169-953-034-717-264',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-224',
 			title: '028-012-588-449-727',
 			hasWarning: false,
@@ -2112,24 +1427,6 @@ export const graphData: GraphData = {
 			type: 'subNode',
 		},
 		{
-			id: 'patent-226',
-			title: '194-924-906-201-593',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-227',
-			title: '195-611-964-620-410',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-228',
-			title: '025-014-524-538-421',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
 			id: 'patent-229',
 			title: '120-667-268-642-909',
 			hasWarning: false,
@@ -2138,42 +1435,6 @@ export const graphData: GraphData = {
 		{
 			id: 'patent-230',
 			title: '163-117-320-460-138',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-231',
-			title: '191-290-593-697-506',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-232',
-			title: '118-339-847-530-982',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-233',
-			title: '073-318-370-112-877',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-234',
-			title: '113-828-920-381-078',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-235',
-			title: '048-983-957-537-421',
-			hasWarning: false,
-			type: 'subNode',
-		},
-		{
-			id: 'patent-236',
-			title: '073-531-962-083-670',
 			hasWarning: false,
 			type: 'subNode',
 		},
@@ -2200,6 +1461,11 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
+			source: 'work-3',
+			target: 'patent-7',
+			force: 2,
+		},
+		{
 			source: 'work-4',
 			target: 'patent-5',
 			force: 2,
@@ -2210,18 +1476,18 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-5',
-			target: 'patent-7',
-			force: 2,
-		},
-		{
-			source: 'work-5',
-			target: 'patent-8',
+			source: 'work-6',
+			target: 'patent-9',
 			force: 2,
 		},
 		{
 			source: 'work-6',
-			target: 'patent-9',
+			target: 'patent-12',
+			force: 2,
+		},
+		{
+			source: 'work-6',
+			target: 'patent-18',
 			force: 2,
 		},
 		{
@@ -2236,12 +1502,27 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-9',
+			target: 'patent-9',
+			force: 2,
+		},
+		{
+			source: 'work-9',
 			target: 'patent-12',
+			force: 2,
+		},
+		{
+			source: 'work-9',
+			target: 'patent-18',
 			force: 2,
 		},
 		{
 			source: 'work-10',
 			target: 'patent-13',
+			force: 2,
+		},
+		{
+			source: 'work-10',
+			target: 'patent-24',
 			force: 2,
 		},
 		{
@@ -2266,17 +1547,7 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-14',
-			target: 'patent-18',
-			force: 2,
-		},
-		{
-			source: 'work-14',
 			target: 'patent-19',
-			force: 2,
-		},
-		{
-			source: 'work-14',
-			target: 'patent-20',
 			force: 2,
 		},
 		{
@@ -2285,13 +1556,8 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-14',
-			target: 'patent-22',
-			force: 2,
-		},
-		{
-			source: 'work-14',
-			target: 'patent-4',
+			source: 'work-15',
+			target: 'patent-13',
 			force: 2,
 		},
 		{
@@ -2302,6 +1568,16 @@ export const graphData: GraphData = {
 		{
 			source: 'work-15',
 			target: 'patent-24',
+			force: 2,
+		},
+		{
+			source: 'work-15',
+			target: 'patent-25',
+			force: 2,
+		},
+		{
+			source: 'work-16',
+			target: 'patent-23',
 			force: 2,
 		},
 		{
@@ -2320,58 +1596,33 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-18',
+			source: 'work-19',
+			target: 'patent-26',
+			force: 2,
+		},
+		{
+			source: 'work-19',
 			target: 'patent-27',
 			force: 2,
 		},
 		{
-			source: 'work-18',
+			source: 'work-19',
 			target: 'patent-28',
 			force: 2,
 		},
 		{
-			source: 'work-19',
-			target: 'patent-29',
-			force: 2,
-		},
-		{
-			source: 'work-19',
-			target: 'patent-30',
-			force: 2,
-		},
-		{
-			source: 'work-19',
-			target: 'patent-31',
-			force: 2,
-		},
-		{
-			source: 'work-19',
-			target: 'patent-32',
-			force: 2,
-		},
-		{
-			source: 'work-19',
-			target: 'patent-33',
-			force: 2,
-		},
-		{
-			source: 'work-19',
-			target: 'patent-34',
-			force: 2,
-		},
-		{
 			source: 'work-20',
-			target: 'patent-35',
+			target: 'patent-27',
 			force: 2,
 		},
 		{
 			source: 'work-21',
-			target: 'patent-36',
+			target: 'patent-28',
 			force: 2,
 		},
 		{
-			source: 'work-21',
-			target: 'patent-37',
+			source: 'work-22',
+			target: 'patent-20',
 			force: 2,
 		},
 		{
@@ -2382,6 +1633,11 @@ export const graphData: GraphData = {
 		{
 			source: 'work-22',
 			target: 'patent-39',
+			force: 2,
+		},
+		{
+			source: 'work-22',
+			target: 'patent-46',
 			force: 2,
 		},
 		{
@@ -2426,6 +1682,21 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-27',
+			target: 'patent-20',
+			force: 2,
+		},
+		{
+			source: 'work-27',
+			target: 'patent-38',
+			force: 2,
+		},
+		{
+			source: 'work-27',
+			target: 'patent-39',
+			force: 2,
+		},
+		{
+			source: 'work-27',
 			target: 'patent-46',
 			force: 2,
 		},
@@ -2436,32 +1707,12 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-29',
+			target: 'patent-47',
+			force: 2,
+		},
+		{
+			source: 'work-29',
 			target: 'patent-48',
-			force: 2,
-		},
-		{
-			source: 'work-29',
-			target: 'patent-49',
-			force: 2,
-		},
-		{
-			source: 'work-29',
-			target: 'patent-50',
-			force: 2,
-		},
-		{
-			source: 'work-29',
-			target: 'patent-51',
-			force: 2,
-		},
-		{
-			source: 'work-29',
-			target: 'patent-52',
-			force: 2,
-		},
-		{
-			source: 'work-29',
-			target: 'patent-53',
 			force: 2,
 		},
 		{
@@ -2476,17 +1727,17 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-31',
-			target: 'patent-56',
-			force: 2,
-		},
-		{
-			source: 'work-31',
-			target: 'patent-57',
+			target: 'patent-48',
 			force: 2,
 		},
 		{
 			source: 'work-32',
 			target: 'patent-58',
+			force: 2,
+		},
+		{
+			source: 'work-32',
+			target: 'patent-62',
 			force: 2,
 		},
 		{
@@ -2500,28 +1751,38 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
+			source: 'work-34',
+			target: 'patent-69',
+			force: 2,
+		},
+		{
+			source: 'work-35',
+			target: 'patent-58',
+			force: 2,
+		},
+		{
 			source: 'work-35',
 			target: 'patent-61',
 			force: 2,
 		},
 		{
-			source: 'work-36',
+			source: 'work-35',
 			target: 'patent-62',
 			force: 2,
 		},
 		{
 			source: 'work-36',
-			target: 'patent-63',
-			force: 2,
-		},
-		{
-			source: 'work-36',
-			target: 'patent-64',
+			target: 'patent-61',
 			force: 2,
 		},
 		{
 			source: 'work-37',
 			target: 'patent-65',
+			force: 2,
+		},
+		{
+			source: 'work-37',
+			target: 'patent-66',
 			force: 2,
 		},
 		{
@@ -2531,22 +1792,22 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-39',
+			target: 'patent-65',
+			force: 2,
+		},
+		{
+			source: 'work-39',
 			target: 'patent-66',
 			force: 2,
 		},
 		{
-			source: 'work-39',
-			target: 'patent-67',
-			force: 2,
-		},
-		{
-			source: 'work-39',
-			target: 'patent-68',
+			source: 'work-40',
+			target: 'patent-70',
 			force: 2,
 		},
 		{
 			source: 'work-40',
-			target: 'patent-69',
+			target: 'patent-73',
 			force: 2,
 		},
 		{
@@ -2560,61 +1821,21 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
+			source: 'work-41',
+			target: 'patent-73',
+			force: 2,
+		},
+		{
+			source: 'work-42',
+			target: 'patent-71',
+			force: 2,
+		},
+		{
 			source: 'work-42',
 			target: 'patent-72',
 			force: 2,
 		},
 		{
-			source: 'work-42',
-			target: 'patent-73',
-			force: 2,
-		},
-		{
-			source: 'work-43',
-			target: 'patent-74',
-			force: 2,
-		},
-		{
-			source: 'work-43',
-			target: 'patent-19',
-			force: 2,
-		},
-		{
-			source: 'work-43',
-			target: 'patent-17',
-			force: 2,
-		},
-		{
-			source: 'work-43',
-			target: 'patent-21',
-			force: 2,
-		},
-		{
-			source: 'work-43',
-			target: 'patent-20',
-			force: 2,
-		},
-		{
-			source: 'work-43',
-			target: 'patent-18',
-			force: 2,
-		},
-		{
-			source: 'work-43',
-			target: 'patent-20',
-			force: 2,
-		},
-		{
-			source: 'work-43',
-			target: 'patent-18',
-			force: 2,
-		},
-		{
-			source: 'work-43',
-			target: 'patent-19',
-			force: 2,
-		},
-		{
 			source: 'work-43',
 			target: 'patent-17',
 			force: 2,
@@ -2626,22 +1847,7 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-44',
-			target: 'patent-75',
-			force: 2,
-		},
-		{
-			source: 'work-44',
-			target: 'patent-76',
-			force: 2,
-		},
-		{
-			source: 'work-45',
-			target: 'patent-17',
-			force: 2,
-		},
-		{
-			source: 'work-45',
-			target: 'patent-21',
+			target: 'patent-72',
 			force: 2,
 		},
 		{
@@ -2665,8 +1871,23 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
+			source: 'work-47',
+			target: 'patent-81',
+			force: 2,
+		},
+		{
+			source: 'work-47',
+			target: 'patent-82',
+			force: 2,
+		},
+		{
 			source: 'work-48',
 			target: 'patent-80',
+			force: 2,
+		},
+		{
+			source: 'work-49',
+			target: 'patent-79',
 			force: 2,
 		},
 		{
@@ -2685,8 +1906,18 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
+			source: 'work-50',
+			target: 'patent-88',
+			force: 2,
+		},
+		{
 			source: 'work-51',
 			target: 'patent-84',
+			force: 2,
+		},
+		{
+			source: 'work-51',
+			target: 'patent-89',
 			force: 2,
 		},
 		{
@@ -2716,6 +1947,16 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-54',
+			target: 'patent-83',
+			force: 2,
+		},
+		{
+			source: 'work-54',
+			target: 'patent-84',
+			force: 2,
+		},
+		{
+			source: 'work-54',
 			target: 'patent-88',
 			force: 2,
 		},
@@ -2725,33 +1966,8 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-54',
-			target: 'patent-90',
-			force: 2,
-		},
-		{
-			source: 'work-54',
-			target: 'patent-91',
-			force: 2,
-		},
-		{
-			source: 'work-54',
-			target: 'patent-92',
-			force: 2,
-		},
-		{
 			source: 'work-55',
 			target: 'patent-93',
-			force: 2,
-		},
-		{
-			source: 'work-55',
-			target: 'patent-94',
-			force: 2,
-		},
-		{
-			source: 'work-55',
-			target: 'patent-95',
 			force: 2,
 		},
 		{
@@ -2761,7 +1977,12 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-57',
-			target: 'patent-97',
+			target: 'patent-93',
+			force: 2,
+		},
+		{
+			source: 'work-57',
+			target: 'patent-94',
 			force: 2,
 		},
 		{
@@ -2771,7 +1992,12 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-59',
-			target: 'patent-99',
+			target: 'patent-94',
+			force: 2,
+		},
+		{
+			source: 'work-59',
+			target: 'patent-95',
 			force: 2,
 		},
 		{
@@ -2781,7 +2007,7 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-61',
-			target: 'patent-101',
+			target: 'patent-95',
 			force: 2,
 		},
 		{
@@ -2805,58 +2031,23 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-62',
-			target: 'patent-106',
+			source: 'work-63',
+			target: 'patent-102',
 			force: 2,
 		},
 		{
-			source: 'work-62',
-			target: 'patent-107',
+			source: 'work-63',
+			target: 'patent-103',
 			force: 2,
 		},
 		{
-			source: 'work-62',
-			target: 'patent-108',
-			force: 2,
-		},
-		{
-			source: 'work-62',
-			target: 'patent-109',
-			force: 2,
-		},
-		{
-			source: 'work-62',
+			source: 'work-63',
 			target: 'patent-104',
 			force: 2,
 		},
 		{
-			source: 'work-62',
-			target: 'patent-110',
-			force: 2,
-		},
-		{
-			source: 'work-62',
-			target: 'patent-111',
-			force: 2,
-		},
-		{
-			source: 'work-62',
-			target: 'patent-112',
-			force: 2,
-		},
-		{
 			source: 'work-63',
-			target: 'patent-113',
-			force: 2,
-		},
-		{
-			source: 'work-63',
-			target: 'patent-114',
-			force: 2,
-		},
-		{
-			source: 'work-63',
-			target: 'patent-115',
+			target: 'patent-105',
 			force: 2,
 		},
 		{
@@ -2865,58 +2056,23 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-64',
+			source: 'work-65',
+			target: 'patent-116',
+			force: 2,
+		},
+		{
+			source: 'work-65',
 			target: 'patent-117',
 			force: 2,
 		},
 		{
-			source: 'work-65',
-			target: 'patent-118',
-			force: 2,
-		},
-		{
-			source: 'work-65',
-			target: 'patent-119',
-			force: 2,
-		},
-		{
-			source: 'work-65',
-			target: 'patent-120',
-			force: 2,
-		},
-		{
-			source: 'work-65',
-			target: 'patent-121',
-			force: 2,
-		},
-		{
-			source: 'work-65',
-			target: 'patent-122',
-			force: 2,
-		},
-		{
-			source: 'work-65',
-			target: 'patent-123',
-			force: 2,
-		},
-		{
 			source: 'work-66',
-			target: 'patent-124',
+			target: 'patent-117',
 			force: 2,
 		},
 		{
 			source: 'work-67',
 			target: 'patent-125',
-			force: 2,
-		},
-		{
-			source: 'work-67',
-			target: 'patent-126',
-			force: 2,
-		},
-		{
-			source: 'work-67',
-			target: 'patent-126',
 			force: 2,
 		},
 		{
@@ -2925,38 +2081,23 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-67',
-			target: 'patent-128',
-			force: 2,
-		},
-		{
-			source: 'work-67',
+			source: 'work-68',
 			target: 'patent-125',
 			force: 2,
 		},
 		{
 			source: 'work-68',
-			target: 'patent-129',
+			target: 'patent-126',
 			force: 2,
 		},
 		{
 			source: 'work-68',
-			target: 'patent-130',
-			force: 2,
-		},
-		{
-			source: 'work-68',
-			target: 'patent-131',
-			force: 2,
-		},
-		{
-			source: 'work-68',
-			target: 'patent-132',
+			target: 'patent-127',
 			force: 2,
 		},
 		{
 			source: 'work-69',
-			target: 'patent-133',
+			target: 'patent-126',
 			force: 2,
 		},
 		{
@@ -2971,147 +2112,12 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-71',
-			target: 'patent-136',
+			target: 'patent-134',
 			force: 2,
 		},
 		{
 			source: 'work-71',
-			target: 'patent-137',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-138',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-139',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-140',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-141',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-142',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-143',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-144',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-145',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-146',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-147',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-148',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-149',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-150',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-151',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-152',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-153',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-154',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-155',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-156',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-157',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-158',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-159',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-160',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-161',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-162',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-163',
-			force: 2,
-		},
-		{
-			source: 'work-71',
-			target: 'patent-164',
+			target: 'patent-135',
 			force: 2,
 		},
 		{
@@ -3132,41 +2138,6 @@ export const graphData: GraphData = {
 		{
 			source: 'work-72',
 			target: 'patent-168',
-			force: 2,
-		},
-		{
-			source: 'work-72',
-			target: 'patent-169',
-			force: 2,
-		},
-		{
-			source: 'work-72',
-			target: 'patent-170',
-			force: 2,
-		},
-		{
-			source: 'work-72',
-			target: 'patent-171',
-			force: 2,
-		},
-		{
-			source: 'work-72',
-			target: 'patent-167',
-			force: 2,
-		},
-		{
-			source: 'work-72',
-			target: 'patent-166',
-			force: 2,
-		},
-		{
-			source: 'work-72',
-			target: 'patent-165',
-			force: 2,
-		},
-		{
-			source: 'work-72',
-			target: 'patent-172',
 			force: 2,
 		},
 		{
@@ -3196,12 +2167,12 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-75',
-			target: 'patent-78',
+			target: 'patent-77',
 			force: 2,
 		},
 		{
 			source: 'work-75',
-			target: 'patent-77',
+			target: 'patent-78',
 			force: 2,
 		},
 		{
@@ -3211,17 +2182,22 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-77',
-			target: 'patent-178',
+			target: 'patent-165',
 			force: 2,
 		},
 		{
-			source: 'work-78',
-			target: 'patent-176',
+			source: 'work-77',
+			target: 'patent-168',
 			force: 2,
 		},
 		{
 			source: 'work-78',
 			target: 'patent-175',
+			force: 2,
+		},
+		{
+			source: 'work-78',
+			target: 'patent-176',
 			force: 2,
 		},
 		{
@@ -3236,7 +2212,7 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-79',
-			target: 'patent-181',
+			target: 'patent-166',
 			force: 2,
 		},
 		{
@@ -3251,7 +2227,7 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-82',
-			target: 'patent-183',
+			target: 'patent-167',
 			force: 2,
 		},
 		{
@@ -3265,63 +2241,33 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
+			source: 'work-83',
+			target: 'patent-186',
+			force: 2,
+		},
+		{
+			source: 'work-84',
+			target: 'patent-184',
+			force: 2,
+		},
+		{
+			source: 'work-84',
+			target: 'patent-185',
+			force: 2,
+		},
+		{
 			source: 'work-84',
 			target: 'patent-186',
 			force: 2,
 		},
 		{
 			source: 'work-85',
-			target: 'patent-187',
-			force: 2,
-		},
-		{
-			source: 'work-85',
-			target: 'patent-188',
-			force: 2,
-		},
-		{
-			source: 'work-85',
-			target: 'patent-189',
+			target: 'patent-60',
 			force: 2,
 		},
 		{
 			source: 'work-85',
 			target: 'patent-69',
-			force: 2,
-		},
-		{
-			source: 'work-85',
-			target: 'patent-190',
-			force: 2,
-		},
-		{
-			source: 'work-85',
-			target: 'patent-191',
-			force: 2,
-		},
-		{
-			source: 'work-85',
-			target: 'patent-21',
-			force: 2,
-		},
-		{
-			source: 'work-85',
-			target: 'patent-19',
-			force: 2,
-		},
-		{
-			source: 'work-85',
-			target: 'patent-17',
-			force: 2,
-		},
-		{
-			source: 'work-85',
-			target: 'patent-79',
-			force: 2,
-		},
-		{
-			source: 'work-85',
-			target: 'patent-192',
 			force: 2,
 		},
 		{
@@ -3336,11 +2282,21 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-87',
+			target: 'patent-196',
+			force: 2,
+		},
+		{
+			source: 'work-88',
+			target: 'patent-194',
+			force: 2,
+		},
+		{
+			source: 'work-88',
 			target: 'patent-195',
 			force: 2,
 		},
 		{
-			source: 'work-87',
+			source: 'work-88',
 			target: 'patent-196',
 			force: 2,
 		},
@@ -3350,63 +2306,33 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-88',
-			target: 'patent-198',
+			source: 'work-89',
+			target: 'patent-195',
 			force: 2,
 		},
 		{
 			source: 'work-89',
-			target: 'patent-199',
-			force: 2,
-		},
-		{
-			source: 'work-89',
-			target: 'patent-200',
-			force: 2,
-		},
-		{
-			source: 'work-89',
-			target: 'patent-201',
-			force: 2,
-		},
-		{
-			source: 'work-89',
-			target: 'patent-202',
+			target: 'patent-197',
 			force: 2,
 		},
 		{
 			source: 'work-90',
-			target: 'patent-203',
+			target: 'patent-4',
 			force: 2,
 		},
 		{
 			source: 'work-90',
-			target: 'patent-204',
+			target: 'patent-5',
 			force: 2,
 		},
 		{
 			source: 'work-90',
-			target: 'patent-205',
+			target: 'patent-6',
 			force: 2,
 		},
 		{
 			source: 'work-90',
-			target: 'patent-206',
-			force: 2,
-		},
-		{
-			source: 'work-90',
-			target: 'patent-207',
-			force: 2,
-		},
-		{
-			source: 'work-90',
-			target: 'patent-60',
-			force: 2,
-		},
-		{
-			source: 'work-90',
-			target: 'patent-208',
+			target: 'patent-7',
 			force: 2,
 		},
 		{
@@ -3415,33 +2341,28 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-91',
+			source: 'work-92',
+			target: 'patent-209',
+			force: 2,
+		},
+		{
+			source: 'work-92',
 			target: 'patent-210',
 			force: 2,
 		},
 		{
-			source: 'work-91',
-			target: 'patent-211',
-			force: 2,
-		},
-		{
-			source: 'work-92',
-			target: 'patent-212',
-			force: 2,
-		},
-		{
-			source: 'work-92',
-			target: 'patent-213',
+			source: 'work-93',
+			target: 'patent-210',
 			force: 2,
 		},
 		{
 			source: 'work-93',
-			target: 'patent-214',
+			target: 'patent-211',
 			force: 2,
 		},
 		{
 			source: 'work-94',
-			target: 'patent-215',
+			target: 'patent-211',
 			force: 2,
 		},
 		{
@@ -3460,28 +2381,28 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-96',
+			source: 'work-95',
 			target: 'patent-219',
 			force: 2,
 		},
 		{
 			source: 'work-96',
-			target: 'patent-220',
+			target: 'patent-216',
 			force: 2,
 		},
 		{
 			source: 'work-96',
-			target: 'patent-221',
+			target: 'patent-217',
 			force: 2,
 		},
 		{
 			source: 'work-96',
-			target: 'patent-222',
+			target: 'patent-218',
 			force: 2,
 		},
 		{
 			source: 'work-96',
-			target: 'patent-223',
+			target: 'patent-219',
 			force: 2,
 		},
 		{
@@ -3496,22 +2417,12 @@ export const graphData: GraphData = {
 		},
 		{
 			source: 'work-98',
-			target: 'patent-226',
+			target: 'patent-224',
 			force: 2,
 		},
 		{
 			source: 'work-98',
-			target: 'patent-227',
-			force: 2,
-		},
-		{
-			source: 'work-98',
-			target: 'patent-228',
-			force: 2,
-		},
-		{
-			source: 'work-98',
-			target: 'patent-228',
+			target: 'patent-225',
 			force: 2,
 		},
 		{
@@ -3525,33 +2436,13 @@ export const graphData: GraphData = {
 			force: 2,
 		},
 		{
-			source: 'work-99',
-			target: 'patent-231',
-			force: 2,
-		},
-		{
-			source: 'work-99',
-			target: 'patent-232',
-			force: 2,
-		},
-		{
-			source: 'work-99',
-			target: 'patent-233',
-			force: 2,
-		},
-		{
-			source: 'work-99',
-			target: 'patent-234',
-			force: 2,
-		},
-		{
-			source: 'work-99',
-			target: 'patent-235',
+			source: 'work-100',
+			target: 'patent-229',
 			force: 2,
 		},
 		{
 			source: 'work-100',
-			target: 'patent-236',
+			target: 'patent-230',
 			force: 2,
 		},
 	],
