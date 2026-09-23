@@ -30,6 +30,12 @@
 	cursor: grabbing;
 }
 
+/* подписи облаков не выделяются при перетаскивании узла и не перехватывают курсор у группы */
+.force-graph__node text {
+	user-select: none;
+	pointer-events: none;
+}
+
 .force-graph__hint,
 .force-graph__status {
 	margin: 0;

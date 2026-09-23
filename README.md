@@ -15,16 +15,18 @@ React + TypeScript + Vite.
   меньше 400px. Хедер, `aside` и футер различаются светлыми фонами.
 - Визуализация: `d3-force` + `d3-selection`/`d3-drag`/`d3-zoom` — граф в `src/components/ForceGraph`
   (порт ноутбука [@d3/disjoint-force-directed-graph/2](https://observablehq.com/@d3/disjoint-force-directed-graph/2),
-  рендерится в `main`).
+  рендерится в `main`). Узлы-работы — облака размером по тексту (кегли 14/12, обрезка описаний в «…»),
+  узлы-патенты — иконки 16×16 с точкой в центре; расстояния раскладки растянуты ×6, потому что тела
+  узлов стали в разы крупнее кружков ноутбука.
 - Данные графа: `src/data/graph.ts` — типизированный модуль (336 узлов, 275 связей), импортируется
   напрямую, без запроса; состояние «Загрузка графа…» эмулируется `setTimeout`. Типы данных —
   в `src/types/graph.ts`.
-- Ноутбук перенесён 1:1: `forceLink` + `forceManyBody` + `forceX`/`forceY` (позиционирующие силы
-  вместо `forceCenter`, иначе несвязные подграфы разлетаются), радиус узла 5,
+- Ноутбук перенесён, но не 1:1: `forceLink` + `forceManyBody` + `forceX`/`forceY` (позиционирующие силы
+  вместо `forceCenter`, иначе несвязные подграфы разлетаются), расстояния раскладки растянуты ×6
+  (`LAYOUT_SCALE`), узлы — облака по размеру текста и иконки вместо кружков радиуса 5,
   `stroke-width: √(force ?? LINK_FORCE_DEFAULT)`, цвета как `scaleOrdinal(schemeCategory10)` — но
   уже по `type` узла (`node`/`subNode`), drag узла через `alphaTarget(0.3)` + `fx`/`fy`.
-  Добавлено сверх ноутбука и опционально (`options` в `createForceGraph`): сетка на фоне (`grid`)
-  и панорама/зум (`panZoom`, пределы 0.5–8).
+  Сверх ноутбука и опционально (опция `panZoom` в `createForceGraph`): панорама/зум с пределами 0.5–8.
 - Линтеры: ESLint (`airbnb` + `airbnb-typescript` + `prettier`) и Prettier.
 
 ## Команды

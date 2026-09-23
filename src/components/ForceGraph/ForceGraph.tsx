@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { graphData } from '../../data/graph'
 import type { GraphData } from '../../types/graph'
 import './ForceGraph.css'
@@ -11,8 +11,6 @@ const LOAD_DELAY_MS = 400
 function ForceGraph() {
 	const containerRef = useRef<HTMLDivElement | null>(null)
 	const [data, setData] = useState<GraphData | null>(null)
-	// id узора должен быть валидным селектором и уникальным для каждого экземпляра графа
-	const gridId = `force-graph-grid-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
 
 	useEffect(() => {
 		const timer = setTimeout(() => setData(graphData), LOAD_DELAY_MS)
@@ -23,10 +21,10 @@ function ForceGraph() {
 	useEffect(() => {
 		const container = containerRef.current
 		if (!container || !data) return undefined
-		const graph = createForceGraph(data, { gridId })
+		const graph = createForceGraph(data)
 		container.replaceChildren(graph.svg)
 		return () => graph.destroy()
-	}, [data, gridId])
+	}, [data])
 
 	return (
 		<figure className="force-graph">
