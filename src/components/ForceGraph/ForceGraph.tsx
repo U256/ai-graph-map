@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { graphData } from '../../data/graph'
 import type { GraphData } from '../../types/graph'
 import type { GraphSettings } from '../../types/settings'
@@ -9,17 +9,37 @@ import { createForceGraph } from './forceGraphView'
 const LOAD_DELAY_MS = 400
 
 type ForceGraphProps = {
-	/**
-	 * Настройки панели слева. Пока только принимаются: сцена строится один раз и настроек не читает,
-	 * поэтому поле помечено подчёркиванием как намеренно неиспользуемое (иначе `noUnusedLocals`).
-	 */
 	settings: GraphSettings
 }
 
-/** Граф из ноутбука @d3/disjoint-force-directed-graph/2: научные работы и цитирующие их патенты. */
-function ForceGraph({ settings: _settings }: ForceGraphProps) {
+export function ForceGraph({ settings }: ForceGraphProps) {
+	const { nodeMultiplier } = settings
+
 	const containerRef = useRef<HTMLDivElement | null>(null)
-	const [data, setData] = useState<GraphData | null>(null)
+	const [originalData, setData] = useState<GraphData | null>(null)
+
+	const data = useMemo(() => {
+		if (!originalData || !nodeMultiplier || nodeMultiplier === 1) {
+			return originalData
+		}
+		const multiplied = { ...originalData }
+		// eslint-disable-next-line no-plusplus
+		for (let i = 1; i < nodeMultiplier; i++) {
+			multiplied.nodes = [
+				...multiplied.nodes,
+				...multiplied.nodes.map((node) => ({ ...node, id: `${i}-${node.id}` })),
+			]
+			multiplied.links = [
+				...multiplied.links,
+				...multiplied.links.map((link) => ({
+					...link,
+					source: `${i}-${link.source}`,
+					target: `${i}-${link.target}`,
+				})),
+			]
+		}
+		return multiplied
+	}, [originalData, nodeMultiplier])
 
 	useEffect(() => {
 		const timer = setTimeout(() => setData(graphData), LOAD_DELAY_MS)
@@ -42,5 +62,3 @@ function ForceGraph({ settings: _settings }: ForceGraphProps) {
 		</figure>
 	)
 }
-
-export default ForceGraph

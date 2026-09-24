@@ -223,14 +223,14 @@ function attachPanZoom(root: SvgSelection, content: ContentSelection): void {
 }
 
 /** Переносит координаты симуляции в атрибуты svg: связи — концами, узлы — сдвигом группы. */
-function drawTick(link: LineSelection, node: NodeSelection): void {
-	link
+function drawTick(linksSelection: LineSelection, nodesSelection: NodeSelection): void {
+	linksSelection
 		.attr('x1', (datum) => datum.source.x ?? 0)
 		.attr('y1', (datum) => datum.source.y ?? 0)
 		.attr('x2', (datum) => datum.target.x ?? 0)
 		.attr('y2', (datum) => datum.target.y ?? 0)
 
-	node.attr('transform', (datum) => `translate(${datum.x ?? 0},${datum.y ?? 0})`)
+	nodesSelection.attr('transform', (datum) => `translate(${datum.x ?? 0},${datum.y ?? 0})`)
 }
 
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
@@ -246,10 +246,10 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 
 	const root = select(svg)
 	const content = root.append('g')
-	const link = appendLinks(content, asDrawnLinks(links))
-	const node = appendNodes(content, nodes, createTypeColors(nodes), simulation)
+	const linksSelection = appendLinks(content, asDrawnLinks(links))
+	const nodesSelection = appendNodes(content, nodes, createTypeColors(nodes), simulation)
 
-	simulation.on('tick', () => drawTick(link, node))
+	simulation.on('tick', () => drawTick(linksSelection, nodesSelection))
 	if (panZoom) attachPanZoom(root, content)
 
 	return {

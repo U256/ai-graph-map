@@ -4,18 +4,11 @@ import './SettingsPanel.css'
 import { DEFAULT_GRAPH_SETTINGS, NODE_MULTIPLIER_OPTIONS, saveGraphSettings } from './settingsPanel'
 
 type SettingsPanelProps = {
-	/** Настройки, с которых стартует форма: то, что нашлось в localStorage, или значения по умолчанию. */
 	initialSettings: GraphSettings
-	/** Отдаёт применённые настройки наверх: `App` держит их в стейте и передаёт карте. */
 	onApply: (settings: GraphSettings) => void
 }
 
-/**
- * Панель настроек карты в `aside`: простая форма на react-hook-form из трёх полей. Сабмит складывает
- * значения в localStorage и отдаёт их наружу, сброс возвращает форму к значениям по умолчанию
- * (само хранилище сброс не трогает — оно меняется только по сабмиту).
- */
-function SettingsPanel({ initialSettings, onApply }: SettingsPanelProps) {
+export function SettingsPanel({ initialSettings, onApply }: SettingsPanelProps) {
 	const { register, handleSubmit, reset } = useForm<GraphSettings>({ defaultValues: initialSettings })
 
 	function applySettings(settings: GraphSettings) {
@@ -69,5 +62,3 @@ function SettingsPanel({ initialSettings, onApply }: SettingsPanelProps) {
 		</form>
 	)
 }
-
-export default SettingsPanel

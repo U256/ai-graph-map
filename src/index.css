@@ -1,7 +1,6 @@
 /* normalize.css должен идти первым: @import обязан стоять до остальных правил */
 @import 'normalize.css';
 
-/* системный шрифт: веб-шрифт в проект не подключён, берём тот, что уже есть в ОС */
 body {
 	font-family: system-ui, sans-serif;
 }

@@ -1,16 +1,11 @@
 import { useState } from 'react'
 import './App.css'
-import ForceGraph from './components/ForceGraph/ForceGraph'
-import SettingsPanel from './components/SettingsPanel/SettingsPanel'
+import { ForceGraph } from './components/ForceGraph/ForceGraph'
+import { SettingsPanel } from './components/SettingsPanel/SettingsPanel'
 import { loadGraphSettings } from './components/SettingsPanel/settingsPanel'
 import type { GraphSettings } from './types/settings'
 
-/**
- * Каркас страницы: хедер с заголовком, слева `aside` с панелью настроек, справа `main` с картой
- * графа, снизу пустой футер. Ширину и высоту колонок задаёт `App.css`, карта занимает остаток main.
- * Настройки живут в стейте: панель их меняет, карта получает их пропом.
- */
-function App() {
+export function App() {
 	// стартовые значения — из localStorage (ленивая инициализация: читаем один раз при монтировании)
 	const [settings, setSettings] = useState<GraphSettings>(loadGraphSettings)
 
@@ -31,5 +26,3 @@ function App() {
 		</div>
 	)
 }
-
-export default App

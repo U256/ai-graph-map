@@ -5,7 +5,6 @@ import type { SimulationLinkDatum, SimulationNodeDatum } from 'd3-force'
  * структур: константы сцены и работа с симуляцией живут в `components/ForceGraph/forceGraph.ts`.
  */
 
-/** Тип узла: обычный узел графа и подчинённый ему узел детализации. По типу раскрашиваются узлы. */
 export type GraphNodeType = 'node' | 'subNode'
 
 /** Узел в исходных данных. */
@@ -28,7 +27,7 @@ export interface GraphLinkInput {
 	target: string
 	/**
 	 * Сила связи — как крепко её концы держатся друг за друга. Физика её пока не читает: поле
-	 * хранится на будущее. Толщина линии = √force, как в ноутбуке (там у всех связей 2).
+	 * хранится на будущее. Толщина линии = √force.
 	 * Необязательна: если её нет, берётся значение по умолчанию (LINK_FORCE_DEFAULT).
 	 */
 	force?: number
