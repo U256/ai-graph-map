@@ -88,6 +88,28 @@ export const DRAG_ALPHA_TARGET = 0.1
 export const BODY_FILL_WHITE = 0.85
 
 /**
+ * Поведение карты: силы симуляции и разогревы. Все поля необязательные — карта подставляет текущие
+ * значения по умолчанию (константы в `forceGraph.ts`), поэтому вызывающий мог передать только то,
+ * что крутит. Зум и размеры сцены сюда не входят: они не ручки раскладки.
+ */
+export interface GraphPhysics {
+	/** Растяжка раскладки: простор между несвязанными узлами растёт как квадрат этого числа. */
+	layoutScale?: number
+	/** Дистанция покоя связи — плотность связок внутри кластера. */
+	linkDistance?: number
+	/** Крепость связи, плоская для всех связей. */
+	linkStrength?: number
+	/** Сила заряда (отталкивания), отрицательная. */
+	chargeStrength?: number
+	/** Доля скорости, теряемая за тик: выше — карта останавливается быстрее («желе» слабее). */
+	velocityDecay?: number
+	/** Разогрев после обновления данных. */
+	updateAlpha?: number
+	/** Разогрев на время перетаскивания узла — главная ручка «желе». */
+	dragAlphaTarget?: number
+}
+
+/**
  * Значения узла, от которых зависит его вид: если хотя бы одно изменилось, облако нужно пересчитать
  * и перерисовать. Сравниваются значения, а не идентичность объекта: данные приезжают новым массивом
  * на каждое обновление и могли измениться на месте.
@@ -122,11 +144,11 @@ export function prepareGraph(data: GraphData): { nodes: GraphNode[]; links: Grap
  * Сила связи отдельно от симуляции: при обновлении данных её нужно переключить на новый список
  * связей (`linkForce.links(...)`), не пересобирая остальные силы и не теряя накопленную раскладку.
  */
-export function createLinkForce(links: GraphLink[]): ForceLink<GraphNode, GraphLink> {
+export function createLinkForce(links: GraphLink[], physics: GraphPhysics = {}): ForceLink<GraphNode, GraphLink> {
 	return forceLink<GraphNode, GraphLink>(links)
 		.id((node) => node.id)
-		.distance(LINK_DISTANCE)
-		.strength(LINK_STRENGTH)
+		.distance(physics.linkDistance ?? LINK_DISTANCE)
+		.strength(physics.linkStrength ?? LINK_STRENGTH)
 }
 
 /**
@@ -134,15 +156,21 @@ export function createLinkForce(links: GraphLink[]): ForceLink<GraphNode, GraphL
  * к центру координат. Притяжение к нулю остаётся как было — оно сдерживает несвязные компоненты,
  * а его равновесие с зарядом задаёт масштаб сцены.
  */
-export function createSimulation(nodes: GraphNode[], links: GraphLink[]): Simulation<GraphNode, GraphLink> {
-	const link = createLinkForce(links)
+export function createSimulation(
+	nodes: GraphNode[],
+	links: GraphLink[],
+	physics: GraphPhysics = {},
+): Simulation<GraphNode, GraphLink> {
+	const link = createLinkForce(links, physics)
+	const charge = physics.chargeStrength ?? CHARGE_STRENGTH
+	const scale = physics.layoutScale ?? LAYOUT_SCALE
 
 	return forceSimulation(nodes)
 		.force('link', link)
-		.force('charge', forceManyBody().strength(CHARGE_STRENGTH * LAYOUT_SCALE ** 2))
+		.force('charge', forceManyBody().strength(charge * scale ** 2))
 		.force('x', forceX())
 		.force('y', forceY())
-		.velocityDecay(VELOCITY_DECAY)
+		.velocityDecay(physics.velocityDecay ?? VELOCITY_DECAY)
 }
 
 /** forceLink подменяет концы связей узлами во время выполнения, поэтому типам нужна подсказка. */

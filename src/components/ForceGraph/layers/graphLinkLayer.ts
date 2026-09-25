@@ -1,6 +1,6 @@
 import type { DrawnLink } from '../../../types/graph'
+import { linkKeyOf } from '../crud/graphLinksCRUD'
 import { LINK_FORCE_DEFAULT } from '../forceGraph'
-import { linkKeyOf } from '../forceGraphUpdate'
 import { GraphLayer, type LayerEntry } from './graphLayer'
 
 /**

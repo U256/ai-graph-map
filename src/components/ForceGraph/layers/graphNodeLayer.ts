@@ -1,4 +1,5 @@
 import type { GraphNode, GraphNodeType } from '../../../types/graph'
+import { nodeKey } from '../crud/graphNodesCRUD'
 import { tintToWhite } from '../forceGraph'
 import {
 	CLOUD_RADIUS,
@@ -11,7 +12,6 @@ import {
 	WARNING_DOT_RADIUS,
 	type CloudLayout,
 } from '../forceGraphCloud'
-import { nodeKey } from '../forceGraphUpdate'
 import { GraphLayer, type LayerEntry } from './graphLayer'
 
 /**
@@ -21,6 +21,10 @@ import { GraphLayer, type LayerEntry } from './graphLayer'
  *
  * Всё внутри группы считается от нуля (группу двигает один `translate`), поэтому координаты
  * берутся прямо из раскладки облака.
+ *
+ * Раскладка и мерка текста вызываются только для узлов, которым план обновления выставил флаг
+ * изменения (`sync(data, dirtyKeys)`): правка подписи одного узла не должна прогонять канву по
+ * всей карте.
  */
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
@@ -58,11 +62,11 @@ interface NodeParts {
 	dot: SVGCircleElement
 }
 
-/** Запись слоя: элемент, его части и снимок вида, по которому видно, что пора перерисовать. */
+/** Запись слоя: элемент, его части и ключ последнего записанного вида. */
 export interface NodeEntry extends LayerEntry<GraphNode> {
 	element: SVGGElement
 	parts: NodeParts
-	/** Ключ последнего записанного вида; он же решает, перерисовывать группу или нет. */
+	/** Ключ последнего записанного вида; по нему видно, что группу пора перерисовать. */
 	renderedKey?: string
 }
 
@@ -77,7 +81,8 @@ export interface NodeLayerOptions {
 
 /**
  * Вид узла — из типа и раскладки. В ключ сворачивается всё, что влияет на атрибуты: если ключ
- * не изменился, группу не трогаем, и дорогая мерка текста за обновлением не проходит.
+ * не изменился, группу не трогаем — это страховка от лишней перерисовки внутри одного обновления,
+ * когда узел попал в `dirtyKeys` по чужой причине (например, из-за смены типа у его соседа).
  */
 function renderKey(node: GraphNode, layout: CloudLayout): string {
 	return [node.type, layout.width, layout.height, layout.title, layout.description, layout.warning ? 1 : 0].join('|')
@@ -165,8 +170,6 @@ function writeNode(entry: NodeEntry, layout: CloudLayout, fill: string): void {
  * обводка — цвет типа в полную силу.
  */
 
-/** Подпись-заголовок: край и кегль берутся из раскладки; пустая строка остаётся без текста. */
-
 function renderEntry(entry: NodeEntry, options: NodeLayerOptions): void {
 	const layout = options.layoutOf(entry.datum)
 	const key = renderKey(entry.datum, layout)
@@ -199,8 +202,3 @@ export class NodeLayer extends GraphLayer<GraphNode> {
 		})
 	}
 }
-
-/**
- * Перерисовать группу, если её вид изменился. Раскладка облака считается лениво и только для
- * изменённого узла: мерка текста на канве — самое дорогое, что есть в обновлении данных.
- */

@@ -40,6 +40,26 @@
 	color: #2b3a4a;
 }
 
+/* значение поля физики рядом с подписью: range без цифры бесполезен для подгонки карты */
+.settings-panel__value {
+	margin-left: 0.4rem;
+	font-variant-numeric: tabular-nums;
+	font-size: 0.8rem;
+	color: #5a6b7c;
+}
+
+/* ползунок числа: нативный range в палитре панели, тянется на всю ширину aside */
+.settings-panel__range {
+	width: 100%;
+	accent-color: #1f77b4;
+	cursor: pointer;
+}
+
+.settings-panel__range:focus-visible {
+	outline: 2px solid rgb(31 119 180 / 35%);
+	outline-offset: 2px;
+}
+
 /* сам чекбокс в разметке остаётся ради доступности и фокуса, но рисуется его подмена */
 .settings-panel__input {
 	position: absolute;

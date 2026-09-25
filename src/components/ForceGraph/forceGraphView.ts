@@ -1,21 +1,24 @@
 import { drag, type D3DragEvent, type DragBehavior } from 'd3-drag'
-import type { ForceLink, Simulation } from 'd3-force'
+import { forceManyBody, type ForceLink, type Simulation } from 'd3-force'
 import { select, type Selection } from 'd3-selection'
 import { zoom, type D3ZoomEvent } from 'd3-zoom'
 import type { GraphData, GraphLink, GraphNode } from '../../types/graph'
 import {
 	asDrawnLinks,
+	CHARGE_STRENGTH,
 	createSimulation,
 	createTypeColors,
 	DRAG_ALPHA_TARGET,
 	GRAPH_HEIGHT,
 	GRAPH_WIDTH,
+	LAYOUT_SCALE,
 	prepareGraph,
 	UPDATE_ALPHA,
+	type GraphPhysics,
 } from './forceGraph'
 import { createCloudLayouts, type CloudLayout } from './forceGraphCloud'
 import { createTextMeasurer } from './forceGraphText'
-import { buildGraphState, collectSeeds, createPreviousGraph, planGraphUpdate } from './forceGraphUpdate'
+import { applyGraphUpdate, planGraphUpdate, readGraphState, type GraphUpdateResult } from './forceGraphUpdate'
 import { LinkLayer } from './layers/graphLinkLayer'
 import { NODE_CLASS, NodeLayer } from './layers/graphNodeLayer'
 
@@ -25,7 +28,7 @@ import { NODE_CLASS, NodeLayer } from './layers/graphNodeLayer'
  * панорама/зум и порядок применения обновления к симуляции.
  */
 
-export interface ForceGraphOptions {
+export interface ForceGraphOptions extends GraphPhysics {
 	/** Панорама перетаскиванием фона и зум колесом. */
 	panZoom?: boolean
 }
@@ -39,6 +42,11 @@ export interface ForceGraphHandle {
 	 * не пересобирается, поэтому карта не «мигает» и не уезжает в начало раскладки.
 	 */
 	update: (data: GraphData) => void
+	/**
+	 * Применить другие значения физики к уже собранной сцене: силы и разогревы читаются из одного
+	 * объекта замыкания, поэтому достаточно их переписать и разогреть карту.
+	 */
+	setPhysics: (physics: GraphPhysics) => void
 	/** Останавливает симуляцию и убирает svg — вызывается при размонтировании. */
 	destroy: () => void
 }
@@ -52,14 +60,17 @@ const ARIA_LABEL = 'Граф связей научных работ и пате�
 const ZOOM_EXTENT: [number, number] = [0.5, 8]
 
 /**
- * Drag узла: узел держится под курсором, симуляция разогревается на время жеста
- * (`DRAG_ALPHA_TARGET` — слабо, чтобы не разъезжалась вся карта) и остывает после отпускания.
- * Предмет жеста берётся в локальную переменную, чтобы не мутировать параметр обработчика.
+ * Drag узла: узел держится под курсором, симуляция разогревается на время жеста (`alphaTarget` —
+ * слабо, чтобы не разъезжалась вся карта) и остывает после отпускания. Предмет жеста берётся в
+ * локальную переменную, чтобы не мутировать параметр обработчика.
  */
-function createDrag(simulation: Simulation<GraphNode, GraphLink>): DragBehavior<SVGGElement, GraphNode, GraphNode> {
+function createDrag(
+	simulation: Simulation<GraphNode, GraphLink>,
+	physics: GraphPhysics,
+): DragBehavior<SVGGElement, GraphNode, GraphNode> {
 	function dragstarted(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
 		const { subject } = event
-		if (!event.active) simulation.alphaTarget(DRAG_ALPHA_TARGET).restart()
+		if (!event.active) simulation.alphaTarget(physics.dragAlphaTarget ?? DRAG_ALPHA_TARGET).restart()
 		subject.fx = subject.x
 		subject.fy = subject.y
 	}
@@ -119,19 +130,36 @@ function createScene(): {
 	return { svg, content, linkLayer: links.node() as SVGGElement, nodeLayer: nodes.node() as SVGGElement }
 }
 
+/**
+ * Ключи узлов, которым нужна перерисовка группы: изменённые и добавленные. Остальные слои проходят
+ * мимо renderer.update(), поэтому мерка текста за обновление вызывается ровно столько раз, сколько
+ * подписей правда поменялось.
+ */
+function dirtyNodeKeys(result: GraphUpdateResult): Set<string> {
+	return new Set([...result.changedNodeKeys, ...result.addedNodeKeys])
+}
+
+/** Ключи связей, которым нужна перерисовка толщины: свои правки и смена типа у любого из концов. */
+function dirtyLinkKeys(result: GraphUpdateResult): Set<string> {
+	return new Set([...result.changedLinkKeys, ...result.addedLinkKeys])
+}
+
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
-	const { panZoom = true } = options
+	const { panZoom = true, ...initialPhysics } = options
 	const { svg, content, linkLayer: linkGroup, nodeLayer: nodeGroup } = createScene()
 	const root = select(svg)
+
+	// физика читается из этого объекта всеми силами и drag'ом: setPhysics пишет в него, а не пересобирает сцену
+	const physics: GraphPhysics = { ...initialPhysics }
 
 	const measure = createTextMeasurer()
 	const { nodes: initialNodes, links: initialLinks } = prepareGraph(data)
 	// палитра живёт вместе со сценой: тип, приехавший с обновлением, получит свой оттенок и сохранит
 	// его, а прежние типы не перекрасятся (цвет, что значил до обновления, значит то же и после)
 	const colorOf = createTypeColors(initialNodes)
-	const simulation = createSimulation(initialNodes, initialLinks)
+	const simulation = createSimulation(initialNodes, initialLinks, physics)
 	const linkForce = simulation.force<ForceLink<GraphNode, GraphLink>>('link') as ForceLink<GraphNode, GraphLink>
-	const dragBehavior = createDrag(simulation)
+	const dragBehavior = createDrag(simulation, physics)
 
 	const layers = {
 		links: new LinkLayer(linkGroup),
@@ -149,8 +177,6 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		layers.nodes.drawPositions()
 	}
 
-	let previous = createPreviousGraph(initialNodes, initialLinks)
-
 	layers.links.sync(asDrawnLinks(initialLinks))
 	layers.nodes.sync(initialNodes)
 	// новые элементы должны встать на свои координаты сразу, не дожидаясь первого тика
@@ -161,20 +187,42 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	 * `nodes()` присваивает узлам `index`, `linkForce.links()` по этим `index`-ам разрешает концы
 	 * связей и пересчитывает `bias`, и только потом поднимается `alpha` — иначе остывшая симуляция
 	 * (её таймер гаснет на `alphaMin`) осталась бы неподвижной.
+	 *
+	 * Состояние сцены читается из симуляции и силы связей, а не хранится отдельно: они и есть
+	 * актуальный граф, и рассинхрон между ними и слоем невозможен в принципе. Слой получает полный
+	 * список сущностей плюс ключи изменённых — добавление, правка и удаление элементов происходят
+	 * в одном проходе по предыдущему состоянию слоя, а сцена целиком не пересобирается.
 	 */
 	function update(next: GraphData): void {
-		const plan = planGraphUpdate(previous, next)
-		const state = buildGraphState(previous, plan, collectSeeds(previous))
+		const state = readGraphState(simulation.nodes(), linkForce.links())
+		const result = applyGraphUpdate(state, planGraphUpdate(state, next))
 
-		simulation.nodes(state.nodes)
-		linkForce.links(state.links)
-		simulation.alpha(UPDATE_ALPHA).restart()
+		simulation.nodes(result.nodes)
+		linkForce.links(result.links)
+		simulation.alpha(physics.updateAlpha ?? UPDATE_ALPHA).restart()
 
-		layers.links.sync(asDrawnLinks(state.links))
-		layers.nodes.sync(state.nodes)
+		layers.links.sync(asDrawnLinks(linkForce.links() ?? []), dirtyLinkKeys(result))
+		layers.nodes.sync(result.nodes, dirtyNodeKeys(result))
 		drawTick()
+	}
 
-		previous = createPreviousGraph(state.nodes, state.links)
+	/**
+	 * Смена физики без пересборки сцены: `forceLink` и `forceManyBody` берут дистанцию/крепость/заряд
+	 * из своих сеттеров, а `velocityDecay` — у симуляции. Drag читает `dragAlphaTarget` из того же
+	 * объекта `physics`, поэтому его перенавешивать не нужно.
+	 */
+	function setPhysics(next: GraphPhysics): void {
+		Object.assign(physics, next)
+		if (physics.linkDistance !== undefined) linkForce.distance(physics.linkDistance)
+		if (physics.linkStrength !== undefined) linkForce.strength(physics.linkStrength)
+		if (physics.velocityDecay !== undefined) simulation.velocityDecay(physics.velocityDecay)
+		// заряд задан через масштаб раскладки (`charge * scale ** 2`), поэтому пересобирается сила целиком
+		if (physics.chargeStrength !== undefined || physics.layoutScale !== undefined) {
+			const charge = physics.chargeStrength ?? CHARGE_STRENGTH
+			const scale = physics.layoutScale ?? LAYOUT_SCALE
+			simulation.force('charge', forceManyBody().strength(charge * scale ** 2))
+		}
+		simulation.alpha(physics.updateAlpha ?? UPDATE_ALPHA).restart()
 	}
 
 	simulation.on('tick', drawTick)
@@ -183,6 +231,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	return {
 		svg,
 		update,
+		setPhysics,
 		destroy: () => {
 			simulation.on('tick', null)
 			simulation.stop()

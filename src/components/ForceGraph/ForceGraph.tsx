@@ -3,7 +3,8 @@ import { graphData } from '../../data/graph'
 import type { GraphData } from '../../types/graph'
 import type { GraphSettings } from '../../types/settings'
 import './ForceGraph.css'
-import { createForceGraph } from './forceGraphView'
+import type { GraphPhysics } from './forceGraph'
+import { createForceGraph, type ForceGraphHandle } from './forceGraphView'
 
 /** Данные подключены модулем, поэтому загрузка только эмулируется — чтобы состояние было заметно. */
 const LOAD_DELAY_MS = 400
@@ -13,7 +14,23 @@ type ForceGraphProps = {
 }
 
 export function ForceGraph({ settings }: ForceGraphProps) {
-	const { nodeClones } = settings
+	const {
+		nodeClones,
+		layoutScale,
+		linkDistance,
+		linkStrength,
+		chargeStrength,
+		velocityDecay,
+		dragAlphaTarget,
+		updateAlpha,
+	} = settings
+
+	// значения физики одним объектом: карта принимает их опциональными пропами и подставляет свои
+	// константы там, где поля нет; useMemo нужен, чтобы эффект ниже не срабатывал на каждый рендер
+	const physics = useMemo<GraphPhysics>(
+		() => ({ layoutScale, linkDistance, linkStrength, chargeStrength, velocityDecay, dragAlphaTarget, updateAlpha }),
+		[layoutScale, linkDistance, linkStrength, chargeStrength, velocityDecay, dragAlphaTarget, updateAlpha],
+	)
 
 	const containerRef = useRef<HTMLDivElement | null>(null)
 	const [originalData, setData] = useState<GraphData | null>(null)
@@ -46,21 +63,54 @@ export function ForceGraph({ settings }: ForceGraphProps) {
 		return () => clearTimeout(timer)
 	}, [])
 
-	// граф собирается императивно (d3-selection): React владеет только контейнером. Сцена создаётся
-	// один раз — при первых данных; дальше изменения доставляются через update(), чтобы раскладка,
-	// вид панорамы и симуляция не сбрасывались. Создание и первая отрисовка — в одном эффекте:
-	// в StrictMode эффекты выполняются дважды, и разнесённые по двум эффектам создание с guard'ом
-	// и обновление оставили бы на экране уже уничтоженный svg.
+	const graphRef = useRef<ForceGraphHandle | null>(null)
+	const mountedData = useRef<GraphData | null>(null)
+	// объекты физики сравниваются по идентичности: `useMemo` отдаёт новый объект только когда
+	// поменялось хотя бы одно значение, поэтому пропуск ниже не мешает доставке правок
+	const mountedPhysics = useRef<GraphPhysics | null>(null)
+
+	// граф собирается императивно (d3-selection): React владеет только контейнером. Сцена создаётся,
+	// как только приходят первые данные, и дальше правится на месте: `update` — на смену данных
+	// (в том числе на клонирование нод), `setPhysics` — на смену значений физики. Разрушается сцена
+	// только при размонтировании (эффект ниже): если разрушение лежит в cleanup этого же эффекта,
+	// смена любой зависимости пересобирала бы svg, и инкрементальное обновление теряло бы смысл
 	useEffect(() => {
 		const container = containerRef.current
-		if (!container || !data) return undefined
-		const graph = createForceGraph(data)
-		container.replaceChildren(graph.svg)
-		return () => {
-			graph.destroy()
-			container.replaceChildren()
+		if (!container || !data) return
+		const graph = graphRef.current
+		if (!graph) {
+			const next = createForceGraph(data, physics)
+			graphRef.current = next
+			mountedData.current = data
+			mountedPhysics.current = physics
+			container.replaceChildren(next.svg)
+			return
 		}
-	}, [data])
+		// пустой граф (`{ nodes: [], links: [] }`) — тоже загруженные данные: сцена обязана остаться
+		if (data !== mountedData.current) {
+			graph.update(data)
+			mountedData.current = data
+		}
+		// без пропуска ниже `setPhysics` всякий раз поднимал бы `alpha`: остывшая карта дёргалась бы
+		// на каждое изменение данных, даже когда значения физики не менялись
+		if (physics !== mountedPhysics.current) {
+			graph.setPhysics(physics)
+			mountedPhysics.current = physics
+		}
+	}, [data, physics])
+
+	// единственное место, где сцена уничтожается; в StrictMode этот cleanup запускается между двумя
+	// прогонами эффектов, и создание выше отрабатывает заново — на экране остаётся живой svg
+	useEffect(
+		() => () => {
+			graphRef.current?.destroy()
+			graphRef.current = null
+			mountedData.current = null
+			mountedPhysics.current = null
+			containerRef.current?.replaceChildren()
+		},
+		[],
+	)
 
 	return (
 		<figure className="force-graph">
