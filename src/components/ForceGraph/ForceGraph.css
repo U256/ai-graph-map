@@ -19,15 +19,11 @@
 	min-height: 0;
 }
 
+/* курсор над картой обычный (не grab): жест панорамы об этом говорит не стрелка, а поведение сцены */
 .force-graph__canvas svg {
 	display: block;
 	width: 100%;
 	height: 100%;
-	cursor: grab;
-}
-
-.force-graph__canvas svg:active {
-	cursor: grabbing;
 }
 
 /* подписи облаков не выделяются при перетаскивании узла и не перехватывают курсор у группы */

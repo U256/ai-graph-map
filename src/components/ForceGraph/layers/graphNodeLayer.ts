@@ -97,7 +97,7 @@ export function nodeTooltip(node: GraphNode): string {
 function createNodeGroup(): { element: SVGGElement; parts: NodeParts } {
 	const element = document.createElementNS(SVG_NS, 'g')
 	element.setAttribute('class', NODE_CLASS)
-	element.setAttribute('cursor', 'grab')
+	element.setAttribute('cursor', 'pointer')
 	element.setAttribute('font-family', FONT_FAMILY)
 	element.setAttribute('dominant-baseline', 'middle')
 
