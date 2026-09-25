@@ -13,33 +13,31 @@ type ForceGraphProps = {
 }
 
 export function ForceGraph({ settings }: ForceGraphProps) {
-	const { nodeMultiplier } = settings
+	const { nodeClones } = settings
 
 	const containerRef = useRef<HTMLDivElement | null>(null)
 	const [originalData, setData] = useState<GraphData | null>(null)
 
+	// копия графа целиком: копии несут те же подписи, различить их на карте можно только по подсказке
 	const data = useMemo(() => {
-		if (!originalData || !nodeMultiplier || nodeMultiplier === 1) {
+		if (!originalData || nodeClones <= 1) {
 			return originalData
 		}
-		const multiplied = { ...originalData }
+		const cloned = { ...originalData }
 		// eslint-disable-next-line no-plusplus
-		for (let i = 1; i < nodeMultiplier; i++) {
-			multiplied.nodes = [
-				...multiplied.nodes,
-				...multiplied.nodes.map((node) => ({ ...node, id: `${i}-${node.id}` })),
-			]
-			multiplied.links = [
-				...multiplied.links,
-				...multiplied.links.map((link) => ({
+		for (let i = 1; i < nodeClones; i++) {
+			cloned.nodes = [...cloned.nodes, ...cloned.nodes.map((node) => ({ ...node, id: `${i}-${node.id}` }))]
+			cloned.links = [
+				...cloned.links,
+				...cloned.links.map((link) => ({
 					...link,
 					source: `${i}-${link.source}`,
 					target: `${i}-${link.target}`,
 				})),
 			]
 		}
-		return multiplied
-	}, [originalData, nodeMultiplier])
+		return cloned
+	}, [originalData, nodeClones])
 
 	useEffect(() => {
 		const timer = setTimeout(() => setData(graphData), LOAD_DELAY_MS)

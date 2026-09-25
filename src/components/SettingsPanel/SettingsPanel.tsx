@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
 import type { GraphSettings } from '../../types/settings'
 import './SettingsPanel.css'
-import { DEFAULT_GRAPH_SETTINGS, NODE_MULTIPLIER_OPTIONS, saveGraphSettings } from './settingsPanel'
+import { DEFAULT_GRAPH_SETTINGS, NODE_CLONES_OPTIONS, saveGraphSettings } from './settingsPanel'
 
 type SettingsPanelProps = {
 	initialSettings: GraphSettings
@@ -23,14 +23,14 @@ export function SettingsPanel({ initialSettings, onApply }: SettingsPanelProps) 
 	return (
 		<form className="settings-panel" onSubmit={handleSubmit(applySettings)}>
 			<h2 className="settings-panel__title">Настройки</h2>
-			<label className="settings-panel__field" htmlFor="node-multiplier">
-				<span className="settings-panel__label">Мультипликатор нод</span>
+			<label className="settings-panel__field" htmlFor="node-clones">
+				<span className="settings-panel__label">Клонировать ноды</span>
 				<select
 					className="settings-panel__select"
-					id="node-multiplier"
-					{...register('nodeMultiplier', { valueAsNumber: true })}
+					id="node-clones"
+					{...register('nodeClones', { valueAsNumber: true })}
 				>
-					{NODE_MULTIPLIER_OPTIONS.map((option) => (
+					{NODE_CLONES_OPTIONS.map((option) => (
 						<option key={option} value={option}>
 							{option}
 						</option>

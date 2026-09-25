@@ -31,7 +31,7 @@ import { createTextMeasurer } from './forceGraphText'
 /**
  * Сборка svg-сцены графа: линии связей, узлы-облака с подписями и drag по узлам. Физика,
  * геометрия облаков и мерка текста живут отдельно (`forceGraph.ts`, `forceGraphCloud.ts`,
- * `forceGraphText.ts`), здесь остаётся только сборка svg. Панорама и зум — добавка к ноутбуку.
+ * `forceGraphText.ts`), здесь остаётся только сборка svg.
  */
 
 export interface ForceGraphOptions {
@@ -64,7 +64,7 @@ const BODY_STROKE_WIDTH = 1.5
 const TITLE_COLOR = '#1a1a1a'
 const DESCRIPTION_COLOR = '#555'
 
-/** Толщина связи — √force, как в ноутбуке; если силы в данных нет, берётся значение по умолчанию. */
+/** Толщина связи — √force; если силы в данных нет, берётся значение по умолчанию. */
 function appendLinks(content: ContentSelection, links: DrawnLink[]): LineSelection {
 	return content
 		.append('g')
@@ -137,7 +137,7 @@ function nodeTooltip(node: GraphNode): string {
 }
 
 /**
- * Drag из ноутбука: узел держится под курсором, симуляция разогревается на время жеста
+ * Drag узла: узел держится под курсором, симуляция разогревается на время жеста
  * (`DRAG_ALPHA_TARGET` — слабо, чтобы не разъезжалась вся карта) и остывает после отпускания.
  * Предмет жеста берётся в локальную переменную, чтобы не мутировать параметр обработчика.
  */

@@ -7,12 +7,12 @@ import type { GraphSettings } from '../../types/settings'
  * `saveGraphSettings`.
  */
 
-/** Опции селекта «Мультипликатор нод»: допустимые множители размера узлов. */
-export const NODE_MULTIPLIER_OPTIONS = [1, 2, 3, 5, 10] as const
+/** Опции селекта «Клонировать ноды»: во сколько раз клонировать граф. */
+export const NODE_CLONES_OPTIONS = [1, 2, 3, 5, 10] as const
 
 /** Значения по умолчанию: с них форма стартует и к ним же возвращает кнопка «Сбросить». */
 export const DEFAULT_GRAPH_SETTINGS: GraphSettings = {
-	nodeMultiplier: 1,
+	nodeClones: 1,
 	showFullSubNodes: false,
 	hideSubNodes: false,
 }
@@ -26,16 +26,15 @@ function createDefaultSettings(): GraphSettings {
 }
 
 /**
- * Проверка, что из хранилища пришли именно настройки: множитель должен быть одной из опций, а оба
- * флага — булевыми. Чужой или устаревший объект отбрасывается целиком, а не по полям.
+ * Проверка, что из хранилища пришли именно настройки: число клонов должно быть одной из опций, а оба
+ * флага — булевыми. Чужой или устаревший объект отбрасывается целиком, а не по полям: частичный
+ * разбор дал бы смешанные настройки, где одно поле из старой версии, а другое — из сохранённых.
  */
 function isGraphSettings(value: unknown): value is GraphSettings {
 	if (typeof value !== 'object' || value === null) return false
 	const settings = value as Partial<Record<keyof GraphSettings, unknown>>
-	const multiplierMatches = NODE_MULTIPLIER_OPTIONS.some((option) => option === settings.nodeMultiplier)
-	return (
-		multiplierMatches && typeof settings.showFullSubNodes === 'boolean' && typeof settings.hideSubNodes === 'boolean'
-	)
+	const clonesMatch = NODE_CLONES_OPTIONS.some((option) => option === settings.nodeClones)
+	return clonesMatch && typeof settings.showFullSubNodes === 'boolean' && typeof settings.hideSubNodes === 'boolean'
 }
 
 /**
