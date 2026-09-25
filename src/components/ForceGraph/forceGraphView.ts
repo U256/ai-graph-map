@@ -1,37 +1,28 @@
 import { drag, type D3DragEvent, type DragBehavior } from 'd3-drag'
-import type { Simulation } from 'd3-force'
+import type { ForceLink, Simulation } from 'd3-force'
 import { select, type Selection } from 'd3-selection'
 import { zoom, type D3ZoomEvent } from 'd3-zoom'
-import type { DrawnLink, GraphData, GraphLink, GraphNode, GraphNodeType } from '../../types/graph'
+import type { GraphData, GraphLink, GraphNode } from '../../types/graph'
 import {
-	DRAG_ALPHA_TARGET,
-	GRAPH_HEIGHT,
-	GRAPH_WIDTH,
-	LINK_FORCE_DEFAULT,
 	asDrawnLinks,
 	createSimulation,
 	createTypeColors,
+	DRAG_ALPHA_TARGET,
+	GRAPH_HEIGHT,
+	GRAPH_WIDTH,
 	prepareGraph,
-	tintToWhite,
+	UPDATE_ALPHA,
 } from './forceGraph'
-import {
-	CLOUD_RADIUS,
-	DESCRIPTION_FONT_SIZE,
-	FONT_FAMILY,
-	SUB_NODE_CORNER,
-	SUB_NODE_DOT_RADIUS,
-	TITLE_FONT_SIZE,
-	WARNING_COLOR,
-	WARNING_DOT_RADIUS,
-	createCloudLayouts,
-	type CloudLayout,
-} from './forceGraphCloud'
+import { createCloudLayouts, type CloudLayout } from './forceGraphCloud'
 import { createTextMeasurer } from './forceGraphText'
+import { buildGraphState, collectSeeds, createPreviousGraph, planGraphUpdate } from './forceGraphUpdate'
+import { LinkLayer } from './layers/graphLinkLayer'
+import { NODE_CLASS, NodeLayer } from './layers/graphNodeLayer'
 
 /**
- * Сборка svg-сцены графа: линии связей, узлы-облака с подписями и drag по узлам. Физика,
- * геометрия облаков и мерка текста живут отдельно (`forceGraph.ts`, `forceGraphCloud.ts`,
- * `forceGraphText.ts`), здесь остаётся только сборка svg.
+ * Сборка svg-сцены графа и её инкрементальное обновление. Физика, геометрия облаков, разбор
+ * изменений и жизненный цикл нод/связей живут в своих модулях, здесь остаются только svg, drag,
+ * панорама/зум и порядок применения обновления к симуляции.
  */
 
 export interface ForceGraphOptions {
@@ -42,99 +33,23 @@ export interface ForceGraphOptions {
 /** Готовый граф: svg собран, его остаётся вставить в DOM. */
 export interface ForceGraphHandle {
 	svg: SVGSVGElement
+	/**
+	 * Перерисовать сцену под новые данные: добавить новые узлы и связи, обновить изменившиеся и
+	 * убрать удалённые. Раскладка, вид панорамы/зума и сама симуляция при этом сохраняются — сцена
+	 * не пересобирается, поэтому карта не «мигает» и не уезжает в начало раскладки.
+	 */
+	update: (data: GraphData) => void
 	/** Останавливает симуляцию и убирает svg — вызывается при размонтировании. */
 	destroy: () => void
 }
 
 type SvgSelection = Selection<SVGSVGElement, unknown, null, undefined>
 type ContentSelection = Selection<SVGGElement, unknown, null, undefined>
-type LineSelection = Selection<SVGLineElement, DrawnLink, SVGGElement, unknown>
-type NodeSelection = Selection<SVGGElement, GraphNode, SVGGElement, unknown>
-/** Выбор одного узла внутри `each`: данных у него нет, всё нужное берётся из замыкания. */
-type NodeGroupSelection = Selection<SVGGElement, unknown, null, undefined>
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const ARIA_LABEL = 'Граф связей научных работ и патентов'
 /** Пределы зума: без них граф легко потерять за краем экрана. */
 const ZOOM_EXTENT: [number, number] = [0.5, 8]
-
-/** Обводка тела узла — цвет типа в полную силу, потому что заливка светлая. */
-const BODY_STROKE_WIDTH = 1.5
-/** Цвета подписей облака: заголовок темнее, описание приглушённое. */
-const TITLE_COLOR = '#1a1a1a'
-const DESCRIPTION_COLOR = '#555'
-
-/** Толщина связи — √force; если силы в данных нет, берётся значение по умолчанию. */
-function appendLinks(content: ContentSelection, links: DrawnLink[]): LineSelection {
-	return content
-		.append('g')
-		.attr('stroke', '#999')
-		.attr('stroke-opacity', 0.6)
-		.selectAll<SVGLineElement, DrawnLink>('line')
-		.data(links)
-		.join('line')
-		.attr('stroke-width', (link) => Math.sqrt(link.force ?? LINK_FORCE_DEFAULT))
-}
-
-/**
- * Тело узла — скруглённый прямоугольник вокруг центра: у облака крупное скругление, у иконки почти
- * круг. Заливка — светлый оттенок цвета типа (тело не прозрачное: связи под ним не просвечивают),
- * обводка — цвет типа в полную силу.
- */
-function appendNodeBody(group: NodeGroupSelection, layout: CloudLayout, fill: string, radius: number): void {
-	group
-		.append('rect')
-		.attr('x', -layout.width / 2)
-		.attr('y', -layout.height / 2)
-		.attr('width', layout.width)
-		.attr('height', layout.height)
-		.attr('rx', radius)
-		.attr('ry', radius)
-		.attr('fill', tintToWhite(fill))
-		.attr('stroke', fill)
-		.attr('stroke-width', BODY_STROKE_WIDTH)
-}
-
-/** Подписи облака — заголовок и, если он есть, обрезанное описание; края строк берутся из раскладки. */
-function appendCloudTexts(group: NodeGroupSelection, layout: CloudLayout): void {
-	group
-		.append('text')
-		.attr('x', layout.textX)
-		.attr('y', layout.titleY)
-		.attr('font-size', TITLE_FONT_SIZE)
-		.attr('fill', TITLE_COLOR)
-		.text(layout.title)
-
-	if (!layout.description) return
-	group
-		.append('text')
-		.attr('x', layout.textX)
-		.attr('y', layout.descriptionY)
-		.attr('font-size', DESCRIPTION_FONT_SIZE)
-		.attr('fill', DESCRIPTION_COLOR)
-		.text(layout.description)
-}
-
-/** Красная точка предупреждения — в левом верхнем углу облака, в зоне паддинга. */
-function appendWarningDot(group: NodeGroupSelection, warning: CloudLayout['warning']): void {
-	if (!warning) return
-	group
-		.append('circle')
-		.attr('cx', warning.x)
-		.attr('cy', warning.y)
-		.attr('r', WARNING_DOT_RADIUS)
-		.attr('fill', WARNING_COLOR)
-}
-
-/** Яркая точка в центре иконки `subNode`: узел должен читаться на карте без подписи. */
-function appendSubNodeDot(group: NodeGroupSelection, fill: string): void {
-	group.append('circle').attr('r', SUB_NODE_DOT_RADIUS).attr('fill', fill)
-}
-
-/** Подсказка узла: короткий заголовок и, если он есть, полный текст описания. */
-function nodeTooltip(node: GraphNode): string {
-	return [node.title, node.description].filter(Boolean).join('\n')
-}
 
 /**
  * Drag узла: узел держится под курсором, симуляция разогревается на время жеста
@@ -166,55 +81,16 @@ function createDrag(simulation: Simulation<GraphNode, GraphLink>): DragBehavior<
 }
 
 /**
- * Узлы: у `node` — облако по размеру текста с подписями, у `subNode` — иконка с точкой.
- * Раскладка считается до отрисовки, поэтому все атрибуты — просто числа из `CloudLayout`.
- */
-function appendNodes(
-	content: ContentSelection,
-	nodes: GraphNode[],
-	color: (type: GraphNodeType) => string,
-	simulation: Simulation<GraphNode, GraphLink>,
-): NodeSelection {
-	const layouts = createCloudLayouts(nodes, createTextMeasurer())
-	const node = content
-		.append('g')
-		.selectAll<SVGGElement, GraphNode>('g')
-		.data(nodes)
-		.join('g')
-		.attr('class', 'force-graph__node')
-		.attr('cursor', 'grab')
-		.attr('font-family', FONT_FAMILY)
-		.attr('dominant-baseline', 'middle')
-
-	// подсказка полная: на карте текст обрезан, а здесь видно всё
-	node.append('title').text(nodeTooltip)
-
-	node.each((datum, index) => {
-		const layout = layouts.get(datum)
-		if (!layout) return
-		const group = select(node.nodes()[index])
-		const fill = color(datum.type)
-		if (datum.type === 'node') {
-			appendNodeBody(group, layout, fill, CLOUD_RADIUS)
-			appendCloudTexts(group, layout)
-		} else {
-			appendNodeBody(group, layout, fill, SUB_NODE_CORNER)
-			appendSubNodeDot(group, fill)
-		}
-		appendWarningDot(group, layout.warning)
-	})
-
-	return node.call(createDrag(simulation))
-}
-
-/**
- * Панорама и зум: сцена едет за курсором. Узлы уводят жест себе (d3-drag глушит всплытие),
- * поэтому перетаскивание узла и перетаскивание фона не конфликтуют.
+ * Панорама и зум: сцена едет за курсором. Узлы уводят жест себе (d3-drag глушит всплытие), поэтому
+ * перетаскивание узла и перетаскивание фона не конфликтуют. Колесо поверх узла при этом остаётся
+ * зумом: drag узла колесо не перехватывает, и без этой оговорки зум работал бы только по пустому
+ * месту, а на плотной карте — почти никогда.
  */
 function attachPanZoom(root: SvgSelection, content: ContentSelection): void {
 	root.call(
 		zoom<SVGSVGElement, unknown>()
 			.scaleExtent(ZOOM_EXTENT)
+			.filter((event) => event.type === 'wheel' || !(event.target as Element).closest(`.${NODE_CLASS}`))
 			.on('zoom', (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
 				const { x, y, k } = event.transform
 				content.attr('transform', `translate(${x},${y}) scale(${k})`)
@@ -222,41 +98,97 @@ function attachPanZoom(root: SvgSelection, content: ContentSelection): void {
 	)
 }
 
-/** Переносит координаты симуляции в атрибуты svg: связи — концами, узлы — сдвигом группы. */
-function drawTick(linksSelection: LineSelection, nodesSelection: NodeSelection): void {
-	linksSelection
-		.attr('x1', (datum) => datum.source.x ?? 0)
-		.attr('y1', (datum) => datum.source.y ?? 0)
-		.attr('x2', (datum) => datum.target.x ?? 0)
-		.attr('y2', (datum) => datum.target.y ?? 0)
-
-	nodesSelection.attr('transform', (datum) => `translate(${datum.x ?? 0},${datum.y ?? 0})`)
-}
-
-export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
-	const { panZoom = true } = options
-	const { nodes, links } = prepareGraph(data)
-	const simulation = createSimulation(nodes, links)
-
+/** Создать svg сцены и две группы: связи под узлами, порядок слоёв задан данными, а не z-index. */
+function createScene(): {
+	svg: SVGSVGElement
+	content: ContentSelection
+	linkLayer: SVGGElement
+	nodeLayer: SVGGElement
+} {
 	const svg = document.createElementNS(SVG_NS, 'svg')
 	svg.setAttribute('viewBox', `${-GRAPH_WIDTH / 2} ${-GRAPH_HEIGHT / 2} ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`)
 	svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
 	svg.setAttribute('role', 'img')
 	svg.setAttribute('aria-label', ARIA_LABEL)
 
-	const root = select(svg)
-	const content = root.append('g')
-	const linksSelection = appendLinks(content, asDrawnLinks(links))
-	const nodesSelection = appendNodes(content, nodes, createTypeColors(nodes), simulation)
+	const content = select(svg).append('g')
+	// цвет и непрозрачность связей держатся на группе слоя: на линии остаётся только толщина и концы
+	const links = content.append('g').attr('stroke', '#999').attr('stroke-opacity', 0.6)
+	const nodes = content.append('g')
 
-	simulation.on('tick', () => drawTick(linksSelection, nodesSelection))
+	return { svg, content, linkLayer: links.node() as SVGGElement, nodeLayer: nodes.node() as SVGGElement }
+}
+
+export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
+	const { panZoom = true } = options
+	const { svg, content, linkLayer: linkGroup, nodeLayer: nodeGroup } = createScene()
+	const root = select(svg)
+
+	const measure = createTextMeasurer()
+	const { nodes: initialNodes, links: initialLinks } = prepareGraph(data)
+	// палитра живёт вместе со сценой: тип, приехавший с обновлением, получит свой оттенок и сохранит
+	// его, а прежние типы не перекрасятся (цвет, что значил до обновления, значит то же и после)
+	const colorOf = createTypeColors(initialNodes)
+	const simulation = createSimulation(initialNodes, initialLinks)
+	const linkForce = simulation.force<ForceLink<GraphNode, GraphLink>>('link') as ForceLink<GraphNode, GraphLink>
+	const dragBehavior = createDrag(simulation)
+
+	const layers = {
+		links: new LinkLayer(linkGroup),
+		nodes: new NodeLayer(nodeGroup, {
+			colorOf,
+			// раскладка одного узла: мерка текста вызывается один раз на изменённый узел, не на сцену
+			layoutOf: (node) => createCloudLayouts([node], measure).get(node) as CloudLayout,
+			// drag навешивается при создании: новые группы узнают о нем сразу, а прежние не трогаются
+			attach: (element) => select<SVGGElement, GraphNode>(element).call(dragBehavior),
+		}),
+	}
+
+	function drawTick(): void {
+		layers.links.drawPositions()
+		layers.nodes.drawPositions()
+	}
+
+	let previous = createPreviousGraph(initialNodes, initialLinks)
+
+	layers.links.sync(asDrawnLinks(initialLinks))
+	layers.nodes.sync(initialNodes)
+	// новые элементы должны встать на свои координаты сразу, не дожидаясь первого тика
+	drawTick()
+
+	/**
+	 * Применение новых данных к существующей симуляции. Порядок здесь принципиален:
+	 * `nodes()` присваивает узлам `index`, `linkForce.links()` по этим `index`-ам разрешает концы
+	 * связей и пересчитывает `bias`, и только потом поднимается `alpha` — иначе остывшая симуляция
+	 * (её таймер гаснет на `alphaMin`) осталась бы неподвижной.
+	 */
+	function update(next: GraphData): void {
+		const plan = planGraphUpdate(previous, next)
+		const state = buildGraphState(previous, plan, collectSeeds(previous))
+
+		simulation.nodes(state.nodes)
+		linkForce.links(state.links)
+		simulation.alpha(UPDATE_ALPHA).restart()
+
+		layers.links.sync(asDrawnLinks(state.links))
+		layers.nodes.sync(state.nodes)
+		drawTick()
+
+		previous = createPreviousGraph(state.nodes, state.links)
+	}
+
+	simulation.on('tick', drawTick)
 	if (panZoom) attachPanZoom(root, content)
 
 	return {
 		svg,
+		update,
 		destroy: () => {
 			simulation.on('tick', null)
 			simulation.stop()
+			// снимает данные с удалённых элементов: иначе снятый DOM держит объекты симуляции
+			layers.links.clear()
+			layers.nodes.clear()
 			svg.remove()
 		},
 	}

@@ -1,4 +1,4 @@
-import { forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulation } from 'd3-force'
+import { forceLink, forceManyBody, forceSimulation, forceX, forceY, type ForceLink, type Simulation } from 'd3-force'
 import { schemeCategory10 } from 'd3-scale-chromatic'
 import type { DrawnLink, GraphData, GraphLink, GraphNode, GraphNodeType } from '../../types/graph'
 
@@ -45,6 +45,26 @@ export const CHARGE_STRENGTH = -30
 export const LINK_FORCE_DEFAULT = 2
 
 /**
+ * Разогрев после обновления данных: без `restart()` остывшая симуляция (stepper погашен на
+ * `alphaMin`) не сдвинется, даже если `alpha` поднять. Значение заметно ниже стартовой единицы,
+ * чтобы новая раскладка была заметна, но карта не «взрывалась» на каждое изменение данных.
+ */
+export const UPDATE_ALPHA = 0.3
+
+/**
+ * Смещение нового узла относительно центра масс его связей. По умолчанию d3 разводит узлы спиралью
+ * от нуля, но при обновлении данных это означало бы «новый узел прилетел из центра карты»: узел
+ * встаёт рядом с теми, с кем его связали, и раскладывается на месте.
+ */
+export const NEW_NODE_SEED_RADIUS = 24
+
+/**
+ * Смещение нового узла, у которого связей нет (или они ещё не разрешены). Число отличное от нуля
+ * обязательно: совпадение координат двух тел даёт в силах нулевое расстояние и деление на него.
+ */
+export const NEW_NODE_SEED_FALLBACK = 12
+
+/**
  * Демпфирование скорости: доля скорости, которую узел теряет за тик (дефолт d3-force — 0.4).
  * Здесь выше, чтобы узлы останавливались почти сразу после сдвига и карта не «плыла» как желе.
  */
@@ -67,7 +87,30 @@ export const DRAG_ALPHA_TARGET = 0.1
  */
 export const BODY_FILL_WHITE = 0.85
 
-/** Симуляция мутирует узлы и связи, поэтому ей отдаются копии данных, а не сами данные. */
+/**
+ * Значения узла, от которых зависит его вид: если хотя бы одно изменилось, облако нужно пересчитать
+ * и перерисовать. Сравниваются значения, а не идентичность объекта: данные приезжают новым массивом
+ * на каждое обновление и могли измениться на месте.
+ */
+export interface NodeRenderData {
+	title: string
+	description?: string
+	hasWarning: boolean
+	type: GraphNodeType
+}
+
+/**
+ * Точка, вокруг которой высаживается новый узел: центр масс его будущих соседей, а для несвязного
+ * узла — центр сцены (другой точки отсчёта у сил нет, и притяжение к нулю удержит узел там же).
+ */
+export interface SeedPoint {
+	x: number
+	y: number
+}
+
+/**
+ * Симуляция мутирует узлы и связи, поэтому ей отдаются копии данных, а не сами данные.
+ */
 export function prepareGraph(data: GraphData): { nodes: GraphNode[]; links: GraphLink[] } {
 	return {
 		nodes: data.nodes.map((node) => ({ ...node })),
@@ -76,15 +119,23 @@ export function prepareGraph(data: GraphData): { nodes: GraphNode[]; links: Grap
 }
 
 /**
+ * Сила связи отдельно от симуляции: при обновлении данных её нужно переключить на новый список
+ * связей (`linkForce.links(...)`), не пересобирая остальные силы и не теряя накопленную раскладку.
+ */
+export function createLinkForce(links: GraphLink[]): ForceLink<GraphNode, GraphLink> {
+	return forceLink<GraphNode, GraphLink>(links)
+		.id((node) => node.id)
+		.distance(LINK_DISTANCE)
+		.strength(LINK_STRENGTH)
+}
+
+/**
  * Позиционирующие силы вместо центрирующей: пружины связей, отталкивание зарядов и притяжение
  * к центру координат. Притяжение к нулю остаётся как было — оно сдерживает несвязные компоненты,
  * а его равновесие с зарядом задаёт масштаб сцены.
  */
 export function createSimulation(nodes: GraphNode[], links: GraphLink[]): Simulation<GraphNode, GraphLink> {
-	const link = forceLink<GraphNode, GraphLink>(links)
-		.id((node) => node.id)
-		.distance(LINK_DISTANCE)
-		.strength(LINK_STRENGTH)
+	const link = createLinkForce(links)
 
 	return forceSimulation(nodes)
 		.force('link', link)
@@ -100,15 +151,25 @@ export function asDrawnLinks(links: GraphLink[]): DrawnLink[] {
 }
 
 /**
- * Цвет типа узла — через `d3.scaleOrdinal(schemeCategory10)`: оттенки выдаются
- * в порядке первого появления типа в данных, поэтому легенда не нужна.
+ * Цвет типа узла — через `d3.scaleOrdinal(schemeCategory10)`: оттенки выдаются в порядке первого
+ * появления типа, поэтому легенда не нужна. Палитра отдаётся функцией-замыканием и живёт вместе со
+ * сценой: тип, приехавший с обновлением данных, получает следующий свободный оттенок и держит его,
+ * иначе цвет перестал бы означать то же, что означал до обновления.
  */
 export function createTypeColors(nodes: GraphNode[]): (type: GraphNodeType) => string {
 	const byType = new Map<GraphNodeType, string>()
+
+	const allocate = (type: GraphNodeType): string => {
+		const color = schemeCategory10[byType.size % schemeCategory10.length]
+		byType.set(type, color)
+		return color
+	}
+
 	nodes.forEach((node) => {
-		if (!byType.has(node.type)) byType.set(node.type, schemeCategory10[byType.size % schemeCategory10.length])
+		if (!byType.has(node.type)) allocate(node.type)
 	})
-	return (type) => byType.get(type) ?? schemeCategory10[0]
+
+	return (type) => byType.get(type) ?? allocate(type)
 }
 
 /**
