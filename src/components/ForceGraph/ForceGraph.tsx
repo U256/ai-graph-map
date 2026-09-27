@@ -8,10 +8,11 @@ import { createForceGraph, type ForceGraphHandle } from './forceGraphView'
 type ForceGraphProps = {
 	data: GraphData | null
 	settings: GraphSettings
+	selectedNodeId?: string | null
 	onNodeClick?: (id: string) => void
 }
 
-export function ForceGraph({ data: originalData, settings, onNodeClick }: ForceGraphProps) {
+export function ForceGraph({ data: originalData, settings, selectedNodeId = null, onNodeClick }: ForceGraphProps) {
 	const {
 		nodeClones,
 		layoutScale,
@@ -89,6 +90,10 @@ export function ForceGraph({ data: originalData, settings, onNodeClick }: ForceG
 			mountedPhysics.current = physics
 		}
 	}, [data, physics, handleNodeClick])
+
+	useEffect(() => {
+		graphRef.current?.setSelectedNode(selectedNodeId)
+	}, [selectedNodeId])
 
 	// в StrictMode этот cleanup запускается между двумя прогонами эффектов, и создание выше
 	// отрабатывает заново — на экране остаётся живой svg

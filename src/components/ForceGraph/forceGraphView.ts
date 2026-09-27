@@ -44,6 +44,7 @@ export interface ForceGraphHandle {
 	update: (data: GraphData) => void
 	/** Силы и разогревы читаются из одного объекта замыкания, поэтому достаточно их переписать и разогреть карту. */
 	setPhysics: (physics: GraphPhysics) => void
+	setSelectedNode: (id: string | null) => void
 	destroy: () => void
 }
 
@@ -187,6 +188,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 
 	layers.links.sync(asDrawnLinks(initialLinks))
 	layers.nodes.sync(initialNodes)
+	layers.nodes.setSelectedNode(null)
 	// новые элементы встают на свои координаты сразу, не дожидаясь первого тика
 	drawTick()
 
@@ -227,6 +229,10 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		simulation.alpha(physics.updateAlpha ?? UPDATE_ALPHA).restart()
 	}
 
+	function setSelectedNode(id: string | null): void {
+		layers.nodes.setSelectedNode(id)
+	}
+
 	simulation.on('tick', drawTick)
 	if (panZoom) attachPanZoom(root, content)
 
@@ -234,6 +240,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		svg,
 		update,
 		setPhysics,
+		setSelectedNode,
 		destroy: () => {
 			simulation.on('tick', null)
 			simulation.stop()

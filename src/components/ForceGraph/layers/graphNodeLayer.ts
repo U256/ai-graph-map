@@ -26,6 +26,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 const BODY_STROKE_WIDTH = 1.5
 const TITLE_COLOR = '#1a1a1a'
 const DESCRIPTION_COLOR = '#555'
+const SELECTED_COLOR = '#e4572e'
 
 /** По этому классу панель зума отличает фон карты от узла, чтобы жестом не перехватить drag. */
 export const NODE_CLASS = 'force-graph__node'
@@ -57,6 +58,7 @@ export interface NodeEntry extends LayerEntry<GraphNode> {
 	element: SVGGElement
 	parts: NodeParts
 	renderedKey?: string
+	selected?: boolean
 }
 
 export interface NodeLayerOptions {
@@ -131,14 +133,15 @@ function writeHeading(heading: SVGTextElement, text: string, layout: CloudLayout
 function writeNode(entry: NodeEntry, layout: CloudLayout, fill: string): void {
 	const { parts } = entry
 	const isCloud = entry.datum.type === 'node'
+	const bodyFill = entry.selected ? SELECTED_COLOR : fill
 
-	writeBody(parts.body, layout, fill, isCloud)
+	writeBody(parts.body, layout, bodyFill, isCloud)
 	writeHeading(parts.heading, layout.title, layout)
 	parts.description.textContent = layout.description
 	parts.description.setAttribute('x', String(layout.textX))
 	parts.description.setAttribute('y', String(layout.descriptionY))
 	// у иконки данных на сцене нет: только яркая точка
-	parts.dot.setAttribute('fill', isCloud ? 'none' : fill)
+	parts.dot.setAttribute('fill', isCloud ? 'none' : bodyFill)
 
 	if (layout.warning) {
 		parts.warning.setAttribute('cx', String(layout.warning.x))
@@ -161,6 +164,8 @@ function renderEntry(entry: NodeEntry, options: NodeLayerOptions): void {
 }
 
 export class NodeLayer extends GraphLayer<GraphNode, NodeEntry> {
+	private readonly colorOf: (type: GraphNodeType) => string
+
 	constructor(layer: SVGGElement, options: NodeLayerOptions) {
 		super(layer, (node) => nodeKey(node.id), {
 			create: (node): NodeEntry => {
@@ -171,6 +176,23 @@ export class NodeLayer extends GraphLayer<GraphNode, NodeEntry> {
 				return entry
 			},
 			update: (entry) => renderEntry(entry, options),
+		})
+		this.colorOf = options.colorOf
+	}
+
+	/** Перекрашивает только две сменившиеся ноды, не трогая раскладку и мерку текста. */
+	setSelectedNode(id: string | null): void {
+		this.forEachEntry((entry) => {
+			const selected = id !== null && entry.datum.id === id
+			if (entry.selected === selected) return
+			// состояние выделения хранится в записи слоя, а не в данных симуляции
+			// eslint-disable-next-line no-param-reassign
+			entry.selected = selected
+			const fill = this.colorOf(entry.datum.type)
+			const bodyFill = selected ? SELECTED_COLOR : fill
+			entry.parts.body.setAttribute('fill', tintToWhite(bodyFill))
+			entry.parts.body.setAttribute('stroke', bodyFill)
+			entry.parts.dot.setAttribute('fill', entry.datum.type === 'node' ? 'none' : bodyFill)
 		})
 	}
 

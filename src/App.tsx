@@ -88,7 +88,12 @@ export function App() {
 					)}
 				</aside>
 				<main className="app__main">
-					<ForceGraph settings={settings} data={data} onNodeClick={handleNodeClick} />
+					<ForceGraph
+						settings={settings}
+						data={data}
+						selectedNodeId={view.kind === 'edit' ? view.id : null}
+						onNodeClick={handleNodeClick}
+					/>
 				</main>
 			</div>
 			<footer className="app__footer" />

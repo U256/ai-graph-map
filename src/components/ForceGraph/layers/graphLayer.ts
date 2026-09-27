@@ -98,6 +98,10 @@ export class GraphLayer<T, E extends LayerEntry<T> = LayerEntry<T>> {
 		this.entries.forEach((entry) => tick(entry))
 	}
 
+	forEachEntry(callback: (entry: E) => void): void {
+		this.entries.forEach(callback)
+	}
+
 	clear(): void {
 		this.entries.forEach(({ element }) => forgetElement(element))
 		this.entries.clear()
