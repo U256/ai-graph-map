@@ -10,19 +10,13 @@ import {
 } from '../ForceGraph/forceGraph'
 
 /**
- * Настройки карты без DOM и React: значения по умолчанию, допустимые опции и хранение в
- * localStorage. Разбор строки из хранилища (`parseGraphSettings`) — чистая функция, поэтому
- * проверяется в Node без браузера; работу с самим хранилищем делают `loadGraphSettings` и
- * `saveGraphSettings`.
+ * Настройки карты без DOM и React. Разбор строки из хранилища (`parseGraphSettings`) — чистая функция,
+ * поэтому проверяется в Node; работу с самим хранилищем делают `loadGraphSettings`/`saveGraphSettings`.
  */
 
-/** Опции селекта «Клонировать ноды»: во сколько раз клонировать граф. */
 export const NODE_CLONES_OPTIONS = [1, 2, 3, 5, 10] as const
 
-/**
- * Числовые поля физики: шаг и пределы range-а. Значения по умолчанию берутся у констант сцены,
- * чтобы панель не разъезжалась с кодом, когда значение подгоняют по картинке.
- */
+/** Пределы и шаг range-а; дефолты берутся у констант сцены, чтобы панель не разъезжалась с кодом. */
 export interface NumberFieldSpec {
 	key: keyof Pick<
 		GraphSettings,
@@ -37,7 +31,6 @@ export interface NumberFieldSpec {
 	min: number
 	max: number
 	step: number
-	/** Подпись поля. */
 	label: string
 	/** Короткое пояснение — в `title` контрола. */
 	hint: string
@@ -102,7 +95,7 @@ export const NUMBER_FIELDS: NumberFieldSpec[] = [
 	},
 ]
 
-/** Значения по умолчанию: с них форма стартует и к ним же возвращает кнопка «Сбросить». */
+/** С них форма стартует и к ним же возвращает кнопка «Сбросить». */
 export const DEFAULT_GRAPH_SETTINGS: GraphSettings = {
 	nodeClones: 1,
 	showFullSubNodes: false,
@@ -125,11 +118,9 @@ function createDefaultSettings(): GraphSettings {
 }
 
 /**
- * Проверка, что из хранилища пришли именно настройки: число клонов должно быть одной из опций, оба
- * флага — булевыми, а каждое поле физики — числом в своих пределах (взяты у `NUMBER_FIELDS`, чтобы
- * пределы не приходилось поддерживать в двух местах). Чужой или устаревший объект отбрасывается
- * целиком, а не по полям: частичный разбор дал бы смешанные настройки, где одно поле из старой
- * версии, а другое — из сохранённых.
+ * Чужой или устаревший объект отбрасывается целиком, а не по полям: частичный разбор дал бы смешанные
+ * настройки, где одно поле из старой версии, а другое — из сохранённых. Пределы берутся у
+ * `NUMBER_FIELDS`, чтобы не поддерживать их в двух местах.
  */
 function isGraphSettings(value: unknown): value is GraphSettings {
 	if (typeof value !== 'object' || value === null) return false
@@ -144,22 +135,18 @@ function isGraphSettings(value: unknown): value is GraphSettings {
 	})
 }
 
-/**
- * Разбор строки из хранилища (чистая функция, без обращения к браузеру): битый JSON, `null` и чужие
- * значения дают настройки по умолчанию.
- */
+/** Битый JSON, `null` и чужие значения дают настройки по умолчанию. */
 export function parseGraphSettings(raw: string | null): GraphSettings {
 	if (!raw) return createDefaultSettings()
 	try {
 		const parsed: unknown = JSON.parse(raw)
 		return isGraphSettings(parsed) ? parsed : createDefaultSettings()
 	} catch {
-		// в хранилище лежит не JSON: это не повод ломать панель, просто берём значения по умолчанию
 		return createDefaultSettings()
 	}
 }
 
-/** Читает применённые настройки из localStorage; пустое или недоступное хранилище — значения по умолчанию. */
+/** Пустое или недоступное хранилище — значения по умолчанию. */
 export function loadGraphSettings(): GraphSettings {
 	try {
 		return parseGraphSettings(window.localStorage.getItem(GRAPH_SETTINGS_STORAGE_KEY))
@@ -169,7 +156,7 @@ export function loadGraphSettings(): GraphSettings {
 	}
 }
 
-/** Сохраняет применённые настройки в localStorage; неудачная запись страницу не ломает. */
+/** Неудачная запись страницу не ломает. */
 export function saveGraphSettings(settings: GraphSettings): void {
 	try {
 		window.localStorage.setItem(GRAPH_SETTINGS_STORAGE_KEY, JSON.stringify(settings))

@@ -2,19 +2,15 @@ import type { GraphNode, GraphNodeInput } from '../../../types/graph'
 import type { NodeRenderData, SeedPoint } from '../forceGraph'
 import { NEW_NODE_SEED_FALLBACK, NEW_NODE_SEED_RADIUS } from '../forceGraph'
 
-/**
- * CRUD узлов графа: ключ узла, сравнение его отрисовываемых значений и сборка объекта симуляции.
- * Модуль чистый — ни DOM, ни симуляции, — поэтому весь разбор проверяется в Node.
- */
+/** CRUD узлов графа. Модуль чистый — ни DOM, ни симуляции, — поэтому весь разбор проверяется в Node. */
 
-/** Узел новых данных вместе с ключом и выводом «изменились ли данные» относительно прежнего узла. */
 export interface NextNode {
 	key: string
 	node: GraphNodeInput
 	changed: boolean
 }
 
-/** Ключ узла. Префикс нужен, чтобы ключи узлов и связей не пересеклись в одном множестве. */
+/** Префикс нужен, чтобы ключи узлов и связей не пересеклись в одном множестве. */
 export function nodeKey(id: string): string {
 	return `n:${id}`
 }
@@ -28,12 +24,12 @@ export function isNodeTypeChanged(previous: GraphNodeInput, next: GraphNodeInput
 	return previous.type !== next.type
 }
 
-/** Зависимые от вида значения узла: только те поля, что влияют на раскладку облака и на цвет. */
+/** Только те поля, что влияют на раскладку облака и на цвет. */
 export function nodeRenderData(node: GraphNodeInput): NodeRenderData {
 	return { title: node.title, description: node.description, hasWarning: node.hasWarning, type: node.type }
 }
 
-/** Признак изменившегося узла: сравнение по значениям, а не по идентичности объекта (вариант A). */
+/** Сравнение по значениям, а не по идентичности объекта (вариант A). */
 export function isNodeRenderDataChanged(previous: NodeRenderData, next: GraphNodeInput): boolean {
 	const current = nodeRenderData(next)
 	return (
@@ -45,10 +41,9 @@ export function isNodeRenderDataChanged(previous: NodeRenderData, next: GraphNod
 }
 
 /**
- * Точка высадки нового узла: вокруг центра масс его соседей, по кругу. Порядковый индекс вместо
- * случайного угла — чтобы прогон оставался детерминированным и повторяемым в Node. У узла без
- * соседей точка — центр сцены, и смещение другое: совпавшие координаты двух тел дают в силах
- * нулевое расстояние и деление на него.
+ * Вокруг центра масс соседей, по кругу. Порядковый индекс вместо случайного угла — чтобы прогон
+ * оставался детерминированным и повторяемым в Node. Смещение у несвязного узла ненулевое: совпавшие
+ * координаты двух тел дают в силах деление на ноль.
  */
 export function seedPosition(seed: SeedPoint | undefined, index: number): SeedPoint {
 	const center = seed ?? { x: 0, y: 0 }
@@ -57,14 +52,9 @@ export function seedPosition(seed: SeedPoint | undefined, index: number): SeedPo
 }
 
 /**
- * Объект узла для симуляции. Вызывается только для изменённого или нового узла — неизменённый
- * остаётся прежним объектом и сюда не попадает (см. `applyGraphUpdate`). Новый объект обязателен:
- * правка полей прежнего обнулила бы сравнение значений, и следующая же правка того же узла
- * перестала бы замечаться (снимок снялся бы с уже исправленного объекта).
- *
- * Координаты берутся у прежнего узла: правка подписи не должна уносить узел в другое место карты.
- * Новому узлу прежних координат взять неоткуда, и точка высадки даётся снаружи — иначе d3 разводит
- * такой узел спиралью от нуля, то есть он «прилетел бы из центра карты».
+ * Вызывается только для изменённого или нового узла. Новый объект обязателен: правка полей прежнего
+ * обнулила бы сравнение значений, и следующая правка того же узла перестала бы замечаться.
+ * Координаты берутся у прежнего узла — правка подписи не должна уносить узел в другое место карты.
  */
 export function buildNode(input: GraphNodeInput, before: GraphNode | undefined, seed?: SeedPoint): GraphNode {
 	const position = before ?? seed ?? { x: 0, y: 0 }

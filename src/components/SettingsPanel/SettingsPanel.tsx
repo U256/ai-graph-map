@@ -6,12 +6,12 @@ import { DEFAULT_GRAPH_SETTINGS, NODE_CLONES_OPTIONS, NUMBER_FIELDS, saveGraphSe
 type SettingsPanelProps = {
 	initialSettings: GraphSettings
 	onApply: (settings: GraphSettings) => void
+	onStartCreate: () => void
 }
 
-export function SettingsPanel({ initialSettings, onApply }: SettingsPanelProps) {
+export function SettingsPanel({ initialSettings, onApply, onStartCreate }: SettingsPanelProps) {
 	const { register, handleSubmit, reset, watch } = useForm<GraphSettings>({ defaultValues: initialSettings })
-	// цифра у подписи берётся из формы (`watch`), а не из применённых настроек: иначе она отставала бы
-	// от бегунка до нажатия «Применить», и крутить физику вслепую было бы нельзя
+	// цифра берётся из формы, а не из применённых настроек: иначе отставала бы от бегунка до «Применить»
 	const liveSettings = watch()
 
 	function applySettings(settings: GraphSettings) {
@@ -25,7 +25,13 @@ export function SettingsPanel({ initialSettings, onApply }: SettingsPanelProps) 
 
 	return (
 		<form className="settings-panel" onSubmit={handleSubmit(applySettings)}>
-			<h2 className="settings-panel__title">Настройки</h2>
+			<div className="settings-panel__header">
+				<h2 className="settings-panel__title">Настройки</h2>
+				{/* не должна отправлять форму настроек */}
+				<button className="settings-panel__corner" type="button" onClick={onStartCreate} title="Добавить ноду">
+					+
+				</button>
+			</div>
 			<label className="settings-panel__field" htmlFor="node-clones">
 				<span className="settings-panel__label">Клонировать ноды</span>
 				<select
@@ -41,7 +47,6 @@ export function SettingsPanel({ initialSettings, onApply }: SettingsPanelProps) 
 					))}
 				</select>
 			</label>
-			{/* поля физики: range с текущим значением рядом, чтобы было видно, куда крутишь */}
 			{NUMBER_FIELDS.map(({ key, min, max, step, label, hint }) => (
 				<label className="settings-panel__field" htmlFor={key} key={key}>
 					<span className="settings-panel__label">

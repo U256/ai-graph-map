@@ -9,6 +9,7 @@ import {
 	createSimulation,
 	createTypeColors,
 	DRAG_ALPHA_TARGET,
+	DRAG_CLICK_SLOP,
 	GRAPH_HEIGHT,
 	GRAPH_WIDTH,
 	LAYOUT_SCALE,
@@ -23,31 +24,26 @@ import { LinkLayer } from './layers/graphLinkLayer'
 import { NODE_CLASS, NodeLayer } from './layers/graphNodeLayer'
 
 /**
- * Сборка svg-сцены графа и её инкрементальное обновление. Физика, геометрия облаков, разбор
- * изменений и жизненный цикл нод/связей живут в своих модулях, здесь остаются только svg, drag,
- * панорама/зум и порядок применения обновления к симуляции.
+ * Сборка svg-сцены графа и её инкрементальное обновление: здесь только svg, drag, панорама/зум и
+ * порядок применения обновления к симуляции.
  */
 
 export interface ForceGraphOptions extends GraphPhysics {
-	/** Панорама перетаскиванием фона и зум колесом. */
 	panZoom?: boolean
+	/**
+	 * Наружу уходит только id: данные живут в стейте вызывающего, а `__data__` группы после правки может
+	 * держать прежний объект симуляции. Клоны (`nodeClones > 1`) дают id вида `2-…`, которого в данных
+	 * нет — вызывающий сам решает, что с этим делать (см. `App`).
+	 */
+	onNodeClick?: (id: string) => void
 }
 
-/** Готовый граф: svg собран, его остаётся вставить в DOM. */
 export interface ForceGraphHandle {
 	svg: SVGSVGElement
-	/**
-	 * Перерисовать сцену под новые данные: добавить новые узлы и связи, обновить изменившиеся и
-	 * убрать удалённые. Раскладка, вид панорамы/зума и сама симуляция при этом сохраняются — сцена
-	 * не пересобирается, поэтому карта не «мигает» и не уезжает в начало раскладки.
-	 */
+	/** Сцена не пересобирается: раскладка, вид панорамы/зума и симуляция сохраняются, карта не «мигает». */
 	update: (data: GraphData) => void
-	/**
-	 * Применить другие значения физики к уже собранной сцене: силы и разогревы читаются из одного
-	 * объекта замыкания, поэтому достаточно их переписать и разогреть карту.
-	 */
+	/** Силы и разогревы читаются из одного объекта замыкания, поэтому достаточно их переписать и разогреть карту. */
 	setPhysics: (physics: GraphPhysics) => void
-	/** Останавливает симуляцию и убирает svg — вызывается при размонтировании. */
 	destroy: () => void
 }
 
@@ -56,20 +52,26 @@ type ContentSelection = Selection<SVGGElement, unknown, null, undefined>
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const ARIA_LABEL = 'Граф связей научных работ и патентов'
-/** Пределы зума: без них граф легко потерять за краем экрана. */
+/** Без них граф легко потерять за краем экрана. */
 const ZOOM_EXTENT: [number, number] = [0.5, 8]
 
 /**
- * Drag узла: узел держится под курсором, симуляция разогревается на время жеста (`alphaTarget` —
- * слабо, чтобы не разъезжалась вся карта) и остывает после отпускания. Предмет жеста берётся в
- * локальную переменную, чтобы не мутировать параметр обработчика.
+ * Узел держится под курсором, симуляция разогревается на время жеста слабо, чтобы не разъезжалась вся
+ * карта. Возвращается и признак «был перетаскиванием»: d3-drag не глушит `click` после отпускания мыши.
  */
 function createDrag(
 	simulation: Simulation<GraphNode, GraphLink>,
 	physics: GraphPhysics,
-): DragBehavior<SVGGElement, GraphNode, GraphNode> {
+): { behavior: DragBehavior<SVGGElement, GraphNode, GraphNode>; wasDragging: () => boolean } {
+	let dragging = false
+	let startX = 0
+	let startY = 0
+
 	function dragstarted(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
 		const { subject } = event
+		dragging = false
+		startX = event.sourceEvent?.clientX ?? 0
+		startY = event.sourceEvent?.clientY ?? 0
 		if (!event.active) simulation.alphaTarget(physics.dragAlphaTarget ?? DRAG_ALPHA_TARGET).restart()
 		subject.fx = subject.x
 		subject.fy = subject.y
@@ -77,6 +79,9 @@ function createDrag(
 
 	function dragged(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
 		const { subject } = event
+		const source = event.sourceEvent as MouseEvent | undefined
+		// порог в пикселях: дрожащая рука не должна превращать намеренный клик в жест
+		if (source && Math.hypot(source.clientX - startX, source.clientY - startY) > DRAG_CLICK_SLOP) dragging = true
 		subject.fx = event.x
 		subject.fy = event.y
 	}
@@ -88,15 +93,15 @@ function createDrag(
 		subject.fy = null
 	}
 
-	return drag<SVGGElement, GraphNode, GraphNode>().on('start', dragstarted).on('drag', dragged).on('end', dragended)
+	const behavior = drag<SVGGElement, GraphNode, GraphNode>()
+		.on('start', dragstarted)
+		.on('drag', dragged)
+		.on('end', dragended)
+
+	return { behavior, wasDragging: () => dragging }
 }
 
-/**
- * Панорама и зум: сцена едет за курсором. Узлы уводят жест себе (d3-drag глушит всплытие), поэтому
- * перетаскивание узла и перетаскивание фона не конфликтуют. Колесо поверх узла при этом остаётся
- * зумом: drag узла колесо не перехватывает, и без этой оговорки зум работал бы только по пустому
- * месту, а на плотной карте — почти никогда.
- */
+/** Узлы уводят жест себе (d3-drag глушит всплытие). Колесо поверх узла остаётся зумом: drag его не перехватывает, иначе на плотной карте зум работал бы почти никогда. */
 function attachPanZoom(root: SvgSelection, content: ContentSelection): void {
 	root.call(
 		zoom<SVGSVGElement, unknown>()
@@ -109,7 +114,7 @@ function attachPanZoom(root: SvgSelection, content: ContentSelection): void {
 	)
 }
 
-/** Создать svg сцены и две группы: связи под узлами, порядок слоёв задан данными, а не z-index. */
+/** Две группы: связи под узлами — порядок слоёв задан разметкой, а не z-index. */
 function createScene(): {
 	svg: SVGSVGElement
 	content: ContentSelection
@@ -123,52 +128,55 @@ function createScene(): {
 	svg.setAttribute('aria-label', ARIA_LABEL)
 
 	const content = select(svg).append('g')
-	// цвет и непрозрачность связей держатся на группе слоя: на линии остаётся только толщина и концы
+	// цвет и непрозрачность — на группе слоя, чтобы на линии оставалась только толщина
 	const links = content.append('g').attr('stroke', '#999').attr('stroke-opacity', 0.6)
 	const nodes = content.append('g')
 
 	return { svg, content, linkLayer: links.node() as SVGGElement, nodeLayer: nodes.node() as SVGGElement }
 }
 
-/**
- * Ключи узлов, которым нужна перерисовка группы: изменённые и добавленные. Остальные слои проходят
- * мимо renderer.update(), поэтому мерка текста за обновление вызывается ровно столько раз, сколько
- * подписей правда поменялось.
- */
+/** Мерка текста за обновление вызывается ровно столько раз, сколько подписей правда поменялось. */
 function dirtyNodeKeys(result: GraphUpdateResult): Set<string> {
 	return new Set([...result.changedNodeKeys, ...result.addedNodeKeys])
 }
 
-/** Ключи связей, которым нужна перерисовка толщины: свои правки и смена типа у любого из концов. */
+/** Толщина пересчитывается и при смене типа у любого из концов связи. */
 function dirtyLinkKeys(result: GraphUpdateResult): Set<string> {
 	return new Set([...result.changedLinkKeys, ...result.addedLinkKeys])
 }
 
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
-	const { panZoom = true, ...initialPhysics } = options
+	const { panZoom = true, onNodeClick, ...initialPhysics } = options
 	const { svg, content, linkLayer: linkGroup, nodeLayer: nodeGroup } = createScene()
 	const root = select(svg)
 
-	// физика читается из этого объекта всеми силами и drag'ом: setPhysics пишет в него, а не пересобирает сцену
+	// всеми силами и drag'ом читается этот объект: setPhysics пишет в него, а не пересобирает сцену
 	const physics: GraphPhysics = { ...initialPhysics }
 
 	const measure = createTextMeasurer()
 	const { nodes: initialNodes, links: initialLinks } = prepareGraph(data)
-	// палитра живёт вместе со сценой: тип, приехавший с обновлением, получит свой оттенок и сохранит
-	// его, а прежние типы не перекрасятся (цвет, что значил до обновления, значит то же и после)
+	// палитра живёт вместе со сценой: прежние типы не перекрасятся, новый получит свой оттенок
 	const colorOf = createTypeColors(initialNodes)
 	const simulation = createSimulation(initialNodes, initialLinks, physics)
 	const linkForce = simulation.force<ForceLink<GraphNode, GraphLink>>('link') as ForceLink<GraphNode, GraphLink>
-	const dragBehavior = createDrag(simulation, physics)
+	const { behavior: dragBehavior, wasDragging } = createDrag(simulation, physics)
 
 	const layers = {
 		links: new LinkLayer(linkGroup),
 		nodes: new NodeLayer(nodeGroup, {
 			colorOf,
-			// раскладка одного узла: мерка текста вызывается один раз на изменённый узел, не на сцену
 			layoutOf: (node) => createCloudLayouts([node], measure).get(node) as CloudLayout,
-			// drag навешивается при создании: новые группы узнают о нем сразу, а прежние не трогаются
-			attach: (element) => select<SVGGElement, GraphNode>(element).call(dragBehavior),
+			// навешивается при создании: прежние группы не трогаются
+			attach: (element) => {
+				const group = select<SVGGElement, GraphNode>(element)
+				group.call(dragBehavior)
+				if (!onNodeClick) return
+				group.on('click', (_event: MouseEvent, node: GraphNode) => {
+					// d3-drag не глушит `click`, который браузер стреляет после отпускания мыши
+					if (wasDragging()) return
+					onNodeClick(node.id)
+				})
+			},
 		}),
 	}
 
@@ -179,19 +187,14 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 
 	layers.links.sync(asDrawnLinks(initialLinks))
 	layers.nodes.sync(initialNodes)
-	// новые элементы должны встать на свои координаты сразу, не дожидаясь первого тика
+	// новые элементы встают на свои координаты сразу, не дожидаясь первого тика
 	drawTick()
 
 	/**
-	 * Применение новых данных к существующей симуляции. Порядок здесь принципиален:
-	 * `nodes()` присваивает узлам `index`, `linkForce.links()` по этим `index`-ам разрешает концы
-	 * связей и пересчитывает `bias`, и только потом поднимается `alpha` — иначе остывшая симуляция
-	 * (её таймер гаснет на `alphaMin`) осталась бы неподвижной.
-	 *
-	 * Состояние сцены читается из симуляции и силы связей, а не хранится отдельно: они и есть
-	 * актуальный граф, и рассинхрон между ними и слоем невозможен в принципе. Слой получает полный
-	 * список сущностей плюс ключи изменённых — добавление, правка и удаление элементов происходят
-	 * в одном проходе по предыдущему состоянию слоя, а сцена целиком не пересобирается.
+	 * Порядок принципиален: `nodes()` присваивает узлам `index`, `linkForce.links()` по ним разрешает
+	 * концы и пересчитывает `bias`, и только потом поднимается `alpha` — иначе остывшая симуляция
+	 * осталась бы неподвижной. Состояние читается из симуляции и силы связей, а не хранится отдельно:
+	 * рассинхрон между ними и слоем невозможен.
 	 */
 	function update(next: GraphData): void {
 		const state = readGraphState(simulation.nodes(), linkForce.links())
@@ -206,11 +209,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		drawTick()
 	}
 
-	/**
-	 * Смена физики без пересборки сцены: `forceLink` и `forceManyBody` берут дистанцию/крепость/заряд
-	 * из своих сеттеров, а `velocityDecay` — у симуляции. Drag читает `dragAlphaTarget` из того же
-	 * объекта `physics`, поэтому его перенавешивать не нужно.
-	 */
+	/** Drag читает `dragAlphaTarget` из того же объекта `physics`, поэтому его перенавешивать не нужно. */
 	function setPhysics(next: GraphPhysics): void {
 		Object.assign(physics, next)
 		if (physics.linkDistance !== undefined) linkForce.distance(physics.linkDistance)
@@ -235,7 +234,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		destroy: () => {
 			simulation.on('tick', null)
 			simulation.stop()
-			// снимает данные с удалённых элементов: иначе снятый DOM держит объекты симуляции
+			// иначе снятый DOM держит объекты симуляции
 			layers.links.clear()
 			layers.nodes.clear()
 			svg.remove()

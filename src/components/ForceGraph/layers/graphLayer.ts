@@ -1,11 +1,8 @@
 /**
- * Базовый слой svg: набор однотипных элементов, у каждого — свой ключ. Слой хранит соответствие
- * ключ → элемент и на каждом `sync` проходит по предыдущему состоянию: добавляет новые элементы,
- * обновляет нужные и убирает те, чьих данных больше нет. Так граф перерисовывается инкрементально,
- * а не собирается заново на каждое изменение данных.
+ * Базовый слой svg: набор однотипных элементов с ключом. `sync` проходит по предыдущему состоянию —
+ * так граф перерисовывается инкрементально, а не собирается заново на каждое изменение данных.
  */
 
-/** Ключ элемента в слое — строка из `forceGraphUpdate` (`nodeKey` / `linkKey`). */
 export type LayerKey = string
 
 export interface LayerEntry<T> {
@@ -19,38 +16,34 @@ export interface SyncResult {
 	removed: number
 }
 
-/** Слой рисует элемент по данным и умеет обновлять уже нарисованный. */
-export interface LayerRenderer<T> {
-	/** Создать элемент для новых данных и вернуть его корневой узел. */
-	create(datum: T, index: number): Element
+export interface LayerRenderer<T, E extends LayerEntry<T> = LayerEntry<T>> {
 	/**
-	 * Допписать данные в уже нарисованный элемент. Вызывается только для элементов, которым план
-	 * обновления выставил флаг изменения, — тяжёлое (раскладку, мерку текста) слой поэтому не
-	 * трогает на каждый `sync`, а прежние элементы остаются как есть.
+	 * Слой сохраняет возвращённую запись целиком, поэтому `update` видит те же поля, что и `create`.
+	 * Строил бы запись сам слой из возвращённого элемента — расширенная запись (`NodeEntry.parts`)
+	 * терялась бы, и перерисовка существующего элемента падала на отсутствии поля.
 	 */
-	update(entry: LayerEntry<T>): void
+	create(datum: T, index: number): E
+	/** Вызывается только для элементов из `dirtyKeys`, чтобы тяжёлое (раскладку, мерку текста) слой не трогал на каждый `sync`. */
+	update(entry: E): void
 }
 
-/**
- * Снять элемент с DOM и с себя. `__data__` удаляем обязательно: иначе снятый узел продолжает
- * держать объект симуляции, а тот через концы связей — весь прежний граф.
- */
+/** `__data__` удаляем обязательно: иначе снятый узел держит объект симуляции, а тот — весь прежний граф. */
 function forgetElement(element: Element): void {
 	// eslint-disable-next-line no-param-reassign
 	delete (element as unknown as { __data__?: unknown }).__data__
 	element.remove()
 }
 
-export class GraphLayer<T> {
-	private entries = new Map<LayerKey, LayerEntry<T>>()
+export class GraphLayer<T, E extends LayerEntry<T> = LayerEntry<T>> {
+	private entries = new Map<LayerKey, E>()
 
 	private readonly layer: SVGGElement
 
 	private readonly keyOf: (datum: T) => LayerKey
 
-	private readonly renderer: LayerRenderer<T>
+	private readonly renderer: LayerRenderer<T, E>
 
-	constructor(layer: SVGGElement, keyOf: (datum: T) => LayerKey, renderer: LayerRenderer<T>) {
+	constructor(layer: SVGGElement, keyOf: (datum: T) => LayerKey, renderer: LayerRenderer<T, E>) {
 		this.layer = layer
 		this.keyOf = keyOf
 		this.renderer = renderer
@@ -61,11 +54,8 @@ export class GraphLayer<T> {
 	}
 
 	/**
-	 * Привести слой к новым данным. `data` — полный список сущностей: прежние элементы остаются как
-	 * есть (их группы не пересоздаются и не переставляются), новые добавляются, лишние удаляются.
-	 * Перерисовка дописывается только элементам из `dirtyKeys` — тем, у которых план обновления
-	 * нашёл правку данных; остальные проходят мимо renderer.update(), и дорогая мерка текста на них
-	 * не вызывается.
+	 * `data` — полный список сущностей: прежние элементы остаются как есть, новые добавляются, лишние
+	 * удаляются. Перерисовка дописывается только элементам из `dirtyKeys`.
 	 */
 	sync(data: T[], dirtyKeys: Set<LayerKey> = new Set()): SyncResult {
 		const wanted = new Map<LayerKey, T>()
@@ -87,10 +77,10 @@ export class GraphLayer<T> {
 				return
 			}
 
-			const element = this.renderer.create(datum, added)
+			const fresh = this.renderer.create(datum, added)
 			// данные вешаем на элемент: по ним d3-drag и подсказка находят свою сущность
-			;(element as unknown as { __data__: T }).__data__ = datum
-			this.entries.set(key, { element, datum })
+			;(fresh.element as unknown as { __data__: T }).__data__ = datum
+			this.entries.set(key, fresh)
 			added += 1
 		})
 
@@ -104,12 +94,10 @@ export class GraphLayer<T> {
 		return { added, updated, removed }
 	}
 
-	/** Вызывается на каждый тик: элемент получает координаты из своих данных. */
 	draw(tick: (entry: LayerEntry<T>) => void): void {
 		this.entries.forEach((entry) => tick(entry))
 	}
 
-	/** Убрать все элементы слоя (используется при удалении сцены целиком). */
 	clear(): void {
 		this.entries.forEach(({ element }) => forgetElement(element))
 		this.entries.clear()

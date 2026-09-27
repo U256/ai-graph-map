@@ -1,45 +1,19 @@
 # ai-graph-map
 
-React + TypeScript + Vite.
+Учебная визуализация графа: React 19 + TypeScript + Vite, физика и DOM на d3, формы на
+`react-hook-form`. Узлы — научные работы (`node`) и цитирующие их патенты (`subNode`). Данные —
+типизированный модуль `src/data/graph.ts`, запроса к серверу нет, загрузка эмулируется.
 
-Контекст для агентов (структура, конвенции, порядок проверки и известные грабли) — в
-[`AGENTS.md`](./AGENTS.md).
-
-## Стек
-
-- Vite 8 + React 19 + TypeScript (`strict`, три `tsconfig`: `app`, `node` и solution-файл в корне),
-  формы — `react-hook-form`.
-- CSS: `normalize.css` подключается первым через `@import` в `src/index.css` — там же стилизация.
-- Настройки: панель `SettingsPanel` в `aside` — селект числа клонов нод, тоггл «Полный вид саб нод»,
-  чекбокс «Скрыть саб ноды», кнопки «Применить»/«Сбросить». Сабмит кладёт значения в `localStorage` и
-  отдаёт их в стейт `App`, стартовые значения страница читает из того же ключа (битые данные
-  отбрасываются в пользу дефолтов). Из настроек сценой используется только число клонов нод.
-- Визуализация карты в main: `d3-force` + `d3-selection`/`d3-drag`/`d3-zoom` — граф в `src/components/ForceGraph`.
-  Узлы-работы (type: 'node') — облака размером по тексту (кегли 14/12, обрезка описаний в «…»),
-  узлы-патенты (type: 'subNode') — иконки 16×16 с точкой в центре; тела залиты светлым оттенком цвета типа, поэтому связи
-  под ними не просвечивают, а сами узлы читаются на фоне.
-- Данные графа: `src/data/graph.ts` — типизированный модуль, импортируется напрямую, без запроса; состояние «Загрузка графа…» эмулируется `setTimeout`.
-  Типы данных — в `src/types/graph.ts`.
-- Линтеры: ESLint (`airbnb` + `airbnb-typescript` + `prettier`) и Prettier.
+Структура, конвенции, порядок проверки и известные грабли — в [`AGENTS.md`](./AGENTS.md).
 
 ## Команды
 
-- `npm run dev` — дев-сервер Vite.
-- `npm run build` — проверка типов (`tsc -b`) и продакшн-сборка в `dist`.
-- `npm run preview` — локальный просмотр собранного `dist`.
-- `npm run check-types` — только проверка типов.
-- `npm run lint` — prettier + eslint с автофиксом по всем `js/jsx/ts/tsx` (используется пре-коммит хуком).
-- `npm run lint-all` — то же самое (алиас `npm run lint-es`).
+- `npm run dev` / `npm run build` / `npm run preview` — дев-сервер, сборка (`tsc -b` + Vite), просмотр `dist`.
+- `npm run check-types` — только типы; `npm run lint` — prettier + eslint с автофиксом.
+- Хуки в `.git-hooks`, путь подключается скриптом `prepare`; `pre-commit` запускает `npm run lint`.
 
-## Git-хук
+## Стиль
 
-Хуки лежат в `.git-hooks`. Путь включается скриптом `prepare` при `npm install`
-(`git config --local core.hooksPath .git-hooks`), поэтому после клонирования достаточно
-выполнить `npm install`. Хук `pre-commit` запускает `npm run lint` и отменяет коммит,
-если линтер вернул ошибку.
-
-## Стиль кода
-
-- Prettier: табы (ширина 3), без точек с запятой, одинарные кавычки, ширина строки 120, LF.
-- ESLint: лимиты `max-lines` 300 и `max-lines-per-function` 120. Для данных графа
-  (`src/data/**`) лимит строк отключён: это большой сгенерированный массив, а не код.
+Prettier (табы, без `;`, одинарные кавычки, 120) и ESLint (airbnb + airbnb-typescript) — значения в
+`.prettierrc.mjs` и `.eslintrc.cjs`. Для `src/data/**` лимит `max-lines` отключён: там сгенерированные
+данные, а не логика.
