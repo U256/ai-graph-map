@@ -53,7 +53,7 @@ type ContentSelection = Selection<SVGGElement, unknown, null, undefined>
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const ARIA_LABEL = 'Граф связей научных работ и патентов'
 /** Без них граф легко потерять за краем экрана. */
-const ZOOM_EXTENT: [number, number] = [0.5, 8]
+const ZOOM_EXTENT: [number, number] = [0.2, 8]
 
 /**
  * Узел держится под курсором, симуляция разогревается на время жеста слабо, чтобы не разъезжалась вся
@@ -219,7 +219,10 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		if (physics.chargeStrength !== undefined || physics.layoutScale !== undefined) {
 			const charge = physics.chargeStrength ?? CHARGE_STRENGTH
 			const scale = physics.layoutScale ?? LAYOUT_SCALE
-			simulation.force('charge', forceManyBody().strength(charge * scale ** 2))
+			simulation.force(
+				'charge',
+				forceManyBody<GraphNode>().strength((node) => charge * scale ** 2 * (node.chargeMultiplier ?? 1)),
+			)
 		}
 		simulation.alpha(physics.updateAlpha ?? UPDATE_ALPHA).restart()
 	}

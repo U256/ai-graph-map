@@ -26,7 +26,13 @@ export function isNodeTypeChanged(previous: GraphNodeInput, next: GraphNodeInput
 
 /** Только те поля, что влияют на раскладку облака и на цвет. */
 export function nodeRenderData(node: GraphNodeInput): NodeRenderData {
-	return { title: node.title, description: node.description, hasWarning: node.hasWarning, type: node.type }
+	return {
+		title: node.title,
+		description: node.description,
+		hasWarning: node.hasWarning,
+		type: node.type,
+		chargeMultiplier: node.chargeMultiplier,
+	}
 }
 
 /** Сравнение по значениям, а не по идентичности объекта (вариант A). */
@@ -36,7 +42,8 @@ export function isNodeRenderDataChanged(previous: NodeRenderData, next: GraphNod
 		previous.title !== current.title ||
 		previous.description !== current.description ||
 		previous.hasWarning !== current.hasWarning ||
-		previous.type !== current.type
+		previous.type !== current.type ||
+		previous.chargeMultiplier !== current.chargeMultiplier
 	)
 }
 

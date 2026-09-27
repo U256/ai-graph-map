@@ -9,7 +9,11 @@
 ## Команды
 
 - `npm run dev` / `npm run build` / `npm run preview` — дев-сервер, сборка (`tsc -b` + Vite), просмотр `dist`.
-- `npm run check-types` — только типы; `npm run lint` — prettier + eslint с автофиксом.
+- `npm run check-types` — только типы; `npm run lint` — prettier + eslint с автофиксом;
+  `npm run format:check` — prettier без правок.
+- `npm run check:map` — карта репозитория (файл → экспорты → кто импортирует).
+- `npm run check:logic` — инварианты графа в Node; `npm run check:ui` — сцена и жесты в headless
+  Chromium (браузер ставится в `.pw/browsers` командой `npm run check:env`); `npm run verify` — всё сразу.
 - Хуки в `.git-hooks`, путь подключается скриптом `prepare`; `pre-commit` запускает `npm run lint`.
 
 ## Стиль

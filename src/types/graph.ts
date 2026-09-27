@@ -17,6 +17,8 @@ export interface GraphNodeInput {
 	hasWarning: boolean
 	/** Вместе с типом приходит и цвет. */
 	type: GraphNodeType
+	/** Множитель индивидуального отталкивания; отсутствие сохраняет общую силу. */
+	chargeMultiplier?: number
 }
 
 /** Концы связи заданы идентификаторами узлов. */

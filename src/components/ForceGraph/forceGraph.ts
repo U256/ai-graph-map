@@ -64,6 +64,7 @@ export interface NodeRenderData {
 	description?: string
 	hasWarning: boolean
 	type: GraphNodeType
+	chargeMultiplier?: number
 }
 
 /** Точка высадки нового узла. */
@@ -100,7 +101,10 @@ export function createSimulation(
 
 	return forceSimulation(nodes)
 		.force('link', link)
-		.force('charge', forceManyBody().strength(charge * scale ** 2))
+		.force(
+			'charge',
+			forceManyBody<GraphNode>().strength((node) => charge * scale ** 2 * (node.chargeMultiplier ?? 1)),
+		)
 		.force('x', forceX())
 		.force('y', forceY())
 		.velocityDecay(physics.velocityDecay ?? VELOCITY_DECAY)
