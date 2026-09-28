@@ -1,7 +1,7 @@
 import { drag, type D3DragEvent, type DragBehavior } from 'd3-drag'
 import { forceManyBody, type ForceLink, type Simulation } from 'd3-force'
 import { select, type Selection } from 'd3-selection'
-import { zoom, type D3ZoomEvent } from 'd3-zoom'
+import { zoom, zoomIdentity, type D3ZoomEvent } from 'd3-zoom'
 import type { GraphData, GraphLink, GraphNode } from '../../types/graph'
 import {
 	asDrawnLinks,
@@ -40,6 +40,8 @@ export interface ForceGraphOptions extends GraphPhysics {
 
 export interface ForceGraphHandle {
 	svg: SVGSVGElement
+	zoomIndicator: HTMLDivElement
+	zoomControls: HTMLDivElement
 	/** Сцена не пересобирается: раскладка, вид панорамы/зума и симуляция сохраняются, карта не «мигает». */
 	update: (data: GraphData) => void
 	/** Силы и разогревы читаются из одного объекта замыкания, поэтому достаточно их переписать и разогреть карту. */
@@ -103,16 +105,46 @@ function createDrag(
 }
 
 /** Узлы уводят жест себе (d3-drag глушит всплытие). Колесо поверх узла остаётся зумом: drag его не перехватывает, иначе на плотной карте зум работал бы почти никогда. */
-function attachPanZoom(root: SvgSelection, content: ContentSelection): void {
-	root.call(
-		zoom<SVGSVGElement, unknown>()
-			.scaleExtent(ZOOM_EXTENT)
-			.filter((event) => event.type === 'wheel' || !(event.target as Element).closest(`.${NODE_CLASS}`))
-			.on('zoom', (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-				const { x, y, k } = event.transform
-				content.attr('transform', `translate(${x},${y}) scale(${k})`)
-			}),
+function createZoomButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
+	const button = document.createElement('button')
+	button.type = 'button'
+	button.textContent = label
+	button.title = title
+	button.setAttribute('aria-label', title)
+	button.addEventListener('click', onClick)
+	return button
+}
+
+function attachPanZoom(root: SvgSelection, content: ContentSelection, zoomIndicator: HTMLDivElement): HTMLDivElement {
+	const indicator = zoomIndicator
+	let currentScale = zoomIdentity.k
+	const behavior = zoom<SVGSVGElement, unknown>()
+		.scaleExtent(ZOOM_EXTENT)
+		.filter((event) => event.type === 'wheel' || !(event.target as Element).closest(`.${NODE_CLASS}`))
+		.on('zoom', (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
+			const { x, y, k } = event.transform
+			currentScale = k
+			content.attr('transform', `translate(${x},${y}) scale(${k})`)
+			indicator.textContent = `Зум: ${k.toFixed(1)}`
+		})
+	root.call(behavior)
+
+	const controls = document.createElement('div')
+	controls.className = 'force-graph__zoom-controls'
+	controls.append(
+		createZoomButton('□', 'Отцентровать карту', () => {
+			root.call(behavior.transform, zoomIdentity)
+		}),
+		createZoomButton('+', 'Приблизить карту', () => {
+			const nextScale = Math.min(ZOOM_EXTENT[1], currentScale + 0.3)
+			root.call(behavior.scaleBy, nextScale / currentScale)
+		}),
+		createZoomButton('−', 'Отдалить карту', () => {
+			const nextScale = Math.max(ZOOM_EXTENT[0], currentScale - 0.3)
+			root.call(behavior.scaleBy, nextScale / currentScale)
+		}),
 	)
+	return controls
 }
 
 /** Две группы: связи под узлами — порядок слоёв задан разметкой, а не z-index. */
@@ -149,6 +181,10 @@ function dirtyLinkKeys(result: GraphUpdateResult): Set<string> {
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
 	const { panZoom = true, onNodeClick, ...initialPhysics } = options
 	const { svg, content, linkLayer: linkGroup, nodeLayer: nodeGroup } = createScene()
+	const zoomIndicator = document.createElement('div')
+	zoomIndicator.className = 'force-graph__zoom'
+	zoomIndicator.textContent = 'Зум: 1.0'
+	let zoomControls = document.createElement('div')
 	const root = select(svg)
 
 	// всеми силами и drag'ом читается этот объект: setPhysics пишет в него, а не пересобирает сцену
@@ -234,10 +270,14 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	}
 
 	simulation.on('tick', drawTick)
-	if (panZoom) attachPanZoom(root, content)
+	if (panZoom) {
+		zoomControls = attachPanZoom(root, content, zoomIndicator)
+	}
 
 	return {
 		svg,
+		zoomIndicator,
+		zoomControls,
 		update,
 		setPhysics,
 		setSelectedNode,
@@ -248,6 +288,8 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 			layers.links.clear()
 			layers.nodes.clear()
 			svg.remove()
+			zoomIndicator.remove()
+			zoomControls.remove()
 		},
 	}
 }

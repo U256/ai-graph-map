@@ -19,6 +19,40 @@
 	min-height: 0;
 }
 
+.force-graph__zoom {
+	position: absolute;
+	top: 0.75rem;
+	right: 1rem;
+	padding: 0.25rem 0.5rem;
+	background: rgb(255 255 255 / 80%);
+	font-size: 0.85rem;
+	pointer-events: none;
+}
+
+.force-graph__zoom-controls {
+	position: absolute;
+	bottom: 1rem;
+	left: 1rem;
+	display: flex;
+	gap: 0.25rem;
+}
+
+.force-graph__zoom-controls button {
+	width: 2rem;
+	height: 2rem;
+	padding: 0;
+	border: 1px solid rgb(0 0 0 / 20%);
+	border-radius: 0.25rem;
+	background: rgb(255 255 255 / 90%);
+	font-size: 1.1rem;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.force-graph__zoom-controls button:hover {
+	background: #fff;
+}
+
 .force-graph__counter {
 	align-self: stretch;
 	box-sizing: border-box;

@@ -76,7 +76,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 			graphRef.current = next
 			mountedData.current = data
 			mountedPhysics.current = physics
-			container.replaceChildren(next.svg)
+			container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
 			return
 		}
 		if (data !== mountedData.current) {
