@@ -3,8 +3,8 @@
  * применяются к уже собранной сцене без её пересборки.
  */
 export type GraphSettings = {
-	/** Каждая копия — полная копия всех узлов и связей. */
-	nodeClones: number
+	/** Вариант набора нод: большой граф с множителем или один из мини-графов. */
+	nodeClones: number | 'mini1' | 'mini2' | 'mini3'
 	showFullSubNodes: boolean
 	hideSubNodes: boolean
 	layoutScale: number

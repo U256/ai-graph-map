@@ -1,4 +1,5 @@
 .force-graph {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -16,6 +17,14 @@
 	flex: 1 1 0;
 	width: 100%;
 	min-height: 0;
+}
+
+.force-graph__counter {
+	align-self: stretch;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0.5rem 1rem 0;
+	font-size: 0.85rem;
 }
 
 /* не grab: жест панорамы об этом говорит не стрелка, а поведение сцены */
@@ -36,4 +45,12 @@
 	font-size: 0.85rem;
 	text-align: center;
 	opacity: 0.7;
+}
+
+.force-graph__loading {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: rgb(255 255 255 / 92%);
 }

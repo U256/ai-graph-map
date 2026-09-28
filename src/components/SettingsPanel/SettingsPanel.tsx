@@ -33,16 +33,19 @@ export function SettingsPanel({ initialSettings, onApply, onStartCreate }: Setti
 				</button>
 			</div>
 			<label className="settings-panel__field" htmlFor="node-clones">
-				<span className="settings-panel__label">Клонировать ноды</span>
+				<span className="settings-panel__label">Ноды</span>
 				<select
 					className="settings-panel__select"
 					id="node-clones"
-					title="Во сколько раз клонировать граф: каждая копия — полная копия всех узлов и связей."
-					{...register('nodeClones', { valueAsNumber: true })}
+					title="Набор нод и связей, который будет показан на карте."
+					{...register('nodeClones', {
+						setValueAs: (value: string | number) =>
+							typeof value === 'string' && value.startsWith('mini') ? value : Number(value),
+					})}
 				>
-					{NODE_CLONES_OPTIONS.map((option) => (
-						<option key={option} value={option}>
-							{option}
+					{NODE_CLONES_OPTIONS.map(({ value, label }) => (
+						<option key={value} value={value}>
+							{label}
 						</option>
 					))}
 				</select>

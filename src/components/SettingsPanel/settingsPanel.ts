@@ -14,7 +14,16 @@ import {
  * поэтому проверяется в Node; работу с самим хранилищем делают `loadGraphSettings`/`saveGraphSettings`.
  */
 
-export const NODE_CLONES_OPTIONS = [1, 2, 3, 5, 10] as const
+export const NODE_CLONES_OPTIONS = [
+	{ value: 1, label: 'Большой граф' },
+	{ value: 2, label: 'Большой граф Х2' },
+	{ value: 3, label: 'Большой граф Х3' },
+	{ value: 5, label: 'Большой граф Х5' },
+	{ value: 10, label: 'Большой граф Х10' },
+	{ value: 'mini1', label: 'Мини-граф на 15 нод' },
+	{ value: 'mini2', label: 'Мини-граф на 40 нод' },
+	{ value: 'mini3', label: 'Мини-граф на 90 нод' },
+] as const
 
 /** Пределы и шаг range-а; дефолты берутся у констант сцены, чтобы панель не разъезжалась с кодом. */
 export interface NumberFieldSpec {
@@ -125,7 +134,7 @@ function createDefaultSettings(): GraphSettings {
 function isGraphSettings(value: unknown): value is GraphSettings {
 	if (typeof value !== 'object' || value === null) return false
 	const settings = value as Partial<Record<keyof GraphSettings, unknown>>
-	const clonesMatch = NODE_CLONES_OPTIONS.some((option) => option === settings.nodeClones)
+	const clonesMatch = NODE_CLONES_OPTIONS.some((option) => option.value === settings.nodeClones)
 	if (!clonesMatch) return false
 	if (typeof settings.showFullSubNodes !== 'boolean' || typeof settings.hideSubNodes !== 'boolean') return false
 
