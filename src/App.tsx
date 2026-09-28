@@ -12,6 +12,9 @@ import {
 import { SettingsPanel } from './components/SettingsPanel/SettingsPanel'
 import { loadGraphSettings } from './components/SettingsPanel/settingsPanel'
 import { graphData } from './data/graph'
+import { graphData as graphMini1 } from './data/graphMini1'
+import { graphData as graphMini2 } from './data/graphMini2'
+import { graphData as graphMini3 } from './data/graphMini3'
 import { type GraphData } from './types/graph'
 import type { GraphSettings } from './types/settings'
 
@@ -29,9 +32,14 @@ export function App() {
 
 	const [data, setData] = useState<GraphData | null>(null)
 	useEffect(() => {
-		const timer = setTimeout(() => setData(graphData), LOAD_DELAY_MS)
+		const timer = setTimeout(() => {
+			if (settings.nodeClones === 'mini1') setData(graphMini1)
+			else if (settings.nodeClones === 'mini2') setData(graphMini2)
+			else if (settings.nodeClones === 'mini3') setData(graphMini3)
+			else setData(graphData)
+		}, LOAD_DELAY_MS)
 		return () => clearTimeout(timer)
-	}, [])
+	}, [settings.nodeClones])
 
 	const [panel, setPanel] = useState<PanelView>({ kind: 'settings' })
 	const selected = panel.kind === 'edit' ? data?.nodes.find((node) => node.id === panel.id) : undefined

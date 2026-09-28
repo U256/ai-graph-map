@@ -35,7 +35,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	// клоны снимаются с исходных данных, а не с уже расширенного массива: иначе клонировались бы
 	// клоны и граф рос геометрически, а не в `nodeClones` раз
 	const data = useMemo(() => {
-		if (!originalData || nodeClones <= 1) {
+		if (!originalData || typeof nodeClones === 'string' || nodeClones <= 1) {
 			return originalData
 		}
 		const cloned: GraphData = { nodes: [...originalData.nodes], links: [...originalData.links] }

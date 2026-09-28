@@ -20,6 +20,8 @@ export const NODE_CLONES_OPTIONS = [
 	{ value: 3, label: 'Большой граф Х3' },
 	{ value: 5, label: 'Большой граф Х5' },
 	{ value: 10, label: 'Большой граф Х10' },
+	{ value: 30, label: 'Большой граф Х30' },
+	{ value: 50, label: 'Большой граф Х50' },
 	{ value: 'mini1', label: 'Мини-граф на 15 нод' },
 	{ value: 'mini2', label: 'Мини-граф на 40 нод' },
 	{ value: 'mini3', label: 'Мини-граф на 90 нод' },
