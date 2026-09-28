@@ -30,6 +30,8 @@ import { NODE_CLASS, NodeLayer } from './layers/graphNodeLayer'
 
 export interface ForceGraphOptions extends GraphPhysics {
 	panZoom?: boolean
+	/** Начальные координаты уже рассчитаны в worker, поэтому не запускаем второй видимый разогрев. */
+	initiallySettled?: boolean
 	/**
 	 * Наружу уходит только id: данные живут в стейте вызывающего, а `__data__` группы после правки может
 	 * держать прежний объект симуляции. Клоны (`nodeClones > 1`) дают id вида `2-…`, которого в данных
@@ -179,7 +181,7 @@ function dirtyLinkKeys(result: GraphUpdateResult): Set<string> {
 }
 
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
-	const { panZoom = true, onNodeClick, ...initialPhysics } = options
+	const { panZoom = true, initiallySettled = false, onNodeClick, ...initialPhysics } = options
 	const { svg, content, linkLayer: linkGroup, nodeLayer: nodeGroup } = createScene()
 	const zoomIndicator = document.createElement('div')
 	zoomIndicator.className = 'force-graph__zoom'
@@ -195,6 +197,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	// палитра живёт вместе со сценой: прежние типы не перекрасятся, новый получит свой оттенок
 	const colorOf = createTypeColors(initialNodes)
 	const simulation = createSimulation(initialNodes, initialLinks, physics)
+	if (initiallySettled) simulation.stop().alpha(0)
 	const linkForce = simulation.force<ForceLink<GraphNode, GraphLink>>('link') as ForceLink<GraphNode, GraphLink>
 	const { behavior: dragBehavior, wasDragging } = createDrag(simulation, physics)
 

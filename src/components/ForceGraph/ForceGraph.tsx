@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { GraphData } from '../../types/graph'
 import type { GraphSettings } from '../../types/settings'
 import './ForceGraph.css'
 import type { GraphPhysics } from './forceGraph'
 import { createForceGraph, type ForceGraphHandle } from './forceGraphView'
+import { applyInitialLayout, calculateInitialLayout } from './initialLayout'
 
 type ForceGraphProps = {
 	data: GraphData | null
@@ -59,6 +60,8 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	// `useMemo` отдаёт новый объект только когда поменялось хотя бы одно значение, поэтому пропуск
 	// ниже не мешает доставке правок
 	const mountedPhysics = useRef<GraphPhysics | null>(null)
+	const [layoutReady, setLayoutReady] = useState(false)
+	const layoutDataRef = useRef<GraphData | null>(null)
 	// сцена создаётся один раз, а колбэк клика пересоздаётся с родителем: наружу уходит обёртка,
 	// читающая актуальное замыкание из ref
 	const nodeClickRef = useRef(onNodeClick)
@@ -69,26 +72,57 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	// в cleanup этого она пересобирала бы svg на каждую смену зависимости
 	useEffect(() => {
 		const container = containerRef.current
-		if (!container || !data) return
-		const graph = graphRef.current
-		if (!graph) {
-			const next = createForceGraph(data, { ...physics, onNodeClick: handleNodeClick })
-			graphRef.current = next
-			mountedData.current = data
-			mountedPhysics.current = physics
-			container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
-			return
+		let cancelLayout = () => {}
+		if (container && data && !graphRef.current) {
+			if (layoutDataRef.current !== data) {
+				layoutDataRef.current = data
+				setLayoutReady(false)
+			}
+			let active = true
+			const layout = calculateInitialLayout(data, physics)
+			layout.promise
+				.then((positions) => {
+					if (!active) return
+					const next = createForceGraph(applyInitialLayout(data, positions), {
+						...physics,
+						initiallySettled: true,
+						onNodeClick: handleNodeClick,
+					})
+					graphRef.current = next
+					mountedData.current = data
+					mountedPhysics.current = physics
+					layoutDataRef.current = data
+					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
+					setLayoutReady(true)
+				})
+				.catch(() => {
+					if (!active) return
+					const next = createForceGraph(data, { ...physics, onNodeClick: handleNodeClick })
+					graphRef.current = next
+					mountedData.current = data
+					mountedPhysics.current = physics
+					layoutDataRef.current = data
+					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
+					setLayoutReady(true)
+				})
+			cancelLayout = () => {
+				active = false
+				layout.cancel()
+			}
+		} else if (container && data && graphRef.current) {
+			const graph = graphRef.current
+			if (data !== mountedData.current) {
+				graph.update(data)
+				mountedData.current = data
+			}
+			// без пропуска `setPhysics` всякий раз поднимал бы `alpha`: остывшая карта дёргалась бы
+			// на каждое изменение данных, даже когда физика не менялась
+			if (physics !== mountedPhysics.current) {
+				graph.setPhysics(physics)
+				mountedPhysics.current = physics
+			}
 		}
-		if (data !== mountedData.current) {
-			graph.update(data)
-			mountedData.current = data
-		}
-		// без пропуска `setPhysics` всякий раз поднимал бы `alpha`: остывшая карта дёргалась бы
-		// на каждое изменение данных, даже когда физика не менялась
-		if (physics !== mountedPhysics.current) {
-			graph.setPhysics(physics)
-			mountedPhysics.current = physics
-		}
+		return () => cancelLayout()
 	}, [data, physics, handleNodeClick])
 
 	useEffect(() => {
@@ -103,6 +137,8 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 			graphRef.current = null
 			mountedData.current = null
 			mountedPhysics.current = null
+			layoutDataRef.current = null
+			setLayoutReady(false)
 			containerRef.current?.replaceChildren()
 		},
 		[],
@@ -112,6 +148,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 		<figure className="force-graph">
 			<div className="force-graph__canvas" ref={containerRef} />
 			{!data && <p className="force-graph__status">Загрузка графа…</p>}
+			{data && !layoutReady && <p className="force-graph__loading">Расчёт раскладки…</p>}
 		</figure>
 	)
 }
