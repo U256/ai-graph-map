@@ -97,3 +97,29 @@ export function collectSeeds(links: GraphLink[]): Map<string, SeedPoint> {
 	sums.forEach((sum, id) => seeds.set(id, { x: sum.sumX / sum.count, y: sum.sumY / sum.count }))
 	return seeds
 }
+
+/** Считает высадку по новым связям, сохраняя координаты уже существующих концов. */
+export function collectInputSeeds(links: GraphLinkInput[], nodes: Map<string, GraphNode>): Map<string, SeedPoint> {
+	const sums = new Map<string, { sumX: number; sumY: number; count: number }>()
+
+	links.forEach((link) => {
+		const source = nodes.get(link.source)
+		const target = nodes.get(link.target)
+		if (source && !target) {
+			const sum = sums.get(link.target) ?? { sumX: 0, sumY: 0, count: 0 }
+			sum.sumX += source.x ?? 0
+			sum.sumY += source.y ?? 0
+			sum.count += 1
+			sums.set(link.target, sum)
+		}
+		if (target && !source) {
+			const sum = sums.get(link.source) ?? { sumX: 0, sumY: 0, count: 0 }
+			sum.sumX += target.x ?? 0
+			sum.sumY += target.y ?? 0
+			sum.count += 1
+			sums.set(link.source, sum)
+		}
+	})
+
+	return new Map([...sums.entries()].map(([id, sum]) => [id, { x: sum.sumX / sum.count, y: sum.sumY / sum.count }]))
+}

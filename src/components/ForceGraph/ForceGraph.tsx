@@ -60,7 +60,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	// `useMemo` отдаёт новый объект только когда поменялось хотя бы одно значение, поэтому пропуск
 	// ниже не мешает доставке правок
 	const mountedPhysics = useRef<GraphPhysics | null>(null)
-	const [layoutReady, setLayoutReady] = useState(false)
+	const [layoutLoading, setLayoutLoading] = useState(false)
 	const layoutDataRef = useRef<GraphData | null>(null)
 	// сцена создаётся один раз, а колбэк клика пересоздаётся с родителем: наружу уходит обёртка,
 	// читающая актуальное замыкание из ref
@@ -73,11 +73,13 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	useEffect(() => {
 		const container = containerRef.current
 		let cancelLayout = () => {}
-		if (container && data && !graphRef.current) {
-			if (layoutDataRef.current !== data) {
-				layoutDataRef.current = data
-				setLayoutReady(false)
-			}
+		const graph = graphRef.current
+		const previousData = mountedData.current
+		const nodeDelta = previousData && data ? Math.abs(data.nodes.length - previousData.nodes.length) : 0
+		const largeChange = Boolean(previousData && data && nodeDelta / Math.max(previousData.nodes.length, 1) >= 0.15)
+		if (container && data && (!graph || largeChange)) {
+			layoutDataRef.current = data
+			setLayoutLoading(true)
 			let active = true
 			const layout = calculateInitialLayout(data, physics)
 			layout.promise
@@ -88,31 +90,32 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 						initiallySettled: true,
 						onNodeClick: handleNodeClick,
 					})
+					graph?.destroy()
 					graphRef.current = next
 					mountedData.current = data
 					mountedPhysics.current = physics
 					layoutDataRef.current = data
 					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
-					setLayoutReady(true)
+					setLayoutLoading(false)
 				})
 				.catch(() => {
 					if (!active) return
 					const next = createForceGraph(data, { ...physics, onNodeClick: handleNodeClick })
+					graph?.destroy()
 					graphRef.current = next
 					mountedData.current = data
 					mountedPhysics.current = physics
 					layoutDataRef.current = data
 					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
-					setLayoutReady(true)
+					setLayoutLoading(false)
 				})
 			cancelLayout = () => {
 				active = false
 				layout.cancel()
 			}
-		} else if (container && data && graphRef.current) {
-			const graph = graphRef.current
+		} else if (container && data && graph) {
 			if (data !== mountedData.current) {
-				graph.update(data)
+				graph.update(data, true)
 				mountedData.current = data
 			}
 			// без пропуска `setPhysics` всякий раз поднимал бы `alpha`: остывшая карта дёргалась бы
@@ -138,7 +141,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 			mountedData.current = null
 			mountedPhysics.current = null
 			layoutDataRef.current = null
-			setLayoutReady(false)
+			setLayoutLoading(false)
 			containerRef.current?.replaceChildren()
 		},
 		[],
@@ -148,7 +151,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 		<figure className="force-graph">
 			<div className="force-graph__canvas" ref={containerRef} />
 			{!data && <p className="force-graph__status">Загрузка графа…</p>}
-			{data && !layoutReady && <p className="force-graph__loading">Расчёт раскладки…</p>}
+			{data && layoutLoading && <p className="force-graph__loading">Расчёт раскладки…</p>}
 		</figure>
 	)
 }

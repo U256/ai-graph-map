@@ -1,6 +1,6 @@
 import type { GraphLink, GraphLinkInput, GraphNode, GraphNodeInput } from '../../types/graph'
 import type { NextLink } from './crud/graphLinksCRUD'
-import { buildLink, collectSeeds, diffLinks, linkKeyOf } from './crud/graphLinksCRUD'
+import { buildLink, collectInputSeeds, diffLinks, linkKeyOf } from './crud/graphLinksCRUD'
 import type { NextNode } from './crud/graphNodesCRUD'
 import {
 	buildNode,
@@ -62,6 +62,7 @@ export interface GraphUpdateResult {
 	nodes: GraphNode[]
 	links: GraphLink[]
 	addedNodeKeys: Set<string>
+	removedNodeKeys: Set<string>
 	changedNodeKeys: Set<string>
 	addedLinkKeys: Set<string>
 	changedLinkKeys: Set<string>
@@ -150,7 +151,7 @@ export function planGraphUpdate(
 		keptLinks: links.all.filter((next) => !next.added),
 		addedLinks: links.added,
 		removedLinkKeys: state.linkKeys.filter((key) => !keptKeys.has(key)),
-		seeds: collectSeeds([...state.links.values()]),
+		seeds: collectInputSeeds(data.links, state.nodes),
 		changed: collectChanged(state, nodes, links.all),
 	}
 }
@@ -178,6 +179,7 @@ export function applyGraphUpdate(state: GraphState, plan: GraphUpdatePlan): Grap
 		nodes,
 		links: plan.keptLinks.concat(plan.addedLinks).map(({ link }) => rebuildLink(link)),
 		addedNodeKeys: toKeySet(plan.addedNodes),
+		removedNodeKeys: new Set(plan.removedNodeKeys.map((id) => nodeKey(id))),
 		changedNodeKeys: toKeySet(plan.updatedNodes),
 		addedLinkKeys: toKeySet(plan.addedLinks),
 		changedLinkKeys: toKeySet(plan.changed.links),

@@ -45,7 +45,7 @@ export interface ForceGraphHandle {
 	zoomIndicator: HTMLDivElement
 	zoomControls: HTMLDivElement
 	/** Сцена не пересобирается: раскладка, вид панорамы/зума и симуляция сохраняются, карта не «мигает». */
-	update: (data: GraphData) => void
+	update: (data: GraphData, local: boolean) => void
 	/** Силы и разогревы читаются из одного объекта замыкания, поэтому достаточно их переписать и разогреть карту. */
 	setPhysics: (physics: GraphPhysics) => void
 	setSelectedNode: (id: string | null) => void
@@ -237,13 +237,32 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	 * осталась бы неподвижной. Состояние читается из симуляции и силы связей, а не хранится отдельно:
 	 * рассинхрон между ними и слоем невозможен.
 	 */
-	function update(next: GraphData): void {
+	function update(next: GraphData, local: boolean): void {
 		const state = readGraphState(simulation.nodes(), linkForce.links())
 		const result = applyGraphUpdate(state, planGraphUpdate(state, next))
+		const topologyChanged =
+			result.addedNodeKeys.size > 0 ||
+			result.removedNodeKeys.size > 0 ||
+			result.addedLinkKeys.size > 0 ||
+			result.changedLinkKeys.size > 0 ||
+			state.linkKeys.length !== result.links.length
 
 		simulation.nodes(result.nodes)
 		linkForce.links(result.links)
-		simulation.alpha(physics.updateAlpha ?? UPDATE_ALPHA).restart()
+		if (local && topologyChanged) {
+			result.nodes.forEach((_node) => {
+				const node = _node
+				if (!result.addedNodeKeys.has(`n:${node.id}`)) {
+					node.fx = node.x
+					node.fy = node.y
+				}
+			})
+		}
+		if (topologyChanged) {
+			simulation
+				.alpha(local ? Math.min(physics.updateAlpha ?? UPDATE_ALPHA, 0.05) : (physics.updateAlpha ?? UPDATE_ALPHA))
+				.restart()
+		}
 
 		layers.links.sync(asDrawnLinks(linkForce.links() ?? []), dirtyLinkKeys(result))
 		layers.nodes.sync(result.nodes, dirtyNodeKeys(result))
