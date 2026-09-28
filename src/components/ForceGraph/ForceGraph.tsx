@@ -78,6 +78,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 		const nodeDelta = previousData && data ? Math.abs(data.nodes.length - previousData.nodes.length) : 0
 		const largeChange = Boolean(previousData && data && nodeDelta / Math.max(previousData.nodes.length, 1) >= 0.15)
 		if (container && data && (!graph || largeChange)) {
+			const zoomTransform = graph?.getZoomTransform()
 			layoutDataRef.current = data
 			setLayoutLoading(true)
 			let active = true
@@ -96,6 +97,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 					mountedPhysics.current = physics
 					layoutDataRef.current = data
 					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
+					if (zoomTransform) next.setZoomTransform(zoomTransform)
 					setLayoutLoading(false)
 				})
 				.catch(() => {
@@ -107,6 +109,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 					mountedPhysics.current = physics
 					layoutDataRef.current = data
 					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
+					if (zoomTransform) next.setZoomTransform(zoomTransform)
 					setLayoutLoading(false)
 				})
 			cancelLayout = () => {

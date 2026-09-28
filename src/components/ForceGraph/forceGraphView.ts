@@ -1,7 +1,7 @@
 import { drag, type D3DragEvent, type DragBehavior } from 'd3-drag'
 import { forceManyBody, type ForceLink, type Simulation } from 'd3-force'
 import { select, type Selection } from 'd3-selection'
-import { zoom, zoomIdentity, type D3ZoomEvent } from 'd3-zoom'
+import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomTransform } from 'd3-zoom'
 import type { GraphData, GraphLink, GraphNode } from '../../types/graph'
 import {
 	asDrawnLinks,
@@ -44,6 +44,8 @@ export interface ForceGraphHandle {
 	svg: SVGSVGElement
 	zoomIndicator: HTMLDivElement
 	zoomControls: HTMLDivElement
+	getZoomTransform: () => ZoomTransform
+	setZoomTransform: (transform: ZoomTransform) => void
 	/** Сцена не пересобирается: раскладка, вид панорамы/зума и симуляция сохраняются, карта не «мигает». */
 	update: (data: GraphData, local: boolean) => void
 	/** Силы и разогревы читаются из одного объекта замыкания, поэтому достаточно их переписать и разогреть карту. */
@@ -117,7 +119,11 @@ function createZoomButton(label: string, title: string, onClick: () => void): HT
 	return button
 }
 
-function attachPanZoom(root: SvgSelection, content: ContentSelection, zoomIndicator: HTMLDivElement): HTMLDivElement {
+function attachPanZoom(
+	root: SvgSelection,
+	content: ContentSelection,
+	zoomIndicator: HTMLDivElement,
+): { controls: HTMLDivElement; getTransform: () => ZoomTransform; setTransform: (transform: ZoomTransform) => void } {
 	const indicator = zoomIndicator
 	let currentScale = zoomIdentity.k
 	const behavior = zoom<SVGSVGElement, unknown>()
@@ -130,6 +136,8 @@ function attachPanZoom(root: SvgSelection, content: ContentSelection, zoomIndica
 			indicator.textContent = `Зум: ${k.toFixed(1)}`
 		})
 	root.call(behavior)
+	const getTransform = () => root.property('__zoom') ?? zoomIdentity
+	const setTransform = (transform: ZoomTransform) => root.call(behavior.transform, transform)
 
 	const controls = document.createElement('div')
 	controls.className = 'force-graph__zoom-controls'
@@ -146,7 +154,7 @@ function attachPanZoom(root: SvgSelection, content: ContentSelection, zoomIndica
 			root.call(behavior.scaleBy, nextScale / currentScale)
 		}),
 	)
-	return controls
+	return { controls, getTransform, setTransform }
 }
 
 /** Две группы: связи под узлами — порядок слоёв задан разметкой, а не z-index. */
@@ -187,6 +195,8 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	zoomIndicator.className = 'force-graph__zoom'
 	zoomIndicator.textContent = 'Зум: 1.0'
 	let zoomControls = document.createElement('div')
+	let getZoomTransform = () => zoomIdentity
+	let setZoomTransform = (_transform: ZoomTransform) => {}
 	const root = select(svg)
 
 	// всеми силами и drag'ом читается этот объект: setPhysics пишет в него, а не пересобирает сцену
@@ -293,13 +303,18 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 
 	simulation.on('tick', drawTick)
 	if (panZoom) {
-		zoomControls = attachPanZoom(root, content, zoomIndicator)
+		const panZoomState = attachPanZoom(root, content, zoomIndicator)
+		zoomControls = panZoomState.controls
+		getZoomTransform = panZoomState.getTransform
+		setZoomTransform = panZoomState.setTransform
 	}
 
 	return {
 		svg,
 		zoomIndicator,
 		zoomControls,
+		getZoomTransform,
+		setZoomTransform,
 		update,
 		setPhysics,
 		setSelectedNode,
