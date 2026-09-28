@@ -54,10 +54,13 @@
 }
 
 .force-graph__counter {
-	align-self: stretch;
+	position: absolute;
+	top: 0.75rem;
+	right: 7rem;
 	box-sizing: border-box;
 	margin: 0;
-	padding: 0.5rem 1rem 0;
+	padding: 0.25rem 0.5rem;
+	background: rgb(255 255 255 / 80%);
 	font-size: 0.85rem;
 }
 

@@ -153,6 +153,11 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	return (
 		<figure className="force-graph">
 			<div className="force-graph__canvas" ref={containerRef} />
+			{data && (
+				<p className="force-graph__counter">
+					Нод: {data.nodes.length}, рёбер: {data.links.length}
+				</p>
+			)}
 			{!data && <p className="force-graph__status">Загрузка графа…</p>}
 			{data && layoutLoading && <p className="force-graph__loading">Расчёт раскладки…</p>}
 		</figure>
