@@ -171,6 +171,7 @@ const logic = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphU
 const cloud = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphCloud.ts')
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts')
 const nodesCrud = await server.ssrLoadModule('/src/components/ForceGraph/crud/graphNodesCRUD.ts')
+const graphComponents = await server.ssrLoadModule('/src/components/ForceGraph/graphComponents.ts')
 const source = await server.ssrLoadModule('/src/data/graph.ts')
 
 const {
@@ -184,6 +185,7 @@ const {
 } = physics
 const { applyGraphUpdate, planGraphUpdate, readGraphState } = logic
 const { seedPosition } = nodesCrud
+const { groupComponentsForLayout, orderComponentsForLayout, splitGraphIntoComponents } = graphComponents
 const {
 	CLOUD_MAX_TEXT_WIDTH,
 	CLOUD_PADDING_X,
@@ -197,6 +199,45 @@ const { createNodeInData, deleteNodeFromData, neighborOptions, updateNodeInData 
 
 const base = source.graphData
 const NEW_ID = 'probe-new'
+
+const componentFixture = {
+	nodes: ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => ({ id, title: id, type: 'node', hasWarning: false })),
+	links: [
+		{ source: 'a', target: 'b' },
+		{ source: 'b', target: 'c' },
+		{ source: 'd', target: 'e' },
+		{ source: 'a', target: 'b' },
+		{ source: 'missing', target: 'f' },
+	],
+}
+const components = splitGraphIntoComponents(componentFixture)
+check('компоненты связности учитывают направление без изменения рёбер', components.length === 3)
+check(
+	'изолированная нода остаётся отдельной компонентой',
+	components.some(({ nodes }) => nodes.length === 1 && nodes[0].id === 'f'),
+)
+check(
+	'дубликаты рёбер сохраняются, отсутствующие концы отбрасываются',
+	components.flatMap(({ links }) => links).length === 4,
+)
+check(
+	'малые компоненты идут после крупных для компактной раскладки',
+	orderComponentsForLayout([
+		{ nodes: [{ id: 's' }], links: [] },
+		{ nodes: Array(4).fill({ id: 'l' }), links: [] },
+	])[0].nodes.length === 4,
+)
+const layoutClusters = groupComponentsForLayout([
+	{ nodes: Array(100).fill({ id: 'a' }), links: [] },
+	{ nodes: Array(50).fill({ id: 'b' }), links: [] },
+	{ nodes: Array(2).fill({ id: 'c' }), links: [] },
+])
+check('компоненты собираются в кластеры примерно по 150 узлов', layoutClusters.length === 2)
+check(
+	'связная компонента не разрезается при сборке кластера',
+	layoutClusters[0].map(({ nodes }) => nodes.length).join(',') === '100,50',
+)
+check('пустой граф даёт пустой список компонент', splitGraphIntoComponents({ nodes: [], links: [] }).length === 0)
 
 /**
  * Прогон «добавили один узел» — та же последовательность, что в `forceGraphView.update`, только без
