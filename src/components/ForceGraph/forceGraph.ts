@@ -18,8 +18,26 @@ export const LINK_DISTANCE = 100
  */
 export const LINK_STRENGTH = 0.5
 
+/** Связь группы с внешним узлом не должна стягивать большую группу к соседу. */
+export const GROUP_LINK_STRENGTH = 0.15
+
 /** Не крутить: простор между облаками держится именно зарядом. */
 export const CHARGE_STRENGTH = -30
+
+/** Множитель отталкивания соседей внутри группы по числу её элементов. */
+export function groupNeighborChargeMultiplier(elementCount: number): number {
+	const count = Math.max(0, elementCount)
+	return Math.max(1, 0.0001811594 * count ** 2 + 0.0264493 * count + 0.652174)
+}
+
+function isGroupLink(link: GraphLink): boolean {
+	const source = link.source
+	const target = link.target
+	return (
+		(typeof source === 'object' && source !== null && source.type === 'group') ||
+		(typeof target === 'object' && target !== null && target.type === 'group')
+	)
+}
 
 export const LINK_FORCE_DEFAULT = 2
 
@@ -86,7 +104,7 @@ export function createLinkForce(links: GraphLink[], physics: GraphPhysics = {}):
 	return forceLink<GraphNode, GraphLink>(links)
 		.id((node) => node.id)
 		.distance(physics.linkDistance ?? LINK_DISTANCE)
-		.strength(physics.linkStrength ?? LINK_STRENGTH)
+		.strength((link) => (isGroupLink(link) ? GROUP_LINK_STRENGTH : (physics.linkStrength ?? LINK_STRENGTH)))
 }
 
 /** Позиционирующие силы вместо центрирующей: у графа много несвязных компонент, и `forceCenter` разносит их за пределы сцены. */

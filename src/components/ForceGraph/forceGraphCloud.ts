@@ -21,6 +21,7 @@ export interface CloudLayout {
 	/** Поля нет, если предупреждения у узла нет. */
 	warning?: { x: number; y: number }
 	focusedGroup?: boolean
+	focusedSize?: number
 }
 
 export const TITLE_FONT_SIZE = 14
@@ -50,17 +51,31 @@ export const WARNING_COLOR = '#d92b2b'
 export const SUB_NODE_SIZE = 16
 export const SUB_NODE_CORNER = 7
 export const SUB_NODE_DOT_RADIUS = 4
-/** Диаметр круга группы при приближении */
-export const GROUP_FOCUS_SIZE = 300
+/** Диаметр круга группы на 15 элементов. */
+export const GROUP_FOCUS_SIZE = 200
+
+/** Контрольный размер круга для группы из 40 элементов. */
+export const GROUP_FOCUS_SIZE_AT_40 = 370
+
+/** Степень роста меньше единицы: размер растёт без предела, но медленнее линейного. */
+export const GROUP_FOCUS_SIZE_EXPONENT = 0.7
+
+/** Диаметр круга группы при приближении, рассчитанный по числу вложенных элементов. */
+export function groupFocusSize(elementCount: number): number {
+	const progress = Math.max(0, (elementCount - 15) / (40 - 15))
+	return GROUP_FOCUS_SIZE + (GROUP_FOCUS_SIZE_AT_40 - GROUP_FOCUS_SIZE) * progress ** GROUP_FOCUS_SIZE_EXPONENT
+}
 
 /** Увеличенный круг группы; диаметр и вертикальный вынос заголовка зависят от одной величины. */
 export function createFocusedGroupLayout(layout: CloudLayout): CloudLayout {
-	const radius = GROUP_FOCUS_SIZE / 2
+	const size = layout.focusedSize ?? GROUP_FOCUS_SIZE
+	const radius = size / 2
 	return {
 		...layout,
 		titleY: -radius + layout.titleY,
 		descriptionY: -radius + layout.descriptionY,
 		focusedGroup: true,
+		focusedSize: size,
 	}
 }
 
@@ -133,6 +148,7 @@ function createCloudLayout(node: GraphNode, measure: MeasureText): CloudLayout {
 		warning: node.hasWarning
 			? { x: -width / 2 + CLOUD_PADDING_X / 2, y: -height / 2 + CLOUD_PADDING_Y / 2 }
 			: undefined,
+		focusedSize: node.type === 'group' ? groupFocusSize(node.children?.nodes.length ?? 0) : undefined,
 	}
 }
 

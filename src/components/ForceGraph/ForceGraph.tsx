@@ -42,6 +42,14 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 		}
 		return multiplyWithClones(originalData, nodeClones)
 	}, [originalData, nodeClones])
+	// Зависимость по значениям нужна для правок, которые могли изменить данные на месте: одна ссылка на
+	// GraphData тогда не меняется, а множитель заряда всё равно обязан перезапустить расчёт worker.
+	const dataRevision = data
+		? JSON.stringify({
+				nodes: data.nodes,
+				links: data.links,
+			})
+		: ''
 
 	const graphRef = useRef<ForceGraphHandle | null>(null)
 	const [layoutLoading, setLayoutLoading] = useState(false)
@@ -94,7 +102,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 			}
 		}
 		return () => cancelLayout()
-	}, [data, physics, handleNodeClick])
+	}, [data, dataRevision, physics, handleNodeClick])
 
 	useEffect(() => {
 		graphRef.current?.setSelectedNode(selectedNodeId)

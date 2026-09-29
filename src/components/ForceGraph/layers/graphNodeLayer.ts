@@ -1,6 +1,7 @@
 import type { GraphNode, GraphNodeType } from '../../../types/graph'
 import { nodeKey } from '../crud/graphNodesCRUD'
 import { tintToWhite } from '../forceGraph'
+
 import {
 	CLOUD_RADIUS,
 	createFocusedGroupLayout,
@@ -56,11 +57,13 @@ interface NodeParts {
 	description: SVGTextElement
 	warning: SVGCircleElement
 	dot: SVGCircleElement
+	subGraph: SVGGElement
 }
 
 export interface NodeEntry extends LayerEntry<GraphNode> {
 	element: SVGGElement
 	parts: NodeParts
+	subGraph?: SubGraph
 	renderedKey?: string
 	selected?: boolean
 }
@@ -71,6 +74,7 @@ export interface NodeLayerOptions {
 	/** Цвет типа — один на всю сцену, чтобы оттенок типа не менялся между обновлениями. */
 	colorOf: (type: GraphNodeType) => string
 	attach?: (element: SVGGElement) => void
+	attachChild?: (element: SVGGElement, onDrag: () => void) => void
 }
 
 /**
@@ -86,6 +90,7 @@ function renderKey(node: GraphNode, layout: CloudLayout): string {
 		layout.description,
 		layout.warning ? 1 : 0,
 		layout.focusedGroup ? 1 : 0,
+		layout.focusedSize ?? '',
 	].join('|')
 }
 
@@ -96,6 +101,10 @@ export function nodeTooltip(node: GraphNode): string {
 }
 
 /** Атрибуты, общие для всех типов и не зависящие от данных, пишутся один раз при создании. */
+interface SubGraph {
+	element: SVGGElement
+}
+
 function createNodeGroup(): { element: SVGGElement; parts: NodeParts } {
 	const element = document.createElementNS(SVG_NS, 'g')
 	element.setAttribute('class', NODE_CLASS)
@@ -106,6 +115,7 @@ function createNodeGroup(): { element: SVGGElement; parts: NodeParts } {
 	const parts = Object.fromEntries(
 		Object.entries(PART_TAGS).map(([name, tag]) => [name, document.createElementNS(SVG_NS, tag)]),
 	) as unknown as NodeParts
+	parts.subGraph = document.createElementNS(SVG_NS, 'g')
 
 	parts.heading.setAttribute('font-size', String(TITLE_FONT_SIZE))
 	parts.heading.setAttribute('fill', TITLE_COLOR)
@@ -117,7 +127,16 @@ function createNodeGroup(): { element: SVGGElement; parts: NodeParts } {
 	parts.focusRing.setAttribute('fill', 'none')
 	parts.focusRing.setAttribute('pointer-events', 'none')
 
-	Object.values(parts).forEach((child) => element.appendChild(child))
+	;[
+		parts.tooltip,
+		parts.body,
+		parts.subGraph,
+		parts.focusRing,
+		parts.heading,
+		parts.description,
+		parts.warning,
+		parts.dot,
+	].forEach((child) => element.appendChild(child))
 
 	return { element, parts }
 }
@@ -127,7 +146,7 @@ function createNodeGroup(): { element: SVGGElement; parts: NodeParts } {
  * Части, которых у этого типа нет, очищаются от текста и координат, а не удаляются: узел мог сменить тип.
  */
 function writeBody(body: SVGRectElement, layout: CloudLayout, fill: string, isCloud: boolean): void {
-	const yOffset = layout.focusedGroup ? -GROUP_FOCUS_SIZE / 2 : 0
+	const yOffset = layout.focusedGroup ? -(layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2 : 0
 	body.setAttribute('x', String(-layout.width / 2))
 	body.setAttribute('y', String(-layout.height / 2 + yOffset))
 	body.setAttribute('width', String(layout.width))
@@ -157,7 +176,7 @@ function writeNode(entry: NodeEntry, layout: CloudLayout, fill: string): void {
 	writeBody(parts.body, layout, bodyFill, isCloud)
 	parts.focusRing.setAttribute('cx', '0')
 	parts.focusRing.setAttribute('cy', '0')
-	parts.focusRing.setAttribute('r', layout.focusedGroup ? String(GROUP_FOCUS_SIZE / 2) : '0')
+	parts.focusRing.setAttribute('r', layout.focusedGroup ? String((layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2) : '0')
 	parts.focusRing.setAttribute('stroke', bodyFill)
 	parts.focusRing.setAttribute('stroke-width', '2')
 	writeHeading(parts.heading, layout.title, layout)
@@ -176,6 +195,64 @@ function writeNode(entry: NodeEntry, layout: CloudLayout, fill: string): void {
 	parts.tooltip.textContent = nodeTooltip(entry.datum)
 }
 
+function createSubGraph(
+	node: GraphNode,
+	colorOf: (type: GraphNodeType) => string,
+	layoutOf: (node: GraphNode) => CloudLayout,
+	attachChild?: (element: SVGGElement, onDrag: () => void) => void,
+): SubGraph | null {
+	if (node.type !== 'group' || !node.children) return null
+
+	const element = document.createElementNS(SVG_NS, 'g')
+	element.setAttribute('class', 'force-graph__subgraph')
+	element.setAttribute('pointer-events', 'auto')
+	element.setAttribute('visibility', 'hidden')
+	element.setAttribute('transform', 'scale(0.2)')
+	const nodes: GraphNode[] = node.children.nodes.map((child) => ({ ...child }))
+	const links = node.children.links.map((link) => ({ ...link }))
+	const byId = new Map(nodes.map((child) => [child.id, child]))
+	const drawnLinks = links.flatMap((link) => {
+		const source = byId.get(link.source)
+		const target = byId.get(link.target)
+		return source && target ? [{ ...link, source, target }] : []
+	})
+	const linkElements = drawnLinks.map(({ source, target }) => {
+		const line = document.createElementNS(SVG_NS, 'line')
+		line.setAttribute('stroke', '#777')
+		line.setAttribute('stroke-width', '5')
+		element.appendChild(line)
+		return { line, source, target }
+	})
+
+	nodes.forEach((child) => {
+		const { element: childElement, parts } = createNodeGroup()
+		const childSubGraph = createSubGraph(child, colorOf, layoutOf, attachChild)
+		if (childSubGraph) parts.subGraph.appendChild(childSubGraph.element)
+		const entry: NodeEntry = { element: childElement, parts, datum: child }
+		writeNode(entry, layoutOf(child), colorOf(child.type))
+		childElement.setAttribute('transform', `translate(${child.x ?? 0},${child.y ?? 0})`)
+		childElement.setAttribute('data-node-id', child.id)
+		attachChild?.(childElement, () => {
+			childElement.setAttribute('transform', `translate(${child.x ?? 0},${child.y ?? 0})`)
+			linkElements.forEach(({ line, source, target }) => {
+				line.setAttribute('x1', String(source.x ?? 0))
+				line.setAttribute('y1', String(source.y ?? 0))
+				line.setAttribute('x2', String(target.x ?? 0))
+				line.setAttribute('y2', String(target.y ?? 0))
+			})
+		})
+		element.appendChild(childElement)
+		;(childElement as unknown as { __data__: GraphNode }).__data__ = child
+	})
+	linkElements.forEach(({ line, source, target }) => {
+		line.setAttribute('x1', String(source.x ?? 0))
+		line.setAttribute('y1', String(source.y ?? 0))
+		line.setAttribute('x2', String(target.x ?? 0))
+		line.setAttribute('y2', String(target.y ?? 0))
+	})
+	return { element }
+}
+
 function renderEntry(entry: NodeEntry, options: NodeLayerOptions, zoomed = false): void {
 	const baseLayout = options.layoutOf(entry.datum)
 	const layout = zoomed && entry.datum.type === 'group' ? createFocusedGroupLayout(baseLayout) : baseLayout
@@ -186,6 +263,16 @@ function renderEntry(entry: NodeEntry, options: NodeLayerOptions, zoomed = false
 	// eslint-disable-next-line no-param-reassign
 	entry.renderedKey = key
 	writeNode(entry, layout, options.colorOf(entry.datum.type))
+}
+
+/** Показывает вложенный граф только в том же режиме, где группа раскрывает круг. */
+function setSubGraphVisibility(entry: NodeEntry, visible: boolean): void {
+	if (!entry.subGraph) return
+	const visibility = visible ? 'visible' : 'hidden'
+	entry.subGraph.element.setAttribute('visibility', visibility)
+	entry.subGraph.element
+		.querySelectorAll<SVGGElement>('.force-graph__subgraph')
+		.forEach((element) => element.setAttribute('visibility', visibility))
 }
 
 export class NodeLayer extends GraphLayer<GraphNode, NodeEntry> {
@@ -200,7 +287,9 @@ export class NodeLayer extends GraphLayer<GraphNode, NodeEntry> {
 		super(layer, (node) => nodeKey(node.id), {
 			create: (node): NodeEntry => {
 				const { element, parts } = createNodeGroup()
-				const entry: NodeEntry = { element, parts, datum: node }
+				const subGraph = createSubGraph(node, options.colorOf, options.layoutOf, options.attachChild)
+				if (subGraph) parts.subGraph.appendChild(subGraph.element)
+				const entry: NodeEntry = { element, parts, datum: node, subGraph: subGraph ?? undefined }
 				options.attach?.(element)
 				renderEntry(entry, options, zoomState.zoomed)
 				return entry
@@ -210,6 +299,7 @@ export class NodeLayer extends GraphLayer<GraphNode, NodeEntry> {
 		this.colorOf = options.colorOf
 		this.zoomState = zoomState
 		this.options = options
+		this.forEachEntry((entry) => setSubGraphVisibility(entry, zoomState.zoomed))
 	}
 
 	/** Переключает вид групп по масштабу, не меняя DOM остальных узлов. */
@@ -218,7 +308,10 @@ export class NodeLayer extends GraphLayer<GraphNode, NodeEntry> {
 		if (zoomed === this.zoomState.zoomed) return
 		this.zoomState.zoomed = zoomed
 		this.forEachEntry((entry) => {
-			if (entry.datum.type === 'group') renderEntry(entry, this.options, zoomed)
+			if (entry.datum.type === 'group') {
+				renderEntry(entry, this.options, zoomed)
+				setSubGraphVisibility(entry, zoomed)
+			}
 		})
 	}
 

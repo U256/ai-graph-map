@@ -193,6 +193,10 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 					onNodeClick(node.id)
 				})
 			},
+			attachChild: (element, onDrag) => {
+				const childDrag = createDrag(onDrag)
+				select<SVGGElement, GraphNode>(element).call(childDrag.behavior)
+			},
 		}),
 	}
 
