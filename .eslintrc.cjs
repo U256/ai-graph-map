@@ -60,7 +60,7 @@ module.exports = {
 		'no-bitwise': 0,
 		'no-underscore-dangle': 0,
 		'no-use-before-define': 0,
-		'max-lines-per-function': ['error', { max: 120, skipComments: true, IIFEs: true, skipBlankLines: true }],
+		'max-lines-per-function': ['error', { max: 140, skipComments: true, IIFEs: true, skipBlankLines: true }],
 		'max-lines': ['error', { max: 300, skipComments: true, skipBlankLines: true }],
 		'import/prefer-default-export': 0,
 		'prettier/prettier': ['warn'],

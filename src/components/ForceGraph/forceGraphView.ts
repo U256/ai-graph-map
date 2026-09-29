@@ -1,37 +1,19 @@
 import { drag, type D3DragEvent, type DragBehavior } from 'd3-drag'
-import { forceManyBody, type ForceLink, type Simulation } from 'd3-force'
 import { select, type Selection } from 'd3-selection'
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomTransform } from 'd3-zoom'
-import type { GraphData, GraphLink, GraphNode } from '../../types/graph'
-import {
-	asDrawnLinks,
-	CHARGE_STRENGTH,
-	createSimulation,
-	createTypeColors,
-	DRAG_ALPHA_TARGET,
-	DRAG_CLICK_SLOP,
-	GRAPH_HEIGHT,
-	GRAPH_WIDTH,
-	LAYOUT_SCALE,
-	prepareGraph,
-	UPDATE_ALPHA,
-	type GraphPhysics,
-} from './forceGraph'
+import type { DrawnLink, GraphData, GraphLink, GraphNode } from '../../types/graph'
+import { createTypeColors, DRAG_CLICK_SLOP, GRAPH_HEIGHT, GRAPH_WIDTH } from './forceGraph'
 import { createCloudLayouts, type CloudLayout } from './forceGraphCloud'
 import { createTextMeasurer } from './forceGraphText'
-import { applyGraphUpdate, planGraphUpdate, readGraphState, type GraphUpdateResult } from './forceGraphUpdate'
 import { LinkLayer } from './layers/graphLinkLayer'
 import { NODE_CLASS, NodeLayer } from './layers/graphNodeLayer'
 
 /**
- * Сборка svg-сцены графа и её инкрементальное обновление: здесь только svg, drag, панорама/зум и
- * порядок применения обновления к симуляции.
+ * Сборка статичной svg-сцены графа: здесь только svg, drag и панорама/зум.
  */
 
-export interface ForceGraphOptions extends GraphPhysics {
+export interface ForceGraphOptions {
 	panZoom?: boolean
-	/** Начальные координаты уже рассчитаны в worker, поэтому не запускаем второй видимый разогрев. */
-	initiallySettled?: boolean
 	/**
 	 * Наружу уходит только id: данные живут в стейте вызывающего, а `__data__` группы после правки может
 	 * держать прежний объект симуляции. Клоны (`nodeClones > 1`) дают id вида `2-…`, которого в данных
@@ -46,10 +28,6 @@ export interface ForceGraphHandle {
 	zoomControls: HTMLDivElement
 	getZoomTransform: () => ZoomTransform
 	setZoomTransform: (transform: ZoomTransform) => void
-	/** Сцена не пересобирается: раскладка, вид панорамы/зума и симуляция сохраняются, карта не «мигает». */
-	update: (data: GraphData, local: boolean) => void
-	/** Силы и разогревы читаются из одного объекта замыкания, поэтому достаточно их переписать и разогреть карту. */
-	setPhysics: (physics: GraphPhysics) => void
 	setSelectedNode: (id: string | null) => void
 	destroy: () => void
 }
@@ -62,26 +40,19 @@ const ARIA_LABEL = 'Граф связей научных работ и пате�
 /** Без них граф легко потерять за краем экрана. */
 const ZOOM_EXTENT: [number, number] = [0.1, 8]
 
-/**
- * Узел держится под курсором, симуляция разогревается на время жеста слабо, чтобы не разъезжалась вся
- * карта. Возвращается и признак «был перетаскиванием»: d3-drag не глушит `click` после отпускания мыши.
- */
-function createDrag(
-	simulation: Simulation<GraphNode, GraphLink>,
-	physics: GraphPhysics,
-): { behavior: DragBehavior<SVGGElement, GraphNode, GraphNode>; wasDragging: () => boolean } {
+/** Drag меняет только выбранный узел: статичная раскладка не должна разогревать соседей. */
+function createDrag(onDrag: () => void): {
+	behavior: DragBehavior<SVGGElement, GraphNode, GraphNode>
+	wasDragging: () => boolean
+} {
 	let dragging = false
 	let startX = 0
 	let startY = 0
 
 	function dragstarted(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
-		const { subject } = event
 		dragging = false
 		startX = event.sourceEvent?.clientX ?? 0
 		startY = event.sourceEvent?.clientY ?? 0
-		if (!event.active) simulation.alphaTarget(physics.dragAlphaTarget ?? DRAG_ALPHA_TARGET).restart()
-		subject.fx = subject.x
-		subject.fy = subject.y
 	}
 
 	function dragged(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
@@ -89,16 +60,12 @@ function createDrag(
 		const source = event.sourceEvent as MouseEvent | undefined
 		// порог в пикселях: дрожащая рука не должна превращать намеренный клик в жест
 		if (source && Math.hypot(source.clientX - startX, source.clientY - startY) > DRAG_CLICK_SLOP) dragging = true
-		subject.fx = event.x
-		subject.fy = event.y
+		subject.x = event.x
+		subject.y = event.y
+		onDrag()
 	}
 
-	function dragended(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
-		const { subject } = event
-		if (!event.active) simulation.alphaTarget(0)
-		subject.fx = null
-		subject.fy = null
-	}
+	function dragended(_event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {}
 
 	const behavior = drag<SVGGElement, GraphNode, GraphNode>()
 		.on('start', dragstarted)
@@ -180,18 +147,18 @@ function createScene(): {
 	return { svg, content, linkLayer: links.node() as SVGGElement, nodeLayer: nodes.node() as SVGGElement }
 }
 
-/** Мерка текста за обновление вызывается ровно столько раз, сколько подписей правда поменялось. */
-function dirtyNodeKeys(result: GraphUpdateResult): Set<string> {
-	return new Set([...result.changedNodeKeys, ...result.addedNodeKeys])
-}
-
-/** Толщина пересчитывается и при смене типа у любого из концов связи. */
-function dirtyLinkKeys(result: GraphUpdateResult): Set<string> {
-	return new Set([...result.changedLinkKeys, ...result.addedLinkKeys])
+/** Превращает строковые концы входных связей в узлы, как раньше это делал `forceLink`. */
+function resolveLinks(nodes: GraphNode[], links: GraphLink[]): DrawnLink[] {
+	const byId = new Map(nodes.map((node) => [node.id, node]))
+	return links.flatMap((link) => {
+		const source = typeof link.source === 'string' ? byId.get(link.source) : link.source
+		const target = typeof link.target === 'string' ? byId.get(link.target) : link.target
+		return source && target ? [{ ...link, source, target } as DrawnLink] : []
+	})
 }
 
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
-	const { panZoom = true, initiallySettled = false, onNodeClick, ...initialPhysics } = options
+	const { panZoom = true, onNodeClick } = options
 	const { svg, content, linkLayer: linkGroup, nodeLayer: nodeGroup } = createScene()
 	const zoomIndicator = document.createElement('div')
 	zoomIndicator.className = 'force-graph__zoom'
@@ -201,17 +168,14 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	let setZoomTransform = (_transform: ZoomTransform) => {}
 	const root = select(svg)
 
-	// всеми силами и drag'ом читается этот объект: setPhysics пишет в него, а не пересобирает сцену
-	const physics: GraphPhysics = { ...initialPhysics }
-
 	const measure = createTextMeasurer()
-	const { nodes: initialNodes, links: initialLinks } = prepareGraph(data)
+	const initialNodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
+	const initialLinks: GraphLink[] = data.links.map((link) => ({ ...link }))
 	// палитра живёт вместе со сценой: прежние типы не перекрасятся, новый получит свой оттенок
 	const colorOf = createTypeColors(initialNodes)
-	const simulation = createSimulation(initialNodes, initialLinks, physics)
-	if (initiallySettled) simulation.stop().alpha(0)
-	const linkForce = simulation.force<ForceLink<GraphNode, GraphLink>>('link') as ForceLink<GraphNode, GraphLink>
-	const { behavior: dragBehavior, wasDragging } = createDrag(simulation, physics)
+	const drawnLinks = resolveLinks(initialNodes, initialLinks)
+	let drawPositions = (): void => {}
+	const { behavior: dragBehavior, wasDragging } = createDrag(() => drawPositions())
 
 	const layers = {
 		links: new LinkLayer(linkGroup),
@@ -232,78 +196,18 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		}),
 	}
 
-	function drawTick(): void {
+	layers.links.sync(drawnLinks)
+	layers.nodes.sync(initialNodes)
+	layers.nodes.setSelectedNode(null)
+	drawPositions = (): void => {
 		layers.links.drawPositions()
 		layers.nodes.drawPositions()
 	}
-
-	layers.links.sync(asDrawnLinks(initialLinks))
-	layers.nodes.sync(initialNodes)
-	layers.nodes.setSelectedNode(null)
-	// новые элементы встают на свои координаты сразу, не дожидаясь первого тика
-	drawTick()
-
-	/**
-	 * Порядок принципиален: `nodes()` присваивает узлам `index`, `linkForce.links()` по ним разрешает
-	 * концы и пересчитывает `bias`, и только потом поднимается `alpha` — иначе остывшая симуляция
-	 * осталась бы неподвижной. Состояние читается из симуляции и силы связей, а не хранится отдельно:
-	 * рассинхрон между ними и слоем невозможен.
-	 */
-	function update(next: GraphData, local: boolean): void {
-		const state = readGraphState(simulation.nodes(), linkForce.links())
-		const result = applyGraphUpdate(state, planGraphUpdate(state, next))
-		const topologyChanged =
-			result.addedNodeKeys.size > 0 ||
-			result.removedNodeKeys.size > 0 ||
-			result.addedLinkKeys.size > 0 ||
-			result.changedLinkKeys.size > 0 ||
-			state.linkKeys.length !== result.links.length
-
-		simulation.nodes(result.nodes)
-		linkForce.links(result.links)
-		if (local && topologyChanged) {
-			result.nodes.forEach((_node) => {
-				const node = _node
-				if (!result.addedNodeKeys.has(`n:${node.id}`)) {
-					node.fx = node.x
-					node.fy = node.y
-				}
-			})
-		}
-		if (topologyChanged) {
-			simulation
-				.alpha(local ? Math.min(physics.updateAlpha ?? UPDATE_ALPHA, 0.05) : (physics.updateAlpha ?? UPDATE_ALPHA))
-				.restart()
-		}
-
-		layers.links.sync(asDrawnLinks(linkForce.links() ?? []), dirtyLinkKeys(result))
-		layers.nodes.sync(result.nodes, dirtyNodeKeys(result))
-		drawTick()
-	}
-
-	/** Drag читает `dragAlphaTarget` из того же объекта `physics`, поэтому его перенавешивать не нужно. */
-	function setPhysics(next: GraphPhysics): void {
-		Object.assign(physics, next)
-		if (physics.linkDistance !== undefined) linkForce.distance(physics.linkDistance)
-		if (physics.linkStrength !== undefined) linkForce.strength(physics.linkStrength)
-		if (physics.velocityDecay !== undefined) simulation.velocityDecay(physics.velocityDecay)
-		// заряд задан через масштаб раскладки (`charge * scale ** 2`), поэтому пересобирается сила целиком
-		if (physics.chargeStrength !== undefined || physics.layoutScale !== undefined) {
-			const charge = physics.chargeStrength ?? CHARGE_STRENGTH
-			const scale = physics.layoutScale ?? LAYOUT_SCALE
-			simulation.force(
-				'charge',
-				forceManyBody<GraphNode>().strength((node) => charge * scale ** 2 * (node.chargeMultiplier ?? 1)),
-			)
-		}
-		simulation.alpha(physics.updateAlpha ?? UPDATE_ALPHA).restart()
-	}
-
+	drawPositions()
 	function setSelectedNode(id: string | null): void {
 		layers.nodes.setSelectedNode(id)
 	}
 
-	simulation.on('tick', drawTick)
 	if (panZoom) {
 		const panZoomState = attachPanZoom(root, content, zoomIndicator, (scale) => layers.nodes.setZoomScale(scale))
 		zoomControls = panZoomState.controls
@@ -317,13 +221,8 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		zoomControls,
 		getZoomTransform,
 		setZoomTransform,
-		update,
-		setPhysics,
 		setSelectedNode,
 		destroy: () => {
-			simulation.on('tick', null)
-			simulation.stop()
-			// иначе снятый DOM держит объекты симуляции
 			layers.links.clear()
 			layers.nodes.clear()
 			svg.remove()
