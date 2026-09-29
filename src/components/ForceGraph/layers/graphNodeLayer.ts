@@ -3,8 +3,10 @@ import { nodeKey } from '../crud/graphNodesCRUD'
 import { tintToWhite } from '../forceGraph'
 import {
 	CLOUD_RADIUS,
+	createFocusedGroupLayout,
 	DESCRIPTION_FONT_SIZE,
 	FONT_FAMILY,
+	GROUP_FOCUS_SIZE,
 	SUB_NODE_CORNER,
 	SUB_NODE_DOT_RADIUS,
 	TITLE_FONT_SIZE,
@@ -38,6 +40,7 @@ export const NODE_CLASS = 'force-graph__node'
 const PART_TAGS = {
 	/** В нативной подсказке полный текст, хотя на карте подпись обрезана. */
 	tooltip: 'title',
+	focusRing: 'circle',
 	body: 'rect',
 	heading: 'text',
 	description: 'text',
@@ -48,6 +51,7 @@ const PART_TAGS = {
 interface NodeParts {
 	tooltip: SVGTitleElement
 	body: SVGRectElement
+	focusRing: SVGCircleElement
 	heading: SVGTextElement
 	description: SVGTextElement
 	warning: SVGCircleElement
@@ -74,7 +78,15 @@ export interface NodeLayerOptions {
  * помечает связь, а не узел.
  */
 function renderKey(node: GraphNode, layout: CloudLayout): string {
-	return [node.type, layout.width, layout.height, layout.title, layout.description, layout.warning ? 1 : 0].join('|')
+	return [
+		node.type,
+		layout.width,
+		layout.height,
+		layout.title,
+		layout.description,
+		layout.warning ? 1 : 0,
+		layout.focusedGroup ? 1 : 0,
+	].join('|')
 }
 
 /** Склейка здесь, а не в данных: на карте виден обрезанный `title`, полный текст — в подсказке. */
@@ -102,6 +114,8 @@ function createNodeGroup(): { element: SVGGElement; parts: NodeParts } {
 	parts.warning.setAttribute('r', String(WARNING_DOT_RADIUS))
 	parts.warning.setAttribute('fill', WARNING_COLOR)
 	parts.dot.setAttribute('r', String(SUB_NODE_DOT_RADIUS))
+	parts.focusRing.setAttribute('fill', 'none')
+	parts.focusRing.setAttribute('pointer-events', 'none')
 
 	Object.values(parts).forEach((child) => element.appendChild(child))
 
@@ -113,8 +127,9 @@ function createNodeGroup(): { element: SVGGElement; parts: NodeParts } {
  * Части, которых у этого типа нет, очищаются от текста и координат, а не удаляются: узел мог сменить тип.
  */
 function writeBody(body: SVGRectElement, layout: CloudLayout, fill: string, isCloud: boolean): void {
+	const yOffset = layout.focusedGroup ? -GROUP_FOCUS_SIZE / 2 : 0
 	body.setAttribute('x', String(-layout.width / 2))
-	body.setAttribute('y', String(-layout.height / 2))
+	body.setAttribute('y', String(-layout.height / 2 + yOffset))
 	body.setAttribute('width', String(layout.width))
 	body.setAttribute('height', String(layout.height))
 	body.setAttribute('rx', String(isCloud ? CLOUD_RADIUS : SUB_NODE_CORNER))
@@ -129,6 +144,9 @@ function writeHeading(heading: SVGTextElement, text: string, layout: CloudLayout
 	heading.textContent = text
 	heading.setAttribute('x', String(layout.textX))
 	heading.setAttribute('y', String(layout.titleY))
+	heading.setAttribute('text-anchor', 'start')
+	heading.setAttribute('font-size', String(TITLE_FONT_SIZE))
+	heading.setAttribute('fill', TITLE_COLOR)
 }
 
 function writeNode(entry: NodeEntry, layout: CloudLayout, fill: string): void {
@@ -137,6 +155,11 @@ function writeNode(entry: NodeEntry, layout: CloudLayout, fill: string): void {
 	const bodyFill = entry.selected ? SELECTED_COLOR : fill
 
 	writeBody(parts.body, layout, bodyFill, isCloud)
+	parts.focusRing.setAttribute('cx', '0')
+	parts.focusRing.setAttribute('cy', '0')
+	parts.focusRing.setAttribute('r', layout.focusedGroup ? String(GROUP_FOCUS_SIZE / 2) : '0')
+	parts.focusRing.setAttribute('stroke', bodyFill)
+	parts.focusRing.setAttribute('stroke-width', '2')
 	writeHeading(parts.heading, layout.title, layout)
 	parts.description.textContent = layout.description
 	parts.description.setAttribute('x', String(layout.textX))
@@ -153,8 +176,9 @@ function writeNode(entry: NodeEntry, layout: CloudLayout, fill: string): void {
 	parts.tooltip.textContent = nodeTooltip(entry.datum)
 }
 
-function renderEntry(entry: NodeEntry, options: NodeLayerOptions): void {
-	const layout = options.layoutOf(entry.datum)
+function renderEntry(entry: NodeEntry, options: NodeLayerOptions, zoomed = false): void {
+	const baseLayout = options.layoutOf(entry.datum)
+	const layout = zoomed && entry.datum.type === 'group' ? createFocusedGroupLayout(baseLayout) : baseLayout
 	const key = renderKey(entry.datum, layout)
 
 	if (entry.renderedKey === key) return
@@ -167,18 +191,35 @@ function renderEntry(entry: NodeEntry, options: NodeLayerOptions): void {
 export class NodeLayer extends GraphLayer<GraphNode, NodeEntry> {
 	private readonly colorOf: (type: GraphNodeType) => string
 
+	private readonly zoomState: { zoomed: boolean }
+
+	private readonly options: NodeLayerOptions
+
 	constructor(layer: SVGGElement, options: NodeLayerOptions) {
+		const zoomState = { zoomed: false }
 		super(layer, (node) => nodeKey(node.id), {
 			create: (node): NodeEntry => {
 				const { element, parts } = createNodeGroup()
 				const entry: NodeEntry = { element, parts, datum: node }
 				options.attach?.(element)
-				renderEntry(entry, options)
+				renderEntry(entry, options, zoomState.zoomed)
 				return entry
 			},
-			update: (entry) => renderEntry(entry, options),
+			update: (entry) => renderEntry(entry, options, zoomState.zoomed),
 		})
 		this.colorOf = options.colorOf
+		this.zoomState = zoomState
+		this.options = options
+	}
+
+	/** Переключает вид групп по масштабу, не меняя DOM остальных узлов. */
+	setZoomScale(scale: number): void {
+		const zoomed = scale > 1
+		if (zoomed === this.zoomState.zoomed) return
+		this.zoomState.zoomed = zoomed
+		this.forEachEntry((entry) => {
+			if (entry.datum.type === 'group') renderEntry(entry, this.options, zoomed)
+		})
 	}
 
 	/** Перекрашивает только две сменившиеся ноды, не трогая раскладку и мерку текста. */

@@ -20,6 +20,7 @@ export interface CloudLayout {
 	descriptionY: number
 	/** Поля нет, если предупреждения у узла нет. */
 	warning?: { x: number; y: number }
+	focusedGroup?: boolean
 }
 
 export const TITLE_FONT_SIZE = 14
@@ -49,6 +50,19 @@ export const WARNING_COLOR = '#d92b2b'
 export const SUB_NODE_SIZE = 16
 export const SUB_NODE_CORNER = 7
 export const SUB_NODE_DOT_RADIUS = 4
+/** Диаметр круга группы при приближении */
+export const GROUP_FOCUS_SIZE = 300
+
+/** Увеличенный круг группы; диаметр и вертикальный вынос заголовка зависят от одной величины. */
+export function createFocusedGroupLayout(layout: CloudLayout): CloudLayout {
+	const radius = GROUP_FOCUS_SIZE / 2
+	return {
+		...layout,
+		titleY: -radius + layout.titleY,
+		descriptionY: -radius + layout.descriptionY,
+		focusedGroup: true,
+	}
+}
 
 const ELLIPSIS = '…'
 

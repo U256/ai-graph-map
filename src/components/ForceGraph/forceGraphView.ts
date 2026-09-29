@@ -123,6 +123,7 @@ function attachPanZoom(
 	root: SvgSelection,
 	content: ContentSelection,
 	zoomIndicator: HTMLDivElement,
+	onScale: (scale: number) => void,
 ): { controls: HTMLDivElement; getTransform: () => ZoomTransform; setTransform: (transform: ZoomTransform) => void } {
 	const indicator = zoomIndicator
 	let currentScale = zoomIdentity.k
@@ -133,6 +134,7 @@ function attachPanZoom(
 			const { x, y, k } = event.transform
 			currentScale = k
 			content.attr('transform', `translate(${x},${y}) scale(${k})`)
+			onScale(k)
 			indicator.textContent = `Зум: ${k.toFixed(1)}`
 		})
 	root.call(behavior)
@@ -303,7 +305,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 
 	simulation.on('tick', drawTick)
 	if (panZoom) {
-		const panZoomState = attachPanZoom(root, content, zoomIndicator)
+		const panZoomState = attachPanZoom(root, content, zoomIndicator, (scale) => layers.nodes.setZoomScale(scale))
 		zoomControls = panZoomState.controls
 		getZoomTransform = panZoomState.getTransform
 		setZoomTransform = panZoomState.setTransform
