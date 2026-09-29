@@ -24,7 +24,7 @@ export const CHARGE_STRENGTH = -30
 export const LINK_FORCE_DEFAULT = 2
 
 /** Без `restart()` остывшая симуляция не сдвинется, даже если `alpha` поднять; ниже стартовой единицы, чтобы карта не «взрывалась». */
-export const UPDATE_ALPHA = 0.3
+export const UPDATE_ALPHA = 0.45
 
 /** Иначе d3 разводит новый узел спиралью от нуля, и он «прилетает из центра карты». */
 export const NEW_NODE_SEED_RADIUS = 24
