@@ -31,8 +31,8 @@ export function groupNeighborChargeMultiplier(elementCount: number): number {
 }
 
 function isGroupLink(link: GraphLink): boolean {
-	const source = link.source
-	const target = link.target
+	const { source } = link
+	const { target } = link
 	return (
 		(typeof source === 'object' && source !== null && source.type === 'group') ||
 		(typeof target === 'object' && target !== null && target.type === 'group')
