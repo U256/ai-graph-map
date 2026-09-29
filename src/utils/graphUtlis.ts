@@ -7,7 +7,14 @@ export const multiplyWithClones = (data: GraphData, multiply: number) => {
 	const cloned: GraphData = { nodes: [...data.nodes], links: [...data.links] }
 	// eslint-disable-next-line no-plusplus
 	for (let i = 1; i < multiply; i++) {
-		cloned.nodes = [...cloned.nodes, ...data.nodes.map((node) => ({ ...node, id: `${i}-${node.id}` }))]
+		cloned.nodes = [
+			...cloned.nodes,
+			...data.nodes.map((node) => ({
+				...node,
+				id: `${i}-${node.id}`,
+				title: `(clone-${i}) ${node.title || ''}`,
+			})),
+		]
 		cloned.links = [
 			...cloned.links,
 			...data.links.map((link) => ({
