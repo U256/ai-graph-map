@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { GraphData } from '../../types/graph'
 import type { GraphSettings } from '../../types/settings'
+import { multiplyWithClones } from '../../utils/graphUtlis'
 import './ForceGraph.css'
 import type { GraphPhysics } from './forceGraph'
 import { createForceGraph, type ForceGraphHandle } from './forceGraphView'
@@ -39,20 +40,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 		if (!originalData || typeof nodeClones === 'string' || nodeClones <= 1) {
 			return originalData
 		}
-		const cloned: GraphData = { nodes: [...originalData.nodes], links: [...originalData.links] }
-		// eslint-disable-next-line no-plusplus
-		for (let i = 1; i < nodeClones; i++) {
-			cloned.nodes = [...cloned.nodes, ...originalData.nodes.map((node) => ({ ...node, id: `${i}-${node.id}` }))]
-			cloned.links = [
-				...cloned.links,
-				...originalData.links.map((link) => ({
-					...link,
-					source: `${i}-${link.source}`,
-					target: `${i}-${link.target}`,
-				})),
-			]
-		}
-		return cloned
+		return multiplyWithClones(originalData, nodeClones)
 	}, [originalData, nodeClones])
 
 	const graphRef = useRef<ForceGraphHandle | null>(null)

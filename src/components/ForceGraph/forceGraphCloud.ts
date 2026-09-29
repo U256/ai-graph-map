@@ -89,11 +89,17 @@ function createSubNodeLayout(): CloudLayout {
 	}
 }
 
+/** Подпись группы показывает размер вложенного графа, а не описание исходной работы. */
+function groupDescription(node: GraphNode): string {
+	return `${node.children?.nodes.length ?? 0} элементов`
+}
+
 /** Раскладка облака `node`: ширина — по самой широкой обрезанной строке, блок строк центрирован по вертикали. */
 function createCloudLayout(node: GraphNode, measure: MeasureText): CloudLayout {
 	const gutter = node.hasWarning ? WARNING_GUTTER : 0
 	const title = truncateToWidth(node.title, TITLE_FONT_SIZE, CLOUD_MAX_TEXT_WIDTH, measure)
-	const description = truncateToWidth(node.description ?? '', DESCRIPTION_FONT_SIZE, CLOUD_MAX_TEXT_WIDTH, measure)
+	const sourceDescription = node.type === 'group' ? groupDescription(node) : (node.description ?? '')
+	const description = truncateToWidth(sourceDescription, DESCRIPTION_FONT_SIZE, CLOUD_MAX_TEXT_WIDTH, measure)
 	const textWidth = Math.max(
 		measure(title, TITLE_FONT_SIZE),
 		description ? measure(description, DESCRIPTION_FONT_SIZE) : 0,
@@ -119,7 +125,7 @@ function createCloudLayout(node: GraphNode, measure: MeasureText): CloudLayout {
 export function createCloudLayouts(nodes: GraphNode[], measure: MeasureText): Map<GraphNode, CloudLayout> {
 	const layouts = new Map<GraphNode, CloudLayout>()
 	nodes.forEach((node) => {
-		layouts.set(node, node.type === 'node' ? createCloudLayout(node, measure) : createSubNodeLayout())
+		layouts.set(node, node.type === 'subNode' ? createSubNodeLayout() : createCloudLayout(node, measure))
 	})
 	return layouts
 }

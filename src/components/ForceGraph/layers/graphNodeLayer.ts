@@ -79,7 +79,8 @@ function renderKey(node: GraphNode, layout: CloudLayout): string {
 
 /** Склейка здесь, а не в данных: на карте виден обрезанный `title`, полный текст — в подсказке. */
 export function nodeTooltip(node: GraphNode): string {
-	return [node.title, node.description].filter(Boolean).join('\n')
+	const description = node.type === 'group' ? `${node.children?.nodes.length ?? 0} элементов` : node.description
+	return [node.title, description].filter(Boolean).join('\n')
 }
 
 /** Атрибуты, общие для всех типов и не зависящие от данных, пишутся один раз при создании. */
@@ -132,7 +133,7 @@ function writeHeading(heading: SVGTextElement, text: string, layout: CloudLayout
 
 function writeNode(entry: NodeEntry, layout: CloudLayout, fill: string): void {
 	const { parts } = entry
-	const isCloud = entry.datum.type === 'node'
+	const isCloud = entry.datum.type !== 'subNode'
 	const bodyFill = entry.selected ? SELECTED_COLOR : fill
 
 	writeBody(parts.body, layout, bodyFill, isCloud)
@@ -192,7 +193,7 @@ export class NodeLayer extends GraphLayer<GraphNode, NodeEntry> {
 			const bodyFill = selected ? SELECTED_COLOR : fill
 			entry.parts.body.setAttribute('fill', tintToWhite(bodyFill))
 			entry.parts.body.setAttribute('stroke', bodyFill)
-			entry.parts.dot.setAttribute('fill', entry.datum.type === 'node' ? 'none' : bodyFill)
+			entry.parts.dot.setAttribute('fill', entry.datum.type === 'subNode' ? bodyFill : 'none')
 		})
 	}
 

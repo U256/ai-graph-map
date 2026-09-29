@@ -1,4 +1,8 @@
 import type { GraphData } from '../types/graph'
+import { multiplyWithClones } from '../utils/graphUtlis'
+import { graphData as graphMini1 } from './graphMini1'
+import { graphData as graphMini2 } from './graphMini2'
+import { graphData as graphMini3 } from './graphMini3'
 
 /**
  * Данные графа для карты цитирований: 100 научных работ и 112 цитирующих их патентов,
@@ -52,7 +56,8 @@ export const graphData: GraphData = {
 			description:
 				'8-Substituted Pyrido[3,4-d]pyrimidin-4(3H)-one Derivatives As Potent, Cell Permeable, KDM4 (JMJD2) and KDM5 (JARID1) Histone Lysine Demethylase Inhibitors.',
 			hasWarning: false,
-			type: 'node',
+			type: 'group',
+			children: graphMini1,
 		},
 		{
 			id: 'work-6',
@@ -350,7 +355,8 @@ export const graphData: GraphData = {
 			description:
 				'A novel shogaol analog suppresses cancer cell invasion and inflammation, and displays cytoprotective effects through modulation of NF-κB and Nrf2-Keap1 signaling pathways',
 			hasWarning: false,
-			type: 'node',
+			type: 'group',
+			children: graphMini3,
 		},
 		{
 			id: 'work-45',
@@ -628,6 +634,15 @@ export const graphData: GraphData = {
 			type: 'node',
 		},
 		{
+			id: 'work-81g',
+			title: 'BIG BIG GROUP',
+			description:
+				'SCF/β-TrCP promotes glycogen synthase kinase 3-dependent degradation of the Nrf2 transcription factor in a keap1-independent manner',
+			hasWarning: false,
+			type: 'group',
+			children: multiplyWithClones(graphMini3, 3),
+		},
+		{
 			id: 'work-82',
 			title: 'Аналоги кворума',
 			description:
@@ -698,7 +713,8 @@ export const graphData: GraphData = {
 			title: 'Пурины против CDK',
 			description: 'Design, synthesis and biological evaluation of 6-pyridylmethylaminopurines as CDK inhibitors',
 			hasWarning: false,
-			type: 'node',
+			type: 'group',
+			children: graphMini2,
 		},
 		{
 			id: 'work-92',

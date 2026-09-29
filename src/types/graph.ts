@@ -4,7 +4,7 @@ import type { SimulationLinkDatum, SimulationNodeDatum } from 'd3-force'
  * Типы данных графа, общие для слоя данных, чистой логики и отрисовки.
  */
 
-export type GraphNodeType = 'node' | 'subNode'
+export type GraphNodeType = 'node' | 'subNode' | 'group'
 
 export interface GraphNodeInput {
 	/** По нему forceLink сопоставляет концы связей. */
@@ -19,6 +19,9 @@ export interface GraphNodeInput {
 	type: GraphNodeType
 	/** Множитель индивидуального отталкивания; отсутствие сохраняет общую силу. */
 	chargeMultiplier?: number
+
+	/** Только для групп */
+	children?: GraphData
 }
 
 /** Концы связи заданы идентификаторами узлов. */

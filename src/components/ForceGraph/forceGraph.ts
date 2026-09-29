@@ -118,8 +118,14 @@ export function asDrawnLinks(links: GraphLink[]): DrawnLink[] {
 /** Оттенки в порядке первого появления типа, поэтому легенда не нужна; тип, приехавший с обновлением, держит свой оттенок. */
 export function createTypeColors(nodes: GraphNode[]): (type: GraphNodeType) => string {
 	const byType = new Map<GraphNodeType, string>()
+	const fixedColors: Partial<Record<GraphNodeType, string>> = { group: '#2e8b57' }
 
 	const allocate = (type: GraphNodeType): string => {
+		const fixed = fixedColors[type]
+		if (fixed) {
+			byType.set(type, fixed)
+			return fixed
+		}
 		const color = schemeCategory10[byType.size % schemeCategory10.length]
 		byType.set(type, color)
 		return color
