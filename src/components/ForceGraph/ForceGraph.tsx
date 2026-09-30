@@ -52,6 +52,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 		: ''
 
 	const graphRef = useRef<ForceGraphHandle | null>(null)
+	const layoutPhysicsRef = useRef<GraphPhysics | null>(null)
 	const [layoutLoading, setLayoutLoading] = useState(false)
 	// сцена создаётся один раз, а колбэк клика пересоздаётся с родителем: наружу уходит обёртка,
 	// читающая актуальное замыкание из ref
@@ -66,6 +67,11 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 		let cancelLayout = () => {}
 		const graph = graphRef.current
 		if (container && data) {
+			const physicsChanged = layoutPhysicsRef.current !== physics
+			if (graph && !physicsChanged) {
+				graph.updateData(data)
+				return () => cancelLayout()
+			}
 			const zoomTransform = graph?.getZoomTransform()
 			setLayoutLoading(true)
 			const measureStart = performance.now()
@@ -80,18 +86,21 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 					)
 					const next = createForceGraph(applyInitialLayout(data, positions), {
 						onNodeClick: handleNodeClick,
+						physics,
 					})
 					graph?.destroy()
 					graphRef.current = next
+					layoutPhysicsRef.current = physics
 					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
 					if (zoomTransform) next.setZoomTransform(zoomTransform)
 					setLayoutLoading(false)
 				})
 				.catch(() => {
 					if (!active) return
-					const next = createForceGraph(data, { onNodeClick: handleNodeClick })
+					const next = createForceGraph(data, { onNodeClick: handleNodeClick, physics })
 					graph?.destroy()
 					graphRef.current = next
+					layoutPhysicsRef.current = physics
 					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
 					if (zoomTransform) next.setZoomTransform(zoomTransform)
 					setLayoutLoading(false)
@@ -114,6 +123,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 		() => () => {
 			graphRef.current?.destroy()
 			graphRef.current = null
+			layoutPhysicsRef.current = null
 			setLayoutLoading(false)
 			containerRef.current?.replaceChildren()
 		},

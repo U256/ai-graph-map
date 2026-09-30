@@ -70,6 +70,7 @@ export class GraphLayer<T, E extends LayerEntry<T> = LayerEntry<T>> {
 
 			if (entry) {
 				entry.datum = datum
+				;(entry.element as unknown as { __data__: T }).__data__ = datum
 				if (dirtyKeys.has(key)) {
 					this.renderer.update(entry)
 					updated += 1
