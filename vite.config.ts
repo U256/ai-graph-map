@@ -4,5 +4,6 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [react()],
-	base: '/ai-graph-map/',
+	// @ts-ignore
+	base: import.meta.env.PROD ? '/ai-graph-map/' : undefined,
 })

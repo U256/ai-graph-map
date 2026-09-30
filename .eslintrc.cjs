@@ -107,6 +107,7 @@ module.exports = {
 			rules: {
 				...tsRules,
 				'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
+				'@typescript-eslint/ban-ts-comment': 0,
 			},
 		},
 		{
