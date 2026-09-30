@@ -1,82 +1,95 @@
-import type { GraphData, GraphLinkInput, GraphNodeInput } from '../../types/graph'
+import type { GraphData, GraphNodeInput } from '../../types/graph'
+
+const MAX_GROUP_SIZE = 200
 
 export type GraphComponent = GraphData
 export type LayoutCluster = GraphComponent[]
 
-/** Ищет компоненты по связности, трактуя направление ребра как несущественное только для обхода. */
-export function splitGraphIntoComponents(data: GraphData): GraphComponent[] {
+type GraphIndexes = {
+	nodesById: Map<string, GraphNodeInput>
+	connectedNodeIds: Map<string, Set<string>>
+	linkIndexesByNodeId: Map<string, number[]>
+}
+
+function createGraphIndexes(data: GraphData): GraphIndexes {
 	const nodesById = new Map<string, GraphNodeInput>()
+	const connectedNodeIds = new Map<string, Set<string>>()
+	const linkIndexesByNodeId = new Map<string, number[]>()
+
 	data.nodes.forEach((node) => {
-		if (!nodesById.has(node.id)) nodesById.set(node.id, node)
+		if (nodesById.has(node.id)) return
+		nodesById.set(node.id, node)
+		connectedNodeIds.set(node.id, new Set())
+		linkIndexesByNodeId.set(node.id, [])
 	})
 
-	const adjacency = new Map<string, Set<string>>([...nodesById.keys()].map((id) => [id, new Set()]))
-	data.links.forEach(({ source, target }) => {
-		if (!nodesById.has(source) || !nodesById.has(target)) return
-		adjacency.get(source)?.add(target)
-		adjacency.get(target)?.add(source)
+	data.links.forEach(({ source, target }, index) => {
+		const sourceNeighbors = connectedNodeIds.get(source)
+		const targetNeighbors = connectedNodeIds.get(target)
+		const sourceLinks = linkIndexesByNodeId.get(source)
+		const targetLinks = linkIndexesByNodeId.get(target)
+		if (!sourceNeighbors || !targetNeighbors || !sourceLinks || !targetLinks) return
+
+		sourceNeighbors.add(target)
+		targetNeighbors.add(source)
+		sourceLinks.push(index)
+		targetLinks.push(index)
 	})
 
-	const visited = new Set<string>()
+	return { nodesById, connectedNodeIds, linkIndexesByNodeId }
+}
+
+function collectCandidate(
+	startId: string,
+	data: GraphData,
+	indexes: GraphIndexes,
+	visitedNodeIds: Set<string>,
+): GraphComponent {
+	const candidate: GraphComponent = { nodes: [], links: [] }
+	const candidateLinkIndexes = new Set<number>()
+	const queue = [startId]
+	visitedNodeIds.add(startId)
+
+	for (let cursor = 0; cursor < queue.length; cursor += 1) {
+		const nodeId = queue[cursor]
+		candidate.nodes.push(indexes.nodesById.get(nodeId) as GraphNodeInput)
+		indexes.linkIndexesByNodeId.get(nodeId)?.forEach((linkIndex) => {
+			if (candidateLinkIndexes.has(linkIndex)) return
+			candidateLinkIndexes.add(linkIndex)
+			candidate.links.push(data.links[linkIndex])
+		})
+
+		indexes.connectedNodeIds.get(nodeId)?.forEach((connectedNodeId) => {
+			if (visitedNodeIds.has(connectedNodeId)) return
+			visitedNodeIds.add(connectedNodeId)
+			queue.push(connectedNodeId)
+		})
+	}
+
+	return candidate
+}
+
+/** Ищет компоненты по связности и сразу упаковывает их в группы до 200 узлов. */
+export function splitGraphIntoComponents(data: GraphData): GraphComponent[] {
+	const indexes = createGraphIndexes(data)
+	const visitedNodeIds = new Set<string>()
 	const components: GraphComponent[] = []
-	const componentById = new Map<string, number>()
+	let currentGroup: GraphComponent = { nodes: [], links: [] }
 
-	nodesById.forEach((_, startId) => {
-		if (visited.has(startId)) return
-		const nodeIds: string[] = []
-		const queue = [startId]
-		visited.add(startId)
+	indexes.nodesById.forEach((_, startId) => {
+		if (visitedNodeIds.has(startId)) return
+		const candidate = collectCandidate(startId, data, indexes, visitedNodeIds)
 
-		for (let cursor = 0; cursor < queue.length; cursor += 1) {
-			const id = queue[cursor]
-			nodeIds.push(id)
-			adjacency.get(id)?.forEach((neighbor) => {
-				if (visited.has(neighbor)) return
-				visited.add(neighbor)
-				queue.push(neighbor)
-			})
+		if (currentGroup.nodes.length > 0 && currentGroup.nodes.length + candidate.nodes.length > MAX_GROUP_SIZE) {
+			components.push(currentGroup)
+			currentGroup = { nodes: [], links: [] }
 		}
 
-		const index = components.length
-		components.push({
-			nodes: nodeIds.map((id) => nodesById.get(id) as GraphNodeInput),
-			links: [],
-		})
-		nodeIds.forEach((id) => componentById.set(id, index))
+		currentGroup.nodes.push(...candidate.nodes)
+		currentGroup.links.push(...candidate.links)
 	})
 
-	data.links.forEach((link: GraphLinkInput) => {
-		const index = componentById.get(link.source)
-		if (index === undefined || componentById.get(link.target) !== index) return
-		components[index].links.push({ ...link })
-	})
+	if (currentGroup.nodes.length > 0) components.push(currentGroup)
 
 	return components
-}
-
-/** Объединяет малые компоненты в компактные ряды placement-очереди, не объединяя сами графы. */
-export function orderComponentsForLayout(components: GraphComponent[]): GraphComponent[] {
-	const large = components.filter(({ nodes }) => nodes.length > 3)
-	const small = components.filter(({ nodes }) => nodes.length <= 3)
-	return [...large, ...small]
-}
-
-/** Группирует компоненты в визуальные кластеры примерно по 150 узлов, не разрывая связные компоненты. */
-export function groupComponentsForLayout(components: GraphComponent[], targetSize = 150): LayoutCluster[] {
-	const clusters: LayoutCluster[] = []
-	let cluster: LayoutCluster = []
-	let size = 0
-
-	components.forEach((component) => {
-		if (cluster.length > 0 && size + component.nodes.length > targetSize) {
-			clusters.push(cluster)
-			cluster = []
-			size = 0
-		}
-		cluster.push(component)
-		size += component.nodes.length
-	})
-
-	if (cluster.length > 0) clusters.push(cluster)
-	return clusters
 }

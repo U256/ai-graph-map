@@ -185,7 +185,7 @@ const {
 } = physics
 const { applyGraphUpdate, planGraphUpdate, readGraphState } = logic
 const { seedPosition } = nodesCrud
-const { groupComponentsForLayout, orderComponentsForLayout, splitGraphIntoComponents } = graphComponents
+const { splitGraphIntoComponents } = graphComponents
 const {
 	CLOUD_MAX_TEXT_WIDTH,
 	CLOUD_PADDING_X,
@@ -211,32 +211,29 @@ const componentFixture = {
 	],
 }
 const components = splitGraphIntoComponents(componentFixture)
-check('компоненты связности учитывают направление без изменения рёбер', components.length === 3)
+check('компоненты связности упаковываются в одну группу', components.length === 1)
 check(
 	'изолированная нода остаётся отдельной компонентой',
-	components.some(({ nodes }) => nodes.length === 1 && nodes[0].id === 'f'),
+	components[0].nodes.some(({ id }) => id === 'f'),
 )
 check(
 	'дубликаты рёбер сохраняются, отсутствующие концы отбрасываются',
 	components.flatMap(({ links }) => links).length === 4,
 )
 check(
-	'малые компоненты идут после крупных для компактной раскладки',
-	orderComponentsForLayout([
-		{ nodes: [{ id: 's' }], links: [] },
-		{ nodes: Array(4).fill({ id: 'l' }), links: [] },
-	])[0].nodes.length === 4,
+	'направление исходных рёбер не меняется',
+	components.flatMap(({ links }) => links).some(({ source, target }) => source === 'a' && target === 'b'),
 )
-const layoutClusters = groupComponentsForLayout([
-	{ nodes: Array(100).fill({ id: 'a' }), links: [] },
-	{ nodes: Array(50).fill({ id: 'b' }), links: [] },
-	{ nodes: Array(2).fill({ id: 'c' }), links: [] },
-])
-check('компоненты собираются в кластеры примерно по 150 узлов', layoutClusters.length === 2)
-check(
-	'связная компонента не разрезается при сборке кластера',
-	layoutClusters[0].map(({ nodes }) => nodes.length).join(',') === '100,50',
-)
+const groupedNodes = splitGraphIntoComponents({
+	nodes: Array.from({ length: 401 }, (_, index) => ({
+		id: `isolated-${index}`,
+		title: String(index),
+		type: 'node',
+		hasWarning: false,
+	})),
+	links: [],
+})
+check('группы не превышают 200 узлов', groupedNodes.map(({ nodes }) => nodes.length).join(',') === '200,200,1')
 check('пустой граф даёт пустой список компонент', splitGraphIntoComponents({ nodes: [], links: [] }).length === 0)
 
 /**

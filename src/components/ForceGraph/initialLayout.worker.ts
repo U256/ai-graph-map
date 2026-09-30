@@ -1,12 +1,6 @@
 import type { GraphData, GraphNode } from '../../types/graph'
 import { createSimulation, type GraphPhysics } from './forceGraph'
-import {
-	groupComponentsForLayout,
-	orderComponentsForLayout,
-	splitGraphIntoComponents,
-	type GraphComponent,
-	type LayoutCluster,
-} from './graphComponents'
+import { splitGraphIntoComponents, type GraphComponent, type LayoutCluster } from './graphComponents'
 
 const COMPONENT_GAP = 40
 const CLUSTER_GAP = 240
@@ -119,8 +113,7 @@ function placeClusters(clusters: LayoutCluster[], physics: GraphPhysics): Positi
 
 workerScope.onmessage = (event: MessageEvent<LayoutRequest>) => {
 	const { data, physics } = event.data
-	const components = orderComponentsForLayout(splitGraphIntoComponents(data))
-	const clusters = groupComponentsForLayout(components)
+	const clusters = splitGraphIntoComponents(data).map((component) => [component])
 	const positions = new Map(placeClusters(clusters, physics).map(({ id, x, y }) => [id, { id, x, y }]))
 	workerScope.postMessage(data.nodes.flatMap(({ id }) => (positions.has(id) ? [positions.get(id)] : [])))
 }
