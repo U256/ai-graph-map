@@ -2,8 +2,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
 	plugins: [react()],
-	// @ts-ignore
-	base: import.meta.env.PROD ? '/ai-graph-map/' : undefined,
-})
+	base: mode === 'production' ? '/ai-graph-map/' : undefined,
+}))

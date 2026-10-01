@@ -171,6 +171,7 @@ const logic = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphU
 const cloud = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphCloud.ts')
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts')
 const nodesCrud = await server.ssrLoadModule('/src/components/ForceGraph/crud/graphNodesCRUD.ts')
+const graphComponents = await server.ssrLoadModule('/src/components/ForceGraph/graphComponents.ts')
 const source = await server.ssrLoadModule('/src/data/graph.ts')
 
 const {
@@ -186,6 +187,7 @@ const {
 } = physics
 const { applyGraphUpdate, planGraphUpdate, readGraphState } = logic
 const { seedPosition } = nodesCrud
+const { splitGraphIntoComponents } = graphComponents
 const {
 	CLOUD_MAX_TEXT_WIDTH,
 	CLOUD_PADDING_X,
@@ -203,6 +205,42 @@ const { createNodeInData, deleteNodeFromData, neighborOptions, updateNodeInData 
 
 const base = source.graphData
 const NEW_ID = 'probe-new'
+
+const componentFixture = {
+	nodes: ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => ({ id, title: id, type: 'node', hasWarning: false })),
+	links: [
+		{ source: 'a', target: 'b' },
+		{ source: 'b', target: 'c' },
+		{ source: 'd', target: 'e' },
+		{ source: 'a', target: 'b' },
+		{ source: 'missing', target: 'f' },
+	],
+}
+const components = splitGraphIntoComponents(componentFixture)
+check('компоненты связности упаковываются в одну группу', components.length === 1)
+check(
+	'изолированная нода остаётся отдельной компонентой',
+	components[0].nodes.some(({ id }) => id === 'f'),
+)
+check(
+	'дубликаты рёбер сохраняются, отсутствующие концы отбрасываются',
+	components.flatMap(({ links }) => links).length === 4,
+)
+check(
+	'направление исходных рёбер не меняется',
+	components.flatMap(({ links }) => links).some(({ source, target }) => source === 'a' && target === 'b'),
+)
+const groupedNodes = splitGraphIntoComponents({
+	nodes: Array.from({ length: 401 }, (_, index) => ({
+		id: `isolated-${index}`,
+		title: String(index),
+		type: 'node',
+		hasWarning: false,
+	})),
+	links: [],
+})
+check('группы не превышают 200 узлов', groupedNodes.map(({ nodes }) => nodes.length).join(',') === '200,200,1')
+check('пустой граф даёт пустой список компонент', splitGraphIntoComponents({ nodes: [], links: [] }).length === 0)
 
 /**
  * Прогон «добавили один узел» — та же последовательность, что в `forceGraphView.update`, только без

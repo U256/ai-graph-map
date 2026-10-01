@@ -6,7 +6,7 @@ import { graphData as graphMini3 } from './graphMini3'
 
 /**
  * Данные графа для карты цитирований: 100 научных работ и 112 цитирующих их патентов,
- * 201 связь «работа → патент».
+ * 402 связи между работами и патентами.
  *
  * Связи перепакованы искусственно, чтобы карта показывала кластеры, а не россыпь пар: часть патентов
  * удалена, их ссылки заменены ссылками на оставшиеся. Работы не менялись. Данные — больше не буквальный
@@ -2459,6 +2459,252 @@ export const graphData: GraphData = {
 		{
 			source: 'work-100',
 			target: 'patent-230',
+			force: 2,
+		},
+		{
+			source: 'work-36',
+			target: 'patent-70',
+			force: 2,
+		},
+		{
+			source: 'work-4',
+			target: 'patent-7',
+			force: 2,
+		},
+		{
+			source: 'work-55',
+			target: 'patent-85',
+			force: 2,
+		},
+		{
+			source: 'work-16',
+			target: 'patent-54',
+			force: 2,
+		},
+
+		{
+			source: 'work-44',
+			target: 'patent-54',
+			force: 2,
+		},
+		{
+			source: 'work-15',
+			target: 'patent-45',
+			force: 2,
+		},
+		{
+			source: 'work-12',
+			target: 'patent-100',
+			force: 2,
+		},
+		{
+			source: 'work-4',
+			target: 'patent-182',
+			force: 2,
+		},
+		{
+			source: 'work-2',
+			target: 'patent-180',
+			force: 2,
+		},
+		{
+			source: 'work-4',
+			target: 'patent-82',
+			force: 2,
+		},
+		{
+			source: 'work-37',
+			target: 'patent-193',
+			force: 2,
+		},
+		{
+			source: 'work-65',
+			target: 'patent-173',
+			force: 2,
+		},
+		{
+			source: 'work-22',
+			target: 'patent-98',
+			force: 2,
+		},
+		{
+			source: 'work-99',
+			target: 'patent-41',
+			force: 2,
+		},
+		{
+			source: 'work-86',
+			target: 'patent-27',
+			force: 2,
+		},
+		{
+			source: 'work-17',
+			target: 'patent-44',
+			force: 2,
+		},
+		{
+			source: 'work-57',
+			target: 'patent-96',
+			force: 2,
+		},
+		{
+			source: 'work-82',
+			target: 'patent-28',
+			force: 2,
+		},
+		{
+			source: 'work-60',
+			target: 'patent-1',
+			force: 2,
+		},
+		{
+			source: 'work-38',
+			target: 'patent-193',
+			force: 2,
+		},
+		{
+			source: 'work-10',
+			target: 'patent-117',
+			force: 2,
+		},
+		{
+			source: 'work-2',
+			target: 'patent-184',
+			force: 2,
+		},
+		{
+			source: 'work-24',
+			target: 'patent-105',
+			force: 2,
+		},
+		{
+			source: 'work-10',
+			target: 'patent-62',
+			force: 2,
+		},
+		{
+			source: 'work-52',
+			target: 'patent-80',
+			force: 2,
+		},
+		{
+			source: 'work-28',
+			target: 'patent-175',
+			force: 2,
+		},
+		{
+			source: 'work-21',
+			target: 'patent-17',
+			force: 2,
+		},
+		{
+			source: 'work-25',
+			target: 'patent-93',
+			force: 2,
+		},
+		{
+			source: 'work-30',
+			target: 'patent-87',
+			force: 2,
+		},
+		{
+			source: 'work-46',
+			target: 'patent-81',
+			force: 2,
+		},
+		{
+			source: 'work-67',
+			target: 'patent-20',
+			force: 2,
+		},
+		{
+			source: 'work-64',
+			target: 'patent-7',
+			force: 2,
+		},
+		{
+			source: 'work-65',
+			target: 'patent-211',
+			force: 2,
+		},
+		{
+			source: 'work-60',
+			target: 'patent-72',
+			force: 2,
+		},
+		{
+			source: 'work-67',
+			target: 'patent-44',
+			force: 2,
+		},
+		{
+			source: 'work-76',
+			target: 'patent-134',
+			force: 2,
+		},
+		{
+			source: 'work-43',
+			target: 'patent-54',
+			force: 2,
+		},
+		{
+			source: 'work-19',
+			target: 'patent-125',
+			force: 2,
+		},
+		{
+			source: 'work-3',
+			target: 'patent-47',
+			force: 2,
+		},
+		{
+			source: 'work-84',
+			target: 'patent-195',
+			force: 2,
+		},
+		{
+			source: 'work-17',
+			target: 'patent-217',
+			force: 2,
+		},
+		{
+			source: 'work-75',
+			target: 'patent-24',
+			force: 2,
+		},
+		{
+			source: 'work-3',
+			target: 'patent-83',
+			force: 2,
+		},
+		{
+			source: 'work-90',
+			target: 'patent-93',
+			force: 2,
+		},
+		{
+			source: 'work-18',
+			target: 'patent-23',
+			force: 2,
+		},
+		{
+			source: 'work-33',
+			target: 'patent-134',
+			force: 2,
+		},
+		{
+			source: 'work-23',
+			target: 'patent-125',
+			force: 2,
+		},
+		{
+			source: 'work-98',
+			target: 'patent-28',
+			force: 2,
+		},
+		{
+			source: 'work-1',
+			target: 'patent-116',
 			force: 2,
 		},
 	],
