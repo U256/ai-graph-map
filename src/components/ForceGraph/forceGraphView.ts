@@ -2,9 +2,17 @@ import { drag, type D3DragEvent, type DragBehavior } from 'd3-drag'
 import { select, type Selection } from 'd3-selection'
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomTransform } from 'd3-zoom'
 import type { DrawnLink, GraphData, GraphLink, GraphNode } from '../../types/graph'
-import { createTypeColors, DRAG_CLICK_SLOP, GRAPH_HEIGHT, GRAPH_WIDTH } from './forceGraph'
+import {
+	createSimulation,
+	createTypeColors,
+	DRAG_CLICK_SLOP,
+	GRAPH_HEIGHT,
+	GRAPH_WIDTH,
+	type GraphPhysics,
+} from './forceGraph'
 import { createCloudLayouts, type CloudLayout } from './forceGraphCloud'
 import { createTextMeasurer } from './forceGraphText'
+import { applyGraphUpdate, planGraphUpdate, readGraphState } from './forceGraphUpdate'
 import { LinkLayer } from './layers/graphLinkLayer'
 import { NODE_CLASS, NodeLayer } from './layers/graphNodeLayer'
 
@@ -14,6 +22,7 @@ import { NODE_CLASS, NodeLayer } from './layers/graphNodeLayer'
 
 export interface ForceGraphOptions {
 	panZoom?: boolean
+	physics?: GraphPhysics
 	/**
 	 * Наружу уходит только id: данные живут в стейте вызывающего, а `__data__` группы после правки может
 	 * держать прежний объект симуляции. Клоны (`nodeClones > 1`) дают id вида `2-…`, которого в данных
@@ -29,6 +38,7 @@ export interface ForceGraphHandle {
 	getZoomTransform: () => ZoomTransform
 	setZoomTransform: (transform: ZoomTransform) => void
 	setSelectedNode: (id: string | null) => void
+	updateData: (data: GraphData) => void
 	destroy: () => void
 }
 
@@ -39,6 +49,11 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 const ARIA_LABEL = 'Граф связей научных работ и патентов'
 /** Без них граф легко потерять за краем экрана. */
 const ZOOM_EXTENT: [number, number] = [0.1, 8]
+const INCREMENTAL_TICKS = 180
+const TEMPORARY_OLD_CHARGE = 0.15
+const OLD_POSITION_BLEND = 0.24
+const DISCONNECTED_SEED_RADIUS = 180
+const DISCONNECTED_SEED_STEP = 26
 
 /** Drag меняет только выбранный узел: статичная раскладка не должна разогревать соседей. */
 function createDrag(onDrag: () => void): {
@@ -157,8 +172,64 @@ function resolveLinks(nodes: GraphNode[], links: GraphLink[]): DrawnLink[] {
 	})
 }
 
+/**
+ * Коротко доводит только новые узлы: старые закреплены на прежних координатах, поэтому добавление компоненты
+ * не перетряхивает уже разложенную карту. Для полностью новой компоненты стартовые точки разводятся заранее,
+ * иначе одинаковый запасной seed оставляет все её узлы в центре до первого тика.
+ */
+function settleAddedNodes(nodes: GraphNode[], links: GraphLink[], addedIds: Set<string>, physics: GraphPhysics): void {
+	if (addedIds.size === 0) return
+	const existingIds = new Set(nodes.filter((node) => !addedIds.has(node.id)).map((node) => node.id))
+	const oldPositions = new Map(nodes.map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }]))
+	const simulationNodes = nodes.map((node, index) => {
+		const added = addedIds.has(node.id)
+		const hasExistingNeighbor = links.some((link) => {
+			const source = String(link.source)
+			const target = String(link.target)
+			return (
+				added &&
+				((source === node.id && existingIds.has(target)) || (target === node.id && existingIds.has(source)))
+			)
+		})
+		const angle = index * 2.399963
+		const radius = DISCONNECTED_SEED_RADIUS + index * DISCONNECTED_SEED_STEP
+		return {
+			...node,
+			x: hasExistingNeighbor ? node.x : (node.x ?? 0) + Math.cos(angle) * radius,
+			y: hasExistingNeighbor ? node.y : (node.y ?? 0) + Math.sin(angle) * radius,
+			vx: 0,
+			vy: 0,
+			fx: null,
+			fy: null,
+			chargeMultiplier: added ? node.chargeMultiplier : TEMPORARY_OLD_CHARGE,
+			index,
+		}
+	})
+	const simulationLinks = links.map((link) => ({ ...link }))
+	const simulation = createSimulation(simulationNodes, simulationLinks, physics).stop()
+
+	for (let tick = 0; tick < INCREMENTAL_TICKS; tick += 1) simulation.tick()
+
+	const positions = new Map(simulationNodes.map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }]))
+	nodes.forEach((node) => {
+		const position = positions.get(node.id)
+		if (position) {
+			const oldPosition = oldPositions.get(node.id)
+			if (oldPosition && !addedIds.has(node.id)) {
+				position.x = oldPosition.x + (position.x - oldPosition.x) * OLD_POSITION_BLEND
+				position.y = oldPosition.y + (position.y - oldPosition.y) * OLD_POSITION_BLEND
+			}
+			// eslint-disable-next-line no-param-reassign
+			node.x = position.x
+			// eslint-disable-next-line no-param-reassign
+			node.y = position.y
+		}
+	})
+}
+
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
 	const { panZoom = true, onNodeClick } = options
+	const physics = options.physics ?? {}
 	const { svg, content, linkLayer: linkGroup, nodeLayer: nodeGroup } = createScene()
 	const zoomIndicator = document.createElement('div')
 	zoomIndicator.className = 'force-graph__zoom'
@@ -174,6 +245,8 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	// палитра живёт вместе со сценой: прежние типы не перекрасятся, новый получит свой оттенок
 	const colorOf = createTypeColors(initialNodes)
 	const drawnLinks = resolveLinks(initialNodes, initialLinks)
+	let currentNodes = initialNodes
+	let currentLinks = drawnLinks
 	let drawPositions = (): void => {}
 	const { behavior: dragBehavior, wasDragging } = createDrag(() => drawPositions())
 
@@ -193,6 +266,10 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 					onNodeClick(node.id)
 				})
 			},
+			attachChild: (element, onDrag) => {
+				const childDrag = createDrag(onDrag)
+				select<SVGGElement, GraphNode>(element).call(childDrag.behavior)
+			},
 		}),
 	}
 
@@ -206,6 +283,20 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	drawPositions()
 	function setSelectedNode(id: string | null): void {
 		layers.nodes.setSelectedNode(id)
+	}
+	function updateData(nextData: GraphData): void {
+		const state = readGraphState(currentNodes, currentLinks)
+		const plan = planGraphUpdate(state, nextData)
+		const result = applyGraphUpdate(state, plan)
+		settleAddedNodes(result.nodes, result.links, new Set(plan.addedNodes.map(({ node }) => node.id)), physics)
+		const nextLinks = resolveLinks(result.nodes, result.links)
+		const dirtyLinks = new Set([...result.addedLinkKeys, ...result.changedLinkKeys])
+
+		currentNodes = result.nodes
+		currentLinks = nextLinks
+		layers.links.sync(nextLinks, dirtyLinks)
+		layers.nodes.sync(result.nodes, result.changedNodeKeys)
+		drawPositions()
 	}
 
 	if (panZoom) {
@@ -222,6 +313,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		getZoomTransform,
 		setZoomTransform,
 		setSelectedNode,
+		updateData,
 		destroy: () => {
 			layers.links.clear()
 			layers.nodes.clear()

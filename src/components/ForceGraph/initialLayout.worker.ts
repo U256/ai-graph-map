@@ -1,10 +1,8 @@
 import type { GraphData, GraphNode } from '../../types/graph'
 import { placeClusterCircles } from './clusterLayout'
-import { createSimulation, type GraphPhysics } from './forceGraph'
+import { createSimulation, groupNeighborChargeMultiplier, type GraphPhysics } from './forceGraph'
 import { splitGraphIntoComponents, type GraphComponent, type LayoutCluster } from './graphComponents'
-
-const COMPONENT_GAP = 40
-const LAYOUT_ROW_WIDTH = 1600
+import type { InitialLayout, InitialPosition, NestedInitialPosition } from './initialLayout'
 
 type Position = { id: string; x: number; y: number }
 
@@ -15,14 +13,51 @@ type Bounds = {
 	maxY: number
 }
 
+const COMPONENT_GAP = 40
+const LAYOUT_ROW_WIDTH = 1600
+
 type LayoutRequest = {
 	data: GraphData
 	physics: GraphPhysics
 }
 
+function withGroupCharge(data: GraphData): GraphData {
+	return {
+		nodes: data.nodes.map((node) => ({
+			...node,
+			chargeMultiplier:
+				node.type === 'group'
+					? groupNeighborChargeMultiplier(node.children?.nodes.length ?? 0)
+					: node.chargeMultiplier,
+		})),
+		links: data.links.map((link) => ({ ...link })),
+	}
+}
+
 const workerScope = globalThis as typeof globalThis & {
 	onmessage: (event: MessageEvent<LayoutRequest>) => void
-	postMessage: (message: unknown) => void
+	postMessage: (message: InitialLayout) => void
+}
+
+function calculate(data: GraphData, physics: GraphPhysics): InitialPosition[] {
+	const nodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
+	const links = data.links.map((link) => ({ ...link }))
+	const simulation = createSimulation(nodes, links, physics).stop()
+	simulation.alphaTarget(0.05)
+	for (let tick = 0; tick < 2000; tick += 1) simulation.tick()
+	simulation.alphaTarget(0)
+	while (simulation.alpha() > simulation.alphaMin()) simulation.tick()
+	return nodes.map(({ id, x, y }) => ({ id, x: x ?? 0, y: y ?? 0 }))
+}
+
+/** Вложенные графы считают тем же `createSimulation`; усиленный заряд получает только внешний узел группы. */
+function nestedPositions(data: GraphData, physics: GraphPhysics): NestedInitialPosition[] {
+	return data.nodes.flatMap((node) => {
+		if (!node.children) return []
+		const positionedChildren = withGroupCharge(node.children)
+		const positions = calculate(positionedChildren, physics).map((position) => ({ ...position, groupId: node.id }))
+		return [...positions, ...nestedPositions(node.children, physics)]
+	})
 }
 
 function layoutComponent(component: GraphComponent, physics: GraphPhysics): Position[] {
@@ -101,5 +136,8 @@ workerScope.onmessage = (event: MessageEvent<LayoutRequest>) => {
 	const { data, physics } = event.data
 	const clusters = splitGraphIntoComponents(data).map((component) => [component])
 	const positions = new Map(placeClusters(clusters, physics).map(({ id, x, y }) => [id, { id, x, y }]))
-	workerScope.postMessage(data.nodes.flatMap(({ id }) => (positions.has(id) ? [positions.get(id)] : [])))
+	workerScope.postMessage({
+		positions: data.nodes.flatMap(({ id }) => (positions.has(id) ? [positions.get(id)] : [])),
+		nestedPositions: nestedPositions(data, physics),
+	})
 }

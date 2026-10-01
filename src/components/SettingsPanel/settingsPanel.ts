@@ -20,8 +20,6 @@ export const NODE_CLONES_OPTIONS = [
 	{ value: 3, label: 'Большой граф Х3' },
 	{ value: 5, label: 'Большой граф Х5' },
 	{ value: 10, label: 'Большой граф Х10' },
-	{ value: 30, label: 'Большой граф Х30' },
-	{ value: 50, label: 'Большой граф Х50' },
 	{ value: 'mini1', label: 'Мини-граф на 15 нод' },
 	{ value: 'mini2', label: 'Мини-граф на 40 нод' },
 	{ value: 'mini3', label: 'Мини-граф на 90 нод' },
@@ -53,7 +51,7 @@ export const NUMBER_FIELDS: NumberFieldSpec[] = [
 		min: 1,
 		max: 20,
 		step: 1,
-		label: 'Растяжка раскладки',
+		label: 'Растяжка раскладки (layoutScale)',
 		hint: 'Простор между несвязанными узлами: он растёт как квадрат этого числа.',
 	},
 	{
@@ -61,7 +59,7 @@ export const NUMBER_FIELDS: NumberFieldSpec[] = [
 		min: 20,
 		max: 400,
 		step: 10,
-		label: 'Дистанция связи',
+		label: 'Дистанция связи (linkDistance)',
 		hint: 'Плотность связок внутри кластера: короче — связанные узлы стоят ближе.',
 	},
 	{
@@ -69,7 +67,7 @@ export const NUMBER_FIELDS: NumberFieldSpec[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		label: 'Крепость связи',
+		label: 'Крепость связи (linkStrength)',
 		hint: 'Как крепко концы держатся друг за друга; плоская для всех связей.',
 	},
 	{
@@ -77,7 +75,7 @@ export const NUMBER_FIELDS: NumberFieldSpec[] = [
 		min: -80,
 		max: -5,
 		step: 5,
-		label: 'Сила заряда',
+		label: 'Сила заряда (chargeStrength)',
 		hint: 'Отталкивание узлов: сильнее по модулю — больше простор между ними.',
 	},
 	{
@@ -85,7 +83,7 @@ export const NUMBER_FIELDS: NumberFieldSpec[] = [
 		min: 0.1,
 		max: 0.95,
 		step: 0.05,
-		label: 'Демпфирование',
+		label: 'Демпфирование (velocityDecay)',
 		hint: 'Доля скорости, теряемая за тик: выше — карта останавливается быстрее.',
 	},
 	{
@@ -93,7 +91,7 @@ export const NUMBER_FIELDS: NumberFieldSpec[] = [
 		min: 0,
 		max: 0.3,
 		step: 0.01,
-		label: 'Разогрев drag’а',
+		label: 'Разогрев drag’а (dragAlphaTarget)',
 		hint: 'Насколько сильно карта едет, пока тащишь один узел.',
 	},
 	{
@@ -101,7 +99,7 @@ export const NUMBER_FIELDS: NumberFieldSpec[] = [
 		min: 0,
 		max: 1,
 		step: 0.05,
-		label: 'Разогрев обновления',
+		label: 'Разогрев обновления (updateAlpha)',
 		hint: 'Насколько заметно перекладывается карта после изменения данных.',
 	},
 ]

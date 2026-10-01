@@ -177,6 +177,8 @@ const source = await server.ssrLoadModule('/src/data/graph.ts')
 const {
 	prepareGraph,
 	createSimulation,
+	groupNeighborChargeMultiplier,
+	GROUP_LINK_STRENGTH,
 	createTypeColors,
 	UPDATE_ALPHA,
 	NEW_NODE_SEED_RADIUS,
@@ -189,10 +191,14 @@ const { splitGraphIntoComponents } = graphComponents
 const {
 	CLOUD_MAX_TEXT_WIDTH,
 	CLOUD_PADDING_X,
+	GROUP_FOCUS_SIZE,
+	GROUP_FOCUS_SIZE_AT_40,
 	SUB_NODE_SIZE,
 	TITLE_FONT_SIZE,
 	WARNING_GUTTER,
 	createCloudLayouts,
+	createFocusedGroupLayout,
+	groupFocusSize,
 	truncateToWidth,
 } = cloud
 const { createNodeInData, deleteNodeFromData, neighborOptions, updateNodeInData } = nodeForm
@@ -495,7 +501,21 @@ check(
 	'индивидуальный множитель меняет только силу конкретной ноды',
 	chargeForce.strength()(chargeNodes[1]) === chargeForce.strength()(chargeNodes[0]) * 2,
 )
+check(
+	'отталкивание соседей группы соответствует калибровке 40 / 90 / 270',
+	[40, 90, 270].every((count, index) => Math.abs(groupNeighborChargeMultiplier(count) - [2, 4.5, 21][index]) < 0.001),
+)
 chargeSimulation.stop()
+
+const groupNode = { id: 'group', type: 'group', title: 'Группа', hasWarning: false, children: { nodes: [], links: [] } }
+const outsideNode = { id: 'outside', type: 'node', title: 'Снаружи', hasWarning: false }
+const groupLinkSimulation = createSimulation([groupNode, outsideNode], [{ source: 'group', target: 'outside' }])
+const groupLinkForce = groupLinkSimulation.force('link')
+check(
+	'связь с группой ослаблена, обычная связь не меняется',
+	groupLinkForce.strength()({ source: groupNode, target: outsideNode }) === GROUP_LINK_STRENGTH,
+)
+groupLinkSimulation.stop()
 
 console.log('\n== правки данных (nodeForm) ==')
 
@@ -600,6 +620,31 @@ check(
 		layouts.get(icon).height === SUB_NODE_SIZE &&
 		layouts.get(icon).title === '' &&
 		layouts.get(icon).description === '',
+)
+
+const smallGroup = {
+	...cloudWork,
+	id: 'group-15',
+	type: 'group',
+	children: { nodes: Array.from({ length: 15 }, (_, index) => ({ id: `small-${index}` })), links: [] },
+}
+const largeGroup = {
+	...smallGroup,
+	id: 'group-40',
+	children: { nodes: Array.from({ length: 40 }, (_, index) => ({ id: `large-${index}` })), links: [] },
+}
+const focusedSmall = createFocusedGroupLayout(createCloudLayouts([smallGroup], measure).get(smallGroup))
+const focusedLarge = createFocusedGroupLayout(createCloudLayouts([largeGroup], measure).get(largeGroup))
+
+check('круг группы рассчитан по количеству: 15 элементов — 200', groupFocusSize(15) === GROUP_FOCUS_SIZE)
+check('круг группы рассчитан по количеству: 40 элементов — 370', groupFocusSize(40) === GROUP_FOCUS_SIZE_AT_40)
+check(
+	'большая группа растёт нелинейно без верхнего ограничения',
+	groupFocusSize(270) > groupFocusSize(40) && groupFocusSize(270) < 370 + (270 - 40) * 6.8,
+)
+check(
+	'приближённый layout сохраняет вычисленный диаметр круга',
+	focusedSmall.focusedSize === 200 && focusedLarge.focusedSize === 370,
 )
 
 console.log('\n== геометрия покоя ==')
