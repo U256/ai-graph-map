@@ -1,24 +1,15 @@
-import { drag, type D3DragEvent, type DragBehavior } from 'd3-drag'
 import { select, type Selection } from 'd3-selection'
-import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomTransform } from 'd3-zoom'
+import { zoomIdentity, type ZoomTransform } from 'd3-zoom'
 import type { DrawnLink, GraphData, GraphLink, GraphNode } from '../../types/graph'
-import {
-	createSimulation,
-	createTypeColors,
-	DRAG_CLICK_SLOP,
-	GRAPH_HEIGHT,
-	GRAPH_WIDTH,
-	type GraphPhysics,
-} from './forceGraph'
+import { createSimulation, createTypeColors, GRAPH_HEIGHT, GRAPH_WIDTH, type GraphPhysics } from './forceGraph'
 import { createCloudLayouts, type CloudLayout } from './forceGraphCloud'
+import { attachChildDrag, attachNodeInteractions, attachPanZoom } from './forceGraphInteractions'
 import { createTextMeasurer } from './forceGraphText'
 import { applyGraphUpdate, planGraphUpdate, readGraphState } from './forceGraphUpdate'
 import { LinkLayer } from './layers/graphLinkLayer'
-import { NODE_CLASS, NodeLayer } from './layers/graphNodeLayer'
+import { NodeLayer } from './layers/graphNodeLayer'
 
-/**
- * Сборка статичной svg-сцены графа: здесь только svg, drag и панорама/зум.
- */
+/** Компоновщик SVG-сцены: слои и взаимодействия подключаются отдельными адаптерами. */
 
 export interface ForceGraphOptions {
 	panZoom?: boolean
@@ -42,104 +33,15 @@ export interface ForceGraphHandle {
 	destroy: () => void
 }
 
-type SvgSelection = Selection<SVGSVGElement, unknown, null, undefined>
 type ContentSelection = Selection<SVGGElement, unknown, null, undefined>
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const ARIA_LABEL = 'Граф связей научных работ и патентов'
-/** Без них граф легко потерять за краем экрана. */
-const ZOOM_EXTENT: [number, number] = [0.1, 8]
 const INCREMENTAL_TICKS = 180
 const TEMPORARY_OLD_CHARGE = 0.15
 const OLD_POSITION_BLEND = 0.24
 const DISCONNECTED_SEED_RADIUS = 180
 const DISCONNECTED_SEED_STEP = 26
-
-/** Drag меняет только выбранный узел: статичная раскладка не должна разогревать соседей. */
-function createDrag(onDrag: () => void): {
-	behavior: DragBehavior<SVGGElement, GraphNode, GraphNode>
-	wasDragging: () => boolean
-} {
-	let dragging = false
-	let startX = 0
-	let startY = 0
-
-	function dragstarted(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
-		dragging = false
-		startX = event.sourceEvent?.clientX ?? 0
-		startY = event.sourceEvent?.clientY ?? 0
-	}
-
-	function dragged(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
-		const { subject } = event
-		const source = event.sourceEvent as MouseEvent | undefined
-		// порог в пикселях: дрожащая рука не должна превращать намеренный клик в жест
-		if (source && Math.hypot(source.clientX - startX, source.clientY - startY) > DRAG_CLICK_SLOP) dragging = true
-		subject.x = event.x
-		subject.y = event.y
-		onDrag()
-	}
-
-	function dragended(_event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {}
-
-	const behavior = drag<SVGGElement, GraphNode, GraphNode>()
-		.on('start', dragstarted)
-		.on('drag', dragged)
-		.on('end', dragended)
-
-	return { behavior, wasDragging: () => dragging }
-}
-
-/** Узлы уводят жест себе (d3-drag глушит всплытие). Колесо поверх узла остаётся зумом: drag его не перехватывает, иначе на плотной карте зум работал бы почти никогда. */
-function createZoomButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
-	const button = document.createElement('button')
-	button.type = 'button'
-	button.textContent = label
-	button.title = title
-	button.setAttribute('aria-label', title)
-	button.addEventListener('click', onClick)
-	return button
-}
-
-function attachPanZoom(
-	root: SvgSelection,
-	content: ContentSelection,
-	zoomIndicator: HTMLDivElement,
-	onScale: (scale: number) => void,
-): { controls: HTMLDivElement; getTransform: () => ZoomTransform; setTransform: (transform: ZoomTransform) => void } {
-	const indicator = zoomIndicator
-	let currentScale = zoomIdentity.k
-	const behavior = zoom<SVGSVGElement, unknown>()
-		.scaleExtent(ZOOM_EXTENT)
-		.filter((event) => event.type === 'wheel' || !(event.target as Element).closest(`.${NODE_CLASS}`))
-		.on('zoom', (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-			const { x, y, k } = event.transform
-			currentScale = k
-			content.attr('transform', `translate(${x},${y}) scale(${k})`)
-			onScale(k)
-			indicator.textContent = `Зум: ${k.toFixed(1)}`
-		})
-	root.call(behavior)
-	const getTransform = () => root.property('__zoom') ?? zoomIdentity
-	const setTransform = (transform: ZoomTransform) => root.call(behavior.transform, transform)
-
-	const controls = document.createElement('div')
-	controls.className = 'force-graph__zoom-controls'
-	controls.append(
-		createZoomButton('□', 'Отцентровать карту', () => {
-			root.call(behavior.transform, zoomIdentity)
-		}),
-		createZoomButton('+', 'Приблизить карту', () => {
-			const nextScale = Math.min(ZOOM_EXTENT[1], currentScale + 0.3)
-			root.call(behavior.scaleBy, nextScale / currentScale)
-		}),
-		createZoomButton('−', 'Отдалить карту', () => {
-			const nextScale = Math.max(ZOOM_EXTENT[0], currentScale - 0.3)
-			root.call(behavior.scaleBy, nextScale / currentScale)
-		}),
-	)
-	return { controls, getTransform, setTransform }
-}
 
 /** Две группы: связи под узлами — порядок слоёв задан разметкой, а не z-index. */
 function createScene(): {
@@ -248,28 +150,14 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	let currentNodes = initialNodes
 	let currentLinks = drawnLinks
 	let drawPositions = (): void => {}
-	const { behavior: dragBehavior, wasDragging } = createDrag(() => drawPositions())
-
 	const layers = {
 		links: new LinkLayer(linkGroup),
 		nodes: new NodeLayer(nodeGroup, {
 			colorOf,
 			layoutOf: (node) => createCloudLayouts([node], measure).get(node) as CloudLayout,
 			// навешивается при создании: прежние группы не трогаются
-			attach: (element) => {
-				const group = select<SVGGElement, GraphNode>(element)
-				group.call(dragBehavior)
-				if (!onNodeClick) return
-				group.on('click', (_event: MouseEvent, node: GraphNode) => {
-					// d3-drag не глушит `click`, который браузер стреляет после отпускания мыши
-					if (wasDragging()) return
-					onNodeClick(node.id)
-				})
-			},
-			attachChild: (element, onDrag) => {
-				const childDrag = createDrag(onDrag)
-				select<SVGGElement, GraphNode>(element).call(childDrag.behavior)
-			},
+			attach: (element) => attachNodeInteractions(element, () => drawPositions(), onNodeClick),
+			attachChild: attachChildDrag,
 		}),
 	}
 

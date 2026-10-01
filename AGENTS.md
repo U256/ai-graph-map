@@ -103,9 +103,11 @@
 - `ForceGraph/layers/graphNodeLayer.ts` — слой узлов: группа с фиксированным составом детей и
   ссылками на них в записи слоя (обновление пишет атрибуты без поиска по DOM). Вид сворачивается в
   `renderKey`; совпал — группу не трогаем, раскладка и мерка текста не вызываются.
-- `ForceGraph/forceGraphView.ts` — единственный модуль, создающий DOM-сцену: svg, панорама/зум, drag,
-  отрисовка слоёв, клик по узлу (`onNodeClick(id)`), выделение (`setSelectedNode(id)`) и
-  `destroy()`. Клик отличается от перетаскивания признаком из `createDrag` (`wasDragging`): d3-drag не
+- `ForceGraph/forceGraphView.ts` — компоновщик SVG-сцены и её жизненного цикла; связывает слои,
+  обновление данных и взаимодействия, возвращает API `ForceGraphHandle`. Отрисовка узлов/связей
+  остаётся в `layers/graphNodeLayer.ts` и `layers/graphLinkLayer.ts`, а drag/клик/pan/zoom — в
+  `forceGraphInteractions.ts`. Координаты и их расчёт не принадлежат модулю взаимодействий.
+- Клик отличается от перетаскивания признаком из `createDrag` (`wasDragging`): d3-drag не
   глушит `click` после жеста, и без порога смещения (`DRAG_CLICK_SLOP`) любой сдвиг узла открывал бы
   форму. Координаты после подготовки статичны: drag меняет только выбранный узел и перерисовывает
   линии. `updateData` сопоставляет узлы по id, сохраняет координаты и синхронизирует слои
@@ -159,7 +161,8 @@
   `ForceGraph/crud/graphLinksCRUD.ts`.
 - добавление/правка/удаление узла — данные: `SettingsPanel/nodeForm.ts`; форма: `SettingsPanel/NodeForm.tsx`;
   разбор в план обновления: `ForceGraph/forceGraphUpdate.ts` + `ForceGraph/crud/*`.
-- жесты, tick-отрисовка, клик по узлу, панорама/зум — только `ForceGraph/forceGraphView.ts`;
+- жесты, клик по узлу, панорама/зум — `ForceGraph/forceGraphInteractions.ts`; композиция сцены и
+  синхронизация слоёв — `ForceGraph/forceGraphView.ts`;
   жизненный цикл сцены в React и клонирование графа — `ForceGraph/ForceGraph.tsx`.
 - состояние страницы (что открыто в панели, куда идут правки данных) — `src/App.tsx`.
 - базовый механизм enter/update/exit слоёв — `ForceGraph/layers/graphLayer.ts`.
@@ -178,7 +181,8 @@
 - Лимиты длины файла/функции (значения — в `.eslintrc.cjs`): при упоре делить модуль по
   ответственности, а не ужимать код; для `src/data` лимит строк погашен оверрайдом.
 - Логика отделена от отрисовки: физику, данные и раскладку облаков проверяем в Node (без DOM), svg
-  собирается только в `forceGraphView.ts`.
+  и DOM-взаимодействия сосредоточены в `ForceGraph`-адаптере; расчёт/выдачу координат не связывать с
+  конкретным способом отображения.
 - Типам d3 нужны явные дженерики: `selectAll<SVGLineElement, DrawnLink>('line')`,
   `drag<SVGGElement, GraphNode, GraphNode>()` (третий параметр — subject); итерация по узлам — через
   `each((datum, index) => …)` + `select(node.nodes()[index])`, селекционные данные в `each` не приходят.
