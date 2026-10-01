@@ -1,9 +1,9 @@
 import type { GraphData, GraphNode } from '../../types/graph'
+import { placeClusterCircles } from './clusterLayout'
 import { createSimulation, type GraphPhysics } from './forceGraph'
 import { splitGraphIntoComponents, type GraphComponent, type LayoutCluster } from './graphComponents'
 
 const COMPONENT_GAP = 40
-const CLUSTER_GAP = 240
 const LAYOUT_ROW_WIDTH = 1600
 
 type Position = { id: string; x: number; y: number }
@@ -32,8 +32,8 @@ function layoutComponent(component: GraphComponent, physics: GraphPhysics): Posi
 
 	// Обычный alphaDecay останавливает stepper раньше, чем гасятся скорости. Короткий прогрев на низкой
 	// целевой альфе помогает силам довести раскладку, не превращая подготовку клона в долгий расчёт покоя.
-	simulation.alphaTarget(0.05)
-	for (let tick = 0; tick < 2000; tick += 1) simulation.tick()
+	simulation.alphaTarget(0.2)
+	for (let tick = 0; tick < 1000; tick += 1) simulation.tick()
 	simulation.alphaTarget(0)
 	while (simulation.alpha() > simulation.alphaMin()) simulation.tick()
 
@@ -86,29 +86,15 @@ function placeCluster(components: GraphComponent[], physics: GraphPhysics): Posi
 
 /** Раскладывает визуальные кластеры отдельно, не создавая между их компонентами фиктивных связей. */
 function placeClusters(clusters: LayoutCluster[], physics: GraphPhysics): Position[] {
-	let cursorX = 0
-	let cursorY = 0
-	let rowHeight = 0
-	const result: Position[] = []
-
-	clusters.forEach((cluster) => {
-		const positions = placeCluster(cluster, physics)
-		const bounds = getBounds(positions)
-		const width = bounds.maxX - bounds.minX
-		const height = bounds.maxY - bounds.minY
-
-		if (cursorX > 0 && cursorX + width > LAYOUT_ROW_WIDTH) {
-			cursorX = 0
-			cursorY += rowHeight + CLUSTER_GAP
-			rowHeight = 0
-		}
-
-		result.push(...translate(positions, cursorX - bounds.minX, cursorY - bounds.minY))
-		cursorX += width + CLUSTER_GAP
-		rowHeight = Math.max(rowHeight, height)
-	})
-
-	return result
+	return placeClusterCircles(
+		clusters.map((cluster) => {
+			const positions = placeCluster(cluster, physics)
+			return {
+				positions,
+				nodeCount: cluster.reduce((count, component) => count + component.nodes.length, 0),
+			}
+		}),
+	)
 }
 
 workerScope.onmessage = (event: MessageEvent<LayoutRequest>) => {

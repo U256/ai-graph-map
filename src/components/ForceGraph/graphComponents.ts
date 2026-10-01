@@ -1,6 +1,6 @@
 import type { GraphData, GraphNodeInput } from '../../types/graph'
 
-const MAX_GROUP_SIZE = 200
+const MAX_GROUP_SIZE = 140
 
 export type GraphComponent = GraphData
 export type LayoutCluster = GraphComponent[]
