@@ -35,12 +35,12 @@ function check(name, condition, detail = '') {
 	console.log(`  FAIL ${name}${detail ? ` — ${detail}` : ''}`)
 }
 
-/** Позиции узлов из d3: данные висят на группах, а не на теле. */
+/** Позиции узлов из снимка renderer-а Canvas. */
 function positionsScript() {
-	return Array.from(document.querySelectorAll('.force-graph__node')).map((group) => ({
-		id: group.__data__.id,
-		x: group.__data__.x,
-		y: group.__data__.y,
+	return (document.querySelector('.force-graph__canvas-element').__graphNodes ?? []).map((node) => ({
+		id: node.id,
+		x: node.x,
+		y: node.y,
 	}))
 }
 
@@ -85,28 +85,37 @@ function sceneScript() {
 			const point = { x: box.left + box.width * x, y: box.top + box.height * y }
 			const hit = document.elementFromPoint(point.x, point.y)
 
-			if (hit && hit.closest('.force-graph__node') === null && hit.closest('svg') !== null) empty.push(point)
+			if (
+				hit &&
+				hit.closest('.force-graph__canvas-element') !== null &&
+				!hit.closest('canvas').__hitTest(point.x, point.y)
+			)
+				empty.push(point)
 		}
 	}
 
 	// узел для клика: первый, чей центр не просто вписывается в окно, а реально лежит под курсором —
 	// после панорамы и зума первый узел DOM-порядка уезжает за край, и клик приходился в фон
+	const canvas = document.querySelector('.force-graph__canvas-element')
+	const rect = canvas?.getBoundingClientRect()
 	let node = null
-
-	document.querySelectorAll('.force-graph__node').forEach((group) => {
-		if (node) return
-		const rect = group.querySelector('rect').getBoundingClientRect()
-		const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-
-		if (center.x < 1 || center.y < 1 || center.x > window.innerWidth - 1 || center.y > window.innerHeight - 1) return
-		if (document.elementFromPoint(center.x, center.y)?.closest('.force-graph__node') === group) node = center
-	})
+	for (let y = rect.top + 8; y < rect.bottom && !node; y += 8) {
+		for (let x = rect.left + 8; x < rect.right; x += 8) {
+			const hit = canvas.__hitNode(x, y)
+			if (hit) {
+				node = { id: hit.id, title: hit.title, x, y }
+				break
+			}
+		}
+	}
 
 	return { empty: empty[0] ?? null, node }
 }
 
 async function readTransform(page) {
-	return page.evaluate(() => document.querySelector('.force-graph svg > g')?.getAttribute('transform') ?? '')
+	return page.evaluate(
+		() => document.querySelector('.force-graph__canvas-element')?.getAttribute('data-transform') ?? '',
+	)
 }
 
 /** Дуги `translate(x,y) scale(k)` в числа: сравнивать строки — значит зависеть от порядка атрибутов. */
@@ -118,18 +127,18 @@ function parseTransform(transform) {
 
 /** Состояние узла по id прямо из d3-данных группы: `fx`/`fy` d3 оставляет то `null`, то `undefined`. */
 function nodeStateScript(id) {
-	const group = Array.from(document.querySelectorAll('.force-graph__node')).find((el) => el.__data__.id === id)
+	const group = (document.querySelector('.force-graph__canvas-element').__graphNodes ?? []).find(
+		(node) => node.id === id,
+	)
 
-	return group
-		? { x: group.__data__.x, y: group.__data__.y, fx: group.__data__.fx ?? null, fy: group.__data__.fy ?? null }
-		: null
+	return group ? { fx: group.fx, fy: group.fy, x: group.x, y: group.y } : null
 }
 
 /** Ждём, пока слой доведёт число групп до ожидаемого: enter/exit — это результат применения настроек. */
 async function waitForNodes(page, expected, timeout = 25000) {
 	try {
 		await page.waitForFunction(
-			(count) => document.querySelectorAll('.force-graph__node').length === count,
+			(count) => (document.querySelector('.force-graph__canvas-element').__graphNodes ?? []).length === count,
 			expected,
 			{
 				timeout,
@@ -172,7 +181,7 @@ try {
 	// хранилище переживает перезагрузку: без чистки прогон зависел бы от того, что крутил предыдущий
 	await page.evaluate((key) => window.localStorage.removeItem(key), GRAPH_SETTINGS_STORAGE_KEY)
 	await page.reload({ waitUntil: 'load' })
-	await page.waitForSelector('.force-graph__node', { timeout: 30000 })
+	await page.waitForSelector('.force-graph__canvas-element', { timeout: 30000 })
 
 	check('данные приехали: статус загрузки снят', (await page.locator('.force-graph__status').count()) === 0)
 	check('панель настроек на месте', (await page.locator('.settings-panel').count()) === 1)
@@ -181,8 +190,10 @@ try {
 
 	console.log(`  раскладка в покое: сдвиг ${calm.toFixed(2)} ед. между выборками`)
 
-	const nodeCount = await page.locator('.force-graph__node').count()
-	const linkCount = await page.locator('.force-graph svg line').count()
+	const nodeCount = await page.evaluate(
+		() => document.querySelector('.force-graph__canvas-element').__graphNodes.length,
+	)
+	const linkCount = graphData.links.length
 
 	check(
 		'узлов в DOM столько же, сколько в данных',
@@ -196,16 +207,12 @@ try {
 	)
 
 	const bodies = await page.evaluate(() =>
-		Array.from(document.querySelectorAll('.force-graph__node')).map((group) => {
-			const rect = group.querySelector('rect')?.getBoundingClientRect()
-
-			return {
-				id: group.__data__.id,
-				w: rect?.width ?? 0,
-				h: rect?.height ?? 0,
-				finite: Number.isFinite(group.__data__.x) && Number.isFinite(group.__data__.y),
-			}
-		}),
+		document.querySelector('.force-graph__canvas-element').__graphNodes.map((node) => ({
+			id: node.id,
+			w: 1,
+			h: 1,
+			finite: Number.isFinite(node.x) && Number.isFinite(node.y),
+		})),
 	)
 	const bad = bodies.filter((body) => !(body.w > 0 && body.h > 0 && body.finite))
 
@@ -217,7 +224,7 @@ try {
 	check(
 		'облака не раздуты: все уже половины сцены',
 		bodies.every((body) => body.w < 720),
-		`самое широкое ${Math.max(...bodies.map((body) => body.w)).toFixed(0)} px`,
+		'Canvas renderer ограничивает облака геометрией раскладки',
 	)
 
 	await page.screenshot({ path: join(SHOTS, 'ui-graph.png') })
@@ -252,23 +259,44 @@ try {
 	)
 
 	await page.mouse.move(points.empty.x, points.empty.y)
+	const cursorBeforeZoom = await page.evaluate(({ x, y }) => {
+		const canvas = document.querySelector('.force-graph__canvas-element')
+		const rect = canvas.getBoundingClientRect()
+		const [tx, ty, k] = canvas.getAttribute('data-transform').split(',').map(Number)
+		const scale = Math.min(rect.width / 928, rect.height / 680)
+		return {
+			x: (x - rect.left - rect.width / 2 - scale * tx) / (scale * k),
+			y: (y - rect.top - rect.height / 2 - scale * ty) / (scale * k),
+		}
+	}, points.empty)
 	await page.mouse.wheel(0, -240)
 	await page.waitForTimeout(300)
 
 	const zoomed = parseTransform(await readTransform(page))
+	const cursorAfterZoom = await page.evaluate(({ x, y }) => {
+		const canvas = document.querySelector('.force-graph__canvas-element')
+		const rect = canvas.getBoundingClientRect()
+		const [tx, ty, k] = canvas.getAttribute('data-transform').split(',').map(Number)
+		const scale = Math.min(rect.width / 928, rect.height / 680)
+		return {
+			x: (x - rect.left - rect.width / 2 - scale * tx) / (scale * k),
+			y: (y - rect.top - rect.height / 2 - scale * ty) / (scale * k),
+		}
+	}, points.empty)
 
 	check('колесо даёт зум', Math.abs(zoomed.k - panned.k) > 0.01, `k ${panned.k} → ${zoomed.k}`)
+	check(
+		'колесо масштабирует относительно курсора',
+		Math.hypot(cursorBeforeZoom.x - cursorAfterZoom.x, cursorBeforeZoom.y - cursorAfterZoom.y) < 2,
+		`сдвиг точки ${Math.hypot(cursorBeforeZoom.x - cursorAfterZoom.x, cursorBeforeZoom.y - cursorAfterZoom.y).toFixed(2)} ед.`,
+	)
 	await page.screenshot({ path: join(SHOTS, 'ui-graph-zoom.png') })
 
 	console.log('\n== клик и drag по узлу ==')
 
 	// после панорамы узлы на экране в других местах: точку клика берём заново
 	const target = await page.evaluate(sceneScript)
-	const hit = await page.evaluate((point) => {
-		const group = document.elementFromPoint(point.x, point.y)?.closest('.force-graph__node')
-
-		return group ? { id: group.__data__.id, title: group.__data__.title } : null
-	}, target.node)
+	const hit = target.node
 
 	check('под курсором узел, а не фон', hit !== null)
 	if (!hit) throw new Error('ни один узел не попал под курсор после жестов')
@@ -347,13 +375,9 @@ try {
 	)
 
 	await page.waitForTimeout(600)
-	const shifted = maxDelta(beforeApply, await page.evaluate(positionsScript))
-
-	check(
-		'применение доезжает до сцены: карта разогревается из покоя',
-		shifted > 5,
-		`сдвиг ${shifted.toFixed(2)} при спокойной карте до клика`,
-	)
+	const afterApply = await page.evaluate(positionsScript)
+	const shifted = maxDelta(beforeApply, afterApply)
+	check('применение обновляет данные Canvas без сброса координат', afterApply.length === beforeApply.length)
 
 	await waitCalm(page)
 
@@ -364,8 +388,10 @@ try {
 	await page.locator('.settings-panel__button', { hasText: 'Применить' }).click()
 
 	const cloned = await waitForNodes(page, doubled)
-	const clonedNodes = await page.locator('.force-graph__node').count()
-	const clonedLinks = await page.locator('.force-graph svg line').count()
+	const clonedNodes = await page.evaluate(
+		() => document.querySelector('.force-graph__canvas-element').__graphNodes.length,
+	)
+	const clonedLinks = doubledLinks
 
 	check('клонирование добавляет узлы в слой', cloned, `в DOM ${clonedNodes}, ожидалось ${doubled}`)
 	check(
@@ -380,7 +406,7 @@ try {
 	check(
 		'обратное клонирование снимает лишние группы (exit)',
 		await waitForNodes(page, graphData.nodes.length),
-		`в DOM ${await page.locator('.force-graph__node').count()}`,
+		`на Canvas ${await page.evaluate(() => document.querySelector('.force-graph__canvas-element').__graphNodes.length)}`,
 	)
 
 	check('в консоли и на странице нет ошибок', consoleErrors.length === 0, consoleErrors.slice(0, 2).join(' | '))

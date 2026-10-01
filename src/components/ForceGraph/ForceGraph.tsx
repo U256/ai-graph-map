@@ -60,8 +60,8 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	nodeClickRef.current = onNodeClick
 	const handleNodeClick = useCallback((id: string) => nodeClickRef.current?.(id), [])
 
-	// React владеет только контейнером, svg императивный. Разрушение сцены — отдельный эффект ниже:
-	// в cleanup этого она пересобирала бы svg на каждую смену зависимости
+	// React владеет только контейнером, Canvas императивный. Разрушение сцены — отдельный эффект ниже:
+	// в cleanup этого она пересобирала бы Canvas на каждую смену зависимости
 	useEffect(() => {
 		const container = containerRef.current
 		let cancelLayout = () => {}
@@ -91,7 +91,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 					graph?.destroy()
 					graphRef.current = next
 					layoutPhysicsRef.current = physics
-					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
+					container.replaceChildren(next.canvas, next.zoomIndicator, next.zoomControls)
 					if (zoomTransform) next.setZoomTransform(zoomTransform)
 					setLayoutLoading(false)
 				})
@@ -101,7 +101,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 					graph?.destroy()
 					graphRef.current = next
 					layoutPhysicsRef.current = physics
-					container.replaceChildren(next.svg, next.zoomIndicator, next.zoomControls)
+					container.replaceChildren(next.canvas, next.zoomIndicator, next.zoomControls)
 					if (zoomTransform) next.setZoomTransform(zoomTransform)
 					setLayoutLoading(false)
 				})
@@ -118,7 +118,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	}, [selectedNodeId])
 
 	// в StrictMode этот cleanup запускается между двумя прогонами эффектов, и создание выше
-	// отрабатывает заново — на экране остаётся живой svg
+	// отрабатывает заново — на экране остаётся живой Canvas
 	useEffect(
 		() => () => {
 			graphRef.current?.destroy()

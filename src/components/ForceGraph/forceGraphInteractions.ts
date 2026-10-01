@@ -1,12 +1,8 @@
 import { drag, type D3DragEvent, type DragBehavior } from 'd3-drag'
-import { select, type Selection } from 'd3-selection'
+import { select } from 'd3-selection'
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomTransform } from 'd3-zoom'
 import type { GraphNode } from '../../types/graph'
 import { DRAG_CLICK_SLOP } from './forceGraph'
-import { NODE_CLASS } from './layers/graphNodeLayer'
-
-type SvgSelection = Selection<SVGSVGElement, unknown, null, undefined>
-type ContentSelection = Selection<SVGGElement, unknown, null, undefined>
 
 /** Drag меняет только выбранный узел: статичная раскладка не должна разогревать соседей. */
 function createDrag(onDrag: () => void): {
@@ -76,42 +72,69 @@ function createZoomButton(label: string, title: string, onClick: () => void): HT
 	return button
 }
 
-/** Подключает pan/zoom к SVG и отдаёт элементы управления отдельно для React-контейнера. */
-export function attachPanZoom(
-	root: SvgSelection,
-	content: ContentSelection,
+/** Pan/zoom для Canvas; hit-testing узлов остаётся у renderer-а. */
+export function attachCanvasPanZoom(
+	canvas: HTMLCanvasElement,
 	zoomIndicator: HTMLDivElement,
+	onTransform: (transform: ZoomTransform) => void,
 	onScale: (scale: number) => void,
-): { controls: HTMLDivElement; getTransform: () => ZoomTransform; setTransform: (transform: ZoomTransform) => void } {
+	isNodeAt: (x: number, y: number) => boolean,
+): {
+	controls: HTMLDivElement
+	getTransform: () => ZoomTransform
+	setTransform: (transform: ZoomTransform) => void
+	destroy: () => void
+} {
+	let current = zoomIdentity
 	const indicator = zoomIndicator
-	let currentScale = zoomIdentity.k
 	const zoomExtent: [number, number] = [0.1, 8]
-	const behavior = zoom<SVGSVGElement, unknown>()
+	const pointerPosition = (event: MouseEvent | WheelEvent): [number, number] => {
+		const rect = canvas.getBoundingClientRect()
+		const scale = Math.min(rect.width / 928, rect.height / 680)
+		return [
+			(event.clientX - rect.left - rect.width / 2) / scale,
+			(event.clientY - rect.top - rect.height / 2) / scale,
+		]
+	}
+	const behavior = zoom<HTMLCanvasElement, unknown>()
 		.scaleExtent(zoomExtent)
-		.filter((event) => event.type === 'wheel' || !(event.target as Element).closest(`.${NODE_CLASS}`))
-		.on('zoom', (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-			const { x, y, k } = event.transform
-			currentScale = k
-			content.attr('transform', `translate(${x},${y}) scale(${k})`)
-			onScale(k)
-			indicator.textContent = `Зум: ${k.toFixed(1)}`
+		.filter((event) => {
+			if (event.type === 'wheel') return true
+			return !isNodeAt(event.clientX, event.clientY)
 		})
-	root.call(behavior)
-	const getTransform = () => root.property('__zoom') ?? zoomIdentity
-	const setTransform = (transform: ZoomTransform) => root.call(behavior.transform, transform)
-
+		.on('zoom', (event: D3ZoomEvent<HTMLCanvasElement, unknown>) => {
+			current = event.transform
+			onTransform(current)
+			onScale(current.k)
+			indicator.textContent = `Зум: ${current.k.toFixed(1)}`
+		})
+	select(canvas)
+		.call(behavior)
+		.on('wheel.zoom', (event) => {
+			const delta = -(event as WheelEvent).deltaY * ((event as WheelEvent).deltaMode === 1 ? 0.05 : 0.002)
+			select(canvas).call(behavior.scaleBy, 2 ** delta, pointerPosition(event))
+			event.preventDefault()
+		})
+	const getTransform = () => current
+	const setTransform = (transform: ZoomTransform) => select(canvas).call(behavior.transform, transform)
 	const controls = document.createElement('div')
 	controls.className = 'force-graph__zoom-controls'
 	controls.append(
-		createZoomButton('□', 'Отцентровать карту', () => root.call(behavior.transform, zoomIdentity)),
-		createZoomButton('+', 'Приблизить карту', () => {
-			const nextScale = Math.min(zoomExtent[1], currentScale + 0.3)
-			root.call(behavior.scaleBy, nextScale / currentScale)
-		}),
-		createZoomButton('−', 'Отдалить карту', () => {
-			const nextScale = Math.max(zoomExtent[0], currentScale - 0.3)
-			root.call(behavior.scaleBy, nextScale / currentScale)
-		}),
+		createZoomButton('□', 'Отцентровать карту', () => setTransform(zoomIdentity)),
+		createZoomButton('+', 'Приблизить карту', () =>
+			select(canvas).call(behavior.scaleBy, Math.min(zoomExtent[1], current.k + 0.3) / current.k),
+		),
+		createZoomButton('−', 'Отдалить карту', () =>
+			select(canvas).call(behavior.scaleBy, Math.max(zoomExtent[0], current.k - 0.3) / current.k),
+		),
 	)
-	return { controls, getTransform, setTransform }
+	return {
+		controls,
+		getTransform,
+		setTransform,
+		destroy: () => {
+			select(canvas).on('.zoom', null)
+			controls.remove()
+		},
+	}
 }

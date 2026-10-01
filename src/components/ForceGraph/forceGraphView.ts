@@ -1,29 +1,26 @@
-import { select, type Selection } from 'd3-selection'
 import { zoomIdentity, type ZoomTransform } from 'd3-zoom'
 import type { DrawnLink, GraphData, GraphLink, GraphNode } from '../../types/graph'
-import { createSimulation, createTypeColors, GRAPH_HEIGHT, GRAPH_WIDTH, type GraphPhysics } from './forceGraph'
-import { createCloudLayouts, type CloudLayout } from './forceGraphCloud'
-import { attachChildDrag, attachNodeInteractions, attachPanZoom } from './forceGraphInteractions'
+import { createCanvasRenderer } from './canvasRenderer'
+import { createSimulation, createTypeColors, type GraphPhysics } from './forceGraph'
+import { createCloudLayouts } from './forceGraphCloud'
+import { attachCanvasPanZoom } from './forceGraphInteractions'
 import { createTextMeasurer } from './forceGraphText'
 import { applyGraphUpdate, planGraphUpdate, readGraphState } from './forceGraphUpdate'
-import { LinkLayer } from './layers/graphLinkLayer'
-import { NodeLayer } from './layers/graphNodeLayer'
 
-/** Компоновщик SVG-сцены: слои и взаимодействия подключаются отдельными адаптерами. */
+/** Компоновщик Canvas-сцены; раскладка и обновление графа остаются независимы от отрисовки. */
 
 export interface ForceGraphOptions {
 	panZoom?: boolean
 	physics?: GraphPhysics
 	/**
-	 * Наружу уходит только id: данные живут в стейте вызывающего, а `__data__` группы после правки может
-	 * держать прежний объект симуляции. Клоны (`nodeClones > 1`) дают id вида `2-…`, которого в данных
+	 * Наружу уходит только id: данные живут в стейте вызывающего. Клоны (`nodeClones > 1`) дают id вида `2-…`, которого в данных
 	 * нет — вызывающий сам решает, что с этим делать (см. `App`).
 	 */
 	onNodeClick?: (id: string) => void
 }
 
 export interface ForceGraphHandle {
-	svg: SVGSVGElement
+	canvas: HTMLCanvasElement
 	zoomIndicator: HTMLDivElement
 	zoomControls: HTMLDivElement
 	getZoomTransform: () => ZoomTransform
@@ -33,36 +30,11 @@ export interface ForceGraphHandle {
 	destroy: () => void
 }
 
-type ContentSelection = Selection<SVGGElement, unknown, null, undefined>
-
-const SVG_NS = 'http://www.w3.org/2000/svg'
-const ARIA_LABEL = 'Граф связей научных работ и патентов'
 const INCREMENTAL_TICKS = 180
 const TEMPORARY_OLD_CHARGE = 0.15
 const OLD_POSITION_BLEND = 0.24
 const DISCONNECTED_SEED_RADIUS = 180
 const DISCONNECTED_SEED_STEP = 26
-
-/** Две группы: связи под узлами — порядок слоёв задан разметкой, а не z-index. */
-function createScene(): {
-	svg: SVGSVGElement
-	content: ContentSelection
-	linkLayer: SVGGElement
-	nodeLayer: SVGGElement
-} {
-	const svg = document.createElementNS(SVG_NS, 'svg')
-	svg.setAttribute('viewBox', `${-GRAPH_WIDTH / 2} ${-GRAPH_HEIGHT / 2} ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`)
-	svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
-	svg.setAttribute('role', 'img')
-	svg.setAttribute('aria-label', ARIA_LABEL)
-
-	const content = select(svg).append('g')
-	// цвет и непрозрачность — на группе слоя, чтобы на линии оставалась только толщина
-	const links = content.append('g').attr('stroke', '#999').attr('stroke-opacity', 0.6)
-	const nodes = content.append('g')
-
-	return { svg, content, linkLayer: links.node() as SVGGElement, nodeLayer: nodes.node() as SVGGElement }
-}
 
 /** Превращает строковые концы входных связей в узлы, как раньше это делал `forceLink`. */
 function resolveLinks(nodes: GraphNode[], links: GraphLink[]): DrawnLink[] {
@@ -132,45 +104,29 @@ function settleAddedNodes(nodes: GraphNode[], links: GraphLink[], addedIds: Set<
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
 	const { panZoom = true, onNodeClick } = options
 	const physics = options.physics ?? {}
-	const { svg, content, linkLayer: linkGroup, nodeLayer: nodeGroup } = createScene()
-	const zoomIndicator = document.createElement('div')
-	zoomIndicator.className = 'force-graph__zoom'
-	zoomIndicator.textContent = 'Зум: 1.0'
-	let zoomControls = document.createElement('div')
-	let getZoomTransform = () => zoomIdentity
-	let setZoomTransform = (_transform: ZoomTransform) => {}
-	const root = select(svg)
-
 	const measure = createTextMeasurer()
 	const initialNodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
 	const initialLinks: GraphLink[] = data.links.map((link) => ({ ...link }))
-	// палитра живёт вместе со сценой: прежние типы не перекрасятся, новый получит свой оттенок
 	const colorOf = createTypeColors(initialNodes)
 	const drawnLinks = resolveLinks(initialNodes, initialLinks)
 	let currentNodes = initialNodes
 	let currentLinks = drawnLinks
-	let drawPositions = (): void => {}
-	const layers = {
-		links: new LinkLayer(linkGroup),
-		nodes: new NodeLayer(nodeGroup, {
-			colorOf,
-			layoutOf: (node) => createCloudLayouts([node], measure).get(node) as CloudLayout,
-			// навешивается при создании: прежние группы не трогаются
-			attach: (element) => attachNodeInteractions(element, () => drawPositions(), onNodeClick),
-			attachChild: attachChildDrag,
-		}),
-	}
-
-	layers.links.sync(drawnLinks)
-	layers.nodes.sync(initialNodes)
-	layers.nodes.setSelectedNode(null)
-	drawPositions = (): void => {
-		layers.links.drawPositions()
-		layers.nodes.drawPositions()
-	}
-	drawPositions()
+	let zoomControls = document.createElement('div')
+	let getZoomTransform = () => zoomIdentity
+	let setZoomTransform = (_transform: ZoomTransform) => {}
+	const renderer = createCanvasRenderer(
+		colorOf,
+		(node) => createCloudLayouts([node], measure).get(node)!,
+		() => renderer.render(),
+		onNodeClick,
+	)
+	const zoomIndicator = document.createElement('div')
+	zoomIndicator.className = 'force-graph__zoom'
+	zoomIndicator.textContent = 'Зум: 1.0'
+	renderer.setNodes(initialNodes)
+	renderer.setLinks(drawnLinks)
 	function setSelectedNode(id: string | null): void {
-		layers.nodes.setSelectedNode(id)
+		renderer.setSelectedNode(id)
 	}
 	function updateData(nextData: GraphData): void {
 		const state = readGraphState(currentNodes, currentLinks)
@@ -178,24 +134,27 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		const result = applyGraphUpdate(state, plan)
 		settleAddedNodes(result.nodes, result.links, new Set(plan.addedNodes.map(({ node }) => node.id)), physics)
 		const nextLinks = resolveLinks(result.nodes, result.links)
-		const dirtyLinks = new Set([...result.addedLinkKeys, ...result.changedLinkKeys])
-
 		currentNodes = result.nodes
 		currentLinks = nextLinks
-		layers.links.sync(nextLinks, dirtyLinks)
-		layers.nodes.sync(result.nodes, result.changedNodeKeys)
-		drawPositions()
+		renderer.setNodes(result.nodes)
+		renderer.setLinks(nextLinks)
 	}
 
 	if (panZoom) {
-		const panZoomState = attachPanZoom(root, content, zoomIndicator, (scale) => layers.nodes.setZoomScale(scale))
+		const panZoomState = attachCanvasPanZoom(
+			renderer.canvas,
+			zoomIndicator,
+			(transform) => renderer.setZoomTransform(transform.x, transform.y, transform.k),
+			(scale) => renderer.setZoomScale(scale),
+			renderer.isNodeAt,
+		)
 		zoomControls = panZoomState.controls
 		getZoomTransform = panZoomState.getTransform
 		setZoomTransform = panZoomState.setTransform
 	}
 
 	return {
-		svg,
+		canvas: renderer.canvas,
 		zoomIndicator,
 		zoomControls,
 		getZoomTransform,
@@ -203,9 +162,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		setSelectedNode,
 		updateData,
 		destroy: () => {
-			layers.links.clear()
-			layers.nodes.clear()
-			svg.remove()
+			renderer.destroy()
 			zoomIndicator.remove()
 			zoomControls.remove()
 		},
