@@ -1,7 +1,15 @@
+import type { ForceLink } from 'd3-force'
 import { zoomIdentity, type ZoomTransform } from 'd3-zoom'
 import type { DrawnLink, GraphData, GraphLink, GraphNode } from '../../types/graph'
 import { createCanvasRenderer } from './canvasRenderer'
-import { createSimulation, createTypeColors, type GraphPhysics } from './forceGraph'
+import {
+	createSimulation,
+	createTypeColors,
+	DRAG_ALPHA_TARGET,
+	DYNAMIC_ALPHA_TARGET,
+	UPDATE_ALPHA,
+	type GraphPhysics,
+} from './forceGraph'
 import { createCloudLayouts } from './forceGraphCloud'
 import { attachCanvasPanZoom } from './forceGraphInteractions'
 import { createTextMeasurer } from './forceGraphText'
@@ -11,6 +19,7 @@ import { applyGraphUpdate, planGraphUpdate, readGraphState } from './forceGraphU
 
 export interface ForceGraphOptions {
 	panZoom?: boolean
+	dynamic?: boolean
 	physics?: GraphPhysics
 	/**
 	 * Наружу уходит только id: данные живут в стейте вызывающего. Клоны (`nodeClones > 1`) дают id вида `2-…`, которого в данных
@@ -102,7 +111,7 @@ function settleAddedNodes(nodes: GraphNode[], links: GraphLink[], addedIds: Set<
 }
 
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
-	const { panZoom = true, onNodeClick } = options
+	const { panZoom = true, dynamic = false, onNodeClick } = options
 	const physics = options.physics ?? {}
 	const measure = createTextMeasurer()
 	const initialNodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
@@ -111,13 +120,21 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	const drawnLinks = resolveLinks(initialNodes, initialLinks)
 	let currentNodes = initialNodes
 	let currentLinks = drawnLinks
+	let simulation: ReturnType<typeof createSimulation> | null = null
 	let zoomControls = document.createElement('div')
 	let getZoomTransform = () => zoomIdentity
 	let setZoomTransform = (_transform: ZoomTransform) => {}
 	const renderer = createCanvasRenderer(
 		colorOf,
 		(node) => createCloudLayouts([node], measure).get(node)!,
-		() => renderer.render(),
+		() => {
+			renderer.render()
+			if (simulation) simulation.alphaTarget(physics.dragAlphaTarget ?? DRAG_ALPHA_TARGET).restart()
+		},
+		() => {
+			if (simulation) simulation.alphaTarget(DYNAMIC_ALPHA_TARGET)
+			renderer.render()
+		},
 		onNodeClick,
 	)
 	const zoomIndicator = document.createElement('div')
@@ -125,6 +142,11 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	zoomIndicator.textContent = 'Зум: 1.0'
 	renderer.setNodes(initialNodes)
 	renderer.setLinks(drawnLinks)
+	if (dynamic) {
+		simulation = createSimulation(initialNodes, drawnLinks, physics)
+			.alphaTarget(DYNAMIC_ALPHA_TARGET)
+			.on('tick', renderer.render)
+	}
 	function setSelectedNode(id: string | null): void {
 		renderer.setSelectedNode(id)
 	}
@@ -136,6 +158,12 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		const nextLinks = resolveLinks(result.nodes, result.links)
 		currentNodes = result.nodes
 		currentLinks = nextLinks
+		if (simulation) {
+			const linkForce = simulation.force('link') as ForceLink<GraphNode, DrawnLink> | null
+			simulation.nodes(currentNodes)
+			linkForce?.links(nextLinks)
+			simulation.alpha(physics.updateAlpha ?? UPDATE_ALPHA).restart()
+		}
 		renderer.setNodes(result.nodes)
 		renderer.setLinks(nextLinks)
 	}
@@ -162,6 +190,8 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		setSelectedNode,
 		updateData,
 		destroy: () => {
+			simulation?.stop().on('tick', null)
+			simulation = null
 			renderer.destroy()
 			zoomIndicator.remove()
 			zoomControls.remove()

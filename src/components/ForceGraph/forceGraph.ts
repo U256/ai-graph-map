@@ -59,6 +59,9 @@ export const VELOCITY_DECAY = 0.6
  */
 export const DRAG_ALPHA_TARGET = 0.1
 
+/** Небольшой постоянный разогрев не даёт динамическому графу остановиться после начальной раскладки. */
+export const DYNAMIC_ALPHA_TARGET = 0.03
+
 /** d3-drag не глушит последующий `click`: без порога любой сдвиг узла открывал бы форму правки. */
 export const DRAG_CLICK_SLOP = 4
 

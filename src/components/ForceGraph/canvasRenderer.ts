@@ -121,6 +121,7 @@ export function createCanvasRenderer(
 	colorOf: (type: GraphNodeType) => string,
 	layoutOf: (node: GraphNode) => CloudLayout,
 	onDrag: () => void,
+	onDragEnd: () => void,
 	onNodeClick?: (id: string) => void,
 ): CanvasRenderer {
 	const canvas = document.createElement('canvas')
@@ -236,6 +237,7 @@ export function createCanvasRenderer(
 		(x, y) => findHit(x, y),
 		render,
 		onDrag,
+		onDragEnd,
 		nodeClick,
 		nodeTooltip,
 	)

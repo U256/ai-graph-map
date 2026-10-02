@@ -1,5 +1,7 @@
-import type { GraphData, GraphNodeInput } from '../../types/graph'
-import type { GraphPhysics } from './forceGraph'
+import type { GraphData, GraphNode, GraphNodeInput } from '../../types/graph'
+import { placeClusterCircles } from './clusterLayout'
+import { createSimulation, groupNeighborChargeMultiplier, type GraphPhysics } from './forceGraph'
+import { MAX_GROUP_SIZE, splitGraphIntoComponents, type GraphComponent, type LayoutCluster } from './graphComponents'
 
 export type LayoutPosition = { id: string; x: number; y: number }
 
@@ -11,14 +13,124 @@ export type GraphLayout = {
 	nestedPositions: NestedLayoutPosition[]
 }
 
+type Position = LayoutPosition
+type Bounds = { minX: number; maxX: number; minY: number; maxY: number }
+
+const COMPONENT_GAP = 40
+const LAYOUT_ROW_WIDTH = 1600
+
+function withGroupCharge(data: GraphData): GraphData {
+	return {
+		nodes: data.nodes.map((node) => ({
+			...node,
+			chargeMultiplier:
+				node.type === 'group'
+					? groupNeighborChargeMultiplier(node.children?.nodes.length ?? 0)
+					: node.chargeMultiplier,
+		})),
+		links: data.links.map((link) => ({ ...link })),
+	}
+}
+
+function calculateSimulation(data: GraphData, physics: GraphPhysics, warmupTicks: number): LayoutPosition[] {
+	const nodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
+	const links = data.links.map((link) => ({ ...link }))
+	const simulation = createSimulation(nodes, links, physics).stop()
+	simulation.alphaTarget(warmupTicks === 1000 ? 0.2 : 0.05)
+	for (let tick = 0; tick < warmupTicks; tick += 1) simulation.tick()
+	simulation.alphaTarget(0)
+	while (simulation.alpha() > simulation.alphaMin()) simulation.tick()
+	return nodes.map(({ id, x, y }) => ({ id, x: x ?? 0, y: y ?? 0 }))
+}
+
+/** Вложенные графы считают тем же `createSimulation`; усиленный заряд получает только внешний узел группы. */
+function nestedPositions(data: GraphData, physics: GraphPhysics): NestedLayoutPosition[] {
+	return data.nodes.flatMap((node) => {
+		if (!node.children) return []
+		const positions = calculateSimulation(withGroupCharge(node.children), physics, 2000).map((position) => ({
+			...position,
+			groupId: node.id,
+		}))
+		return [...positions, ...nestedPositions(node.children, physics)]
+	})
+}
+
+function getBounds(positions: Position[]): Bounds {
+	return positions.reduce(
+		(bounds, position) => ({
+			minX: Math.min(bounds.minX, position.x),
+			maxX: Math.max(bounds.maxX, position.x),
+			minY: Math.min(bounds.minY, position.y),
+			maxY: Math.max(bounds.maxY, position.y),
+		}),
+		{ minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
+	)
+}
+
+function placeCluster(components: GraphComponent[], physics: GraphPhysics): Position[] {
+	let cursorX = 0
+	let cursorY = 0
+	let rowHeight = 0
+	const result: Position[] = []
+	components.forEach((component) => {
+		const positions = calculateSimulation({ nodes: component.nodes, links: component.links }, physics, 1000)
+		const bounds = getBounds(positions)
+		const width = bounds.maxX - bounds.minX
+		const height = bounds.maxY - bounds.minY
+		if (cursorX > 0 && cursorX + width > LAYOUT_ROW_WIDTH) {
+			cursorX = 0
+			cursorY += rowHeight + COMPONENT_GAP
+			rowHeight = 0
+		}
+		result.push(
+			...positions.map((position) => ({
+				...position,
+				x: position.x - bounds.minX + cursorX,
+				y: position.y - bounds.minY + cursorY,
+			})),
+		)
+		cursorX += width + COMPONENT_GAP
+		rowHeight = Math.max(rowHeight, height)
+	})
+	return result
+}
+
+/** Раскладывает визуальные кластеры отдельно, не создавая между их компонентами фиктивных связей. */
+function placeClusters(clusters: LayoutCluster[], physics: GraphPhysics): Position[] {
+	return placeClusterCircles(
+		clusters.map((cluster) => ({
+			positions: placeCluster(cluster, physics),
+			nodeCount: cluster.reduce((count, component) => count + component.nodes.length, 0),
+		})),
+	)
+}
+
+/** Чистый расчёт раскладки, общий для worker и основного потока. */
+export function calculateGraphLayout(data: GraphData, physics: GraphPhysics): GraphLayout {
+	const positions =
+		data.nodes.length < MAX_GROUP_SIZE
+			? calculateSimulation(data, physics, 2000)
+			: placeClusters(
+					splitGraphIntoComponents(data).map((component) => [component]),
+					physics,
+				)
+	const byId = new Map(positions.map((position) => [position.id, position]))
+	return {
+		positions: data.nodes.flatMap(({ id }) => (byId.has(id) ? [byId.get(id)!] : [])),
+		nestedPositions: nestedPositions(data, physics),
+	}
+}
+
 /** Один worker на запрос, чтобы cleanup мог остановить устаревший расчёт. */
 export function calculateLayout(
 	data: GraphData,
 	physics: GraphPhysics,
+	useWorker = true,
 ): {
 	promise: Promise<GraphLayout>
 	cancel: () => void
 } {
+	if (!useWorker) return { promise: Promise.resolve(calculateGraphLayout(data, physics)), cancel: () => {} }
 	const worker = new Worker(new URL('./layout.worker.ts', import.meta.url), { type: 'module' })
 	const promise = new Promise<GraphLayout>((resolve, reject) => {
 		worker.onmessage = (event: MessageEvent<GraphLayout>) => {

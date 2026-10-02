@@ -50,6 +50,11 @@ export function SettingsPanel({ initialSettings, onApply, onStartCreate }: Setti
 					))}
 				</select>
 			</label>
+			<label className="settings-panel__option">
+				<input className="settings-panel__input" type="checkbox" {...register('dynamicGraph')} />
+				<span className="settings-panel__toggle" aria-hidden="true" />
+				<span className="settings-panel__label">Динамический граф</span>
+			</label>
 			{NUMBER_FIELDS.map(({ key, min, max, step, label, hint }) => (
 				<label className="settings-panel__field" htmlFor={key} key={key}>
 					<span className="settings-panel__label">

@@ -33,6 +33,8 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	)
 
 	const containerRef = useRef<HTMLDivElement | null>(null)
+	// Режим раскладки выбирается при загрузке; изменение настройки ждёт перезагрузки страницы.
+	const layoutModeRef = useRef(settings.dynamicGraph)
 
 	// клоны снимаются с исходных данных, а не с уже расширенного массива: иначе клонировались бы
 	// клоны и граф рос геометрически, а не в `nodeClones` раз
@@ -76,7 +78,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 			setLayoutLoading(true)
 			const measureStart = performance.now()
 			let active = true
-			const layout = calculateLayout(data, physics)
+			const layout = calculateLayout(data, physics, !layoutModeRef.current)
 			layout.promise
 				.then((positions) => {
 					if (!active) return
@@ -86,6 +88,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 					)
 					const next = createForceGraph(applyLayout(data, positions), {
 						onNodeClick: handleNodeClick,
+						dynamic: layoutModeRef.current,
 						physics,
 					})
 					graph?.destroy()
@@ -97,7 +100,11 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 				})
 				.catch(() => {
 					if (!active) return
-					const next = createForceGraph(data, { onNodeClick: handleNodeClick, physics })
+					const next = createForceGraph(data, {
+						onNodeClick: handleNodeClick,
+						dynamic: layoutModeRef.current,
+						physics,
+					})
 					graph?.destroy()
 					graphRef.current = next
 					layoutPhysicsRef.current = physics

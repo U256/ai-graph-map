@@ -107,6 +107,7 @@ export const NUMBER_FIELDS: NumberFieldSpec[] = [
 /** С них форма стартует и к ним же возвращает кнопка «Сбросить». */
 export const DEFAULT_GRAPH_SETTINGS: GraphSettings = {
 	nodeClones: 1,
+	dynamicGraph: false,
 	showFullSubNodes: false,
 	hideSubNodes: false,
 	layoutScale: LAYOUT_SCALE,
@@ -136,7 +137,12 @@ function isGraphSettings(value: unknown): value is GraphSettings {
 	const settings = value as Partial<Record<keyof GraphSettings, unknown>>
 	const clonesMatch = NODE_CLONES_OPTIONS.some((option) => option.value === settings.nodeClones)
 	if (!clonesMatch) return false
-	if (typeof settings.showFullSubNodes !== 'boolean' || typeof settings.hideSubNodes !== 'boolean') return false
+	if (
+		typeof settings.dynamicGraph !== 'boolean' ||
+		typeof settings.showFullSubNodes !== 'boolean' ||
+		typeof settings.hideSubNodes !== 'boolean'
+	)
+		return false
 
 	return NUMBER_FIELDS.every(({ key, min, max }) => {
 		const field = settings[key]
