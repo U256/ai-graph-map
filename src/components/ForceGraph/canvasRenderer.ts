@@ -1,26 +1,12 @@
 import type { DrawnLink, GraphNode, GraphNodeType } from '../../types/graph'
-import { GRAPH_HEIGHT, GRAPH_WIDTH, tintToWhite } from './forceGraph'
-import {
-	CLOUD_RADIUS,
-	createFocusedGroupLayout,
-	DESCRIPTION_FONT_SIZE,
-	FONT_FAMILY,
-	GROUP_FOCUS_SIZE,
-	SUB_NODE_CORNER,
-	SUB_NODE_DOT_RADIUS,
-	TITLE_FONT_SIZE,
-	WARNING_COLOR,
-	WARNING_DOT_RADIUS,
-	type CloudLayout,
-} from './forceGraphCloud'
+import { drawNestedGraph } from './canvasNestedRenderer'
+import { drawCanvasNode, type CanvasNodeEntry } from './canvasNodeRenderer'
+import { GRAPH_HEIGHT, GRAPH_WIDTH } from './forceGraph'
+import { createFocusedGroupLayout, GROUP_FOCUS_SIZE, type CloudLayout } from './forceGraphCloud'
 import { nodeTooltip } from './layers/graphNodeLayer'
 
 const LINK_COLOR = '#999'
-const TITLE_COLOR = '#1a1a1a'
-const DESCRIPTION_COLOR = '#555'
-const SELECTED_COLOR = '#e4572e'
 const LINK_FORCE_DEFAULT = 2
-const BODY_STROKE_WIDTH = 1.5
 
 export interface CanvasRenderer {
 	canvas: HTMLCanvasElement
@@ -35,70 +21,11 @@ export interface CanvasRenderer {
 	destroy: () => void
 }
 
-interface HitNode {
-	node: GraphNode
-	layout: CloudLayout
-	x: number
-	y: number
-	selected: boolean
+interface HitNode extends CanvasNodeEntry {
 	fx?: number | null
 	fy?: number | null
 }
 
-function drawNode(context: CanvasRenderingContext2D, entry: HitNode, colorOf: (type: GraphNodeType) => string): void {
-	const { node, layout, x, y, selected } = entry
-	const baseColor = selected ? SELECTED_COLOR : colorOf(node.type)
-	const isCloud = node.type !== 'subNode'
-	const offsetY = layout.focusedGroup ? -(layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2 : 0
-	const left = x - layout.width / 2
-	const top = y - layout.height / 2 + offsetY
-
-	context.fillStyle = tintToWhite(baseColor)
-	context.strokeStyle = baseColor
-	context.lineWidth = BODY_STROKE_WIDTH
-	const radius = Math.min(isCloud ? CLOUD_RADIUS : SUB_NODE_CORNER, layout.width / 2, layout.height / 2)
-	context.beginPath()
-	context.moveTo(left + radius, top)
-	context.arcTo(left + layout.width, top, left + layout.width, top + layout.height, radius)
-	context.arcTo(left + layout.width, top + layout.height, left, top + layout.height, radius)
-	context.arcTo(left, top + layout.height, left, top, radius)
-	context.arcTo(left, top, left + layout.width, top, radius)
-	context.closePath()
-	context.fill()
-	context.stroke()
-
-	if (layout.focusedGroup) {
-		context.beginPath()
-		context.arc(x, y, (layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2, 0, Math.PI * 2)
-		context.strokeStyle = baseColor
-		context.lineWidth = 2
-		context.stroke()
-	}
-
-	context.textBaseline = 'middle'
-	context.textAlign = 'left'
-	context.font = `${TITLE_FONT_SIZE}px ${FONT_FAMILY}`
-	context.fillStyle = TITLE_COLOR
-	context.fillText(layout.title, x + layout.textX, y + layout.titleY)
-	context.font = `${DESCRIPTION_FONT_SIZE}px ${FONT_FAMILY}`
-	context.fillStyle = DESCRIPTION_COLOR
-	context.fillText(layout.description, x + layout.textX, y + layout.descriptionY)
-
-	if (layout.warning) {
-		context.beginPath()
-		context.arc(x + layout.warning.x, y + layout.warning.y, WARNING_DOT_RADIUS, 0, Math.PI * 2)
-		context.fillStyle = WARNING_COLOR
-		context.fill()
-	}
-	if (!isCloud) {
-		context.beginPath()
-		context.arc(x, y, SUB_NODE_DOT_RADIUS, 0, Math.PI * 2)
-		context.fillStyle = baseColor
-		context.fill()
-	}
-}
-
-/** Canvas-рендер хранит визуальное состояние отдельно от расчёта координат графа. */
 // eslint-disable-next-line max-lines-per-function
 export function createCanvasRenderer(
 	colorOf: (type: GraphNodeType) => string,
@@ -190,7 +117,7 @@ export function createCanvasRenderer(
 		)
 		const prepared = nodes.map((node) => {
 			const baseLayout = layoutOf(node)
-			const layout = zoomScale > 1 && node.type === 'group' ? createFocusedGroupLayout(baseLayout) : baseLayout
+			const layout = zoomScale >= 1 && node.type === 'group' ? createFocusedGroupLayout(baseLayout) : baseLayout
 			return {
 				node,
 				layout,
@@ -213,7 +140,15 @@ export function createCanvasRenderer(
 			context.stroke()
 		})
 		context.globalAlpha = 1
-		prepared.forEach((entry) => drawNode(context, entry, colorOf))
+		prepared.forEach((entry) => {
+			drawCanvasNode(context, entry, colorOf)
+			if (zoomScale >= 1 && entry.node.type === 'group') {
+				context.save()
+				context.translate(entry.x, entry.y)
+				drawNestedGraph(context, entry.node, colorOf, layoutOf)
+				context.restore()
+			}
+		})
 	}
 
 	function pointerDown(event: PointerEvent): void {

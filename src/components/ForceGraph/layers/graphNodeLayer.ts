@@ -304,7 +304,7 @@ export class NodeLayer extends GraphLayer<GraphNode, NodeEntry> {
 
 	/** Переключает вид групп по масштабу, не меняя DOM остальных узлов. */
 	setZoomScale(scale: number): void {
-		const zoomed = scale > 1
+		const zoomed = scale >= 1
 		if (zoomed === this.zoomState.zoomed) return
 		this.zoomState.zoomed = zoomed
 		this.forEachEntry((entry) => {
