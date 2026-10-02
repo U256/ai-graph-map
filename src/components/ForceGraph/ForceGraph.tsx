@@ -5,7 +5,7 @@ import { multiplyWithClones } from '../../utils/graphUtlis'
 import './ForceGraph.css'
 import type { GraphPhysics } from './forceGraph'
 import { createForceGraph, type ForceGraphHandle } from './forceGraphView'
-import { applyInitialLayout, calculateInitialLayout } from './initialLayout'
+import { applyLayout, calculateLayout } from './layout'
 
 type ForceGraphProps = {
 	data: GraphData | null
@@ -76,7 +76,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 			setLayoutLoading(true)
 			const measureStart = performance.now()
 			let active = true
-			const layout = calculateInitialLayout(data, physics)
+			const layout = calculateLayout(data, physics)
 			layout.promise
 				.then((positions) => {
 					if (!active) return
@@ -84,7 +84,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 					console.log(
 						`Узлов: ${data.nodes.length}, рёбер: ${data.links.length}, время: ${(performance.now() - measureStart).toFixed(2)} ms`,
 					)
-					const next = createForceGraph(applyInitialLayout(data, positions), {
+					const next = createForceGraph(applyLayout(data, positions), {
 						onNodeClick: handleNodeClick,
 						physics,
 					})

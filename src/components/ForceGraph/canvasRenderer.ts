@@ -1,4 +1,6 @@
 import type { DrawnLink, GraphNode, GraphNodeType } from '../../types/graph'
+import { drawNestedGraph } from './canvasNestedGraph'
+import { createCanvasPointerHandlers } from './canvasPointerHandlers'
 import { GRAPH_HEIGHT, GRAPH_WIDTH, tintToWhite } from './forceGraph'
 import {
 	CLOUD_RADIUS,
@@ -22,7 +24,7 @@ const SELECTED_COLOR = '#e4572e'
 const LINK_FORCE_DEFAULT = 2
 const BODY_STROKE_WIDTH = 1.5
 
-export interface CanvasRenderer {
+export type CanvasRenderer = {
 	canvas: HTMLCanvasElement
 	render: () => void
 	setNodes: (nodes: GraphNode[]) => void
@@ -35,7 +37,7 @@ export interface CanvasRenderer {
 	destroy: () => void
 }
 
-interface HitNode {
+type HitNode = {
 	node: GraphNode
 	layout: CloudLayout
 	x: number
@@ -45,7 +47,12 @@ interface HitNode {
 	fy?: number | null
 }
 
-function drawNode(context: CanvasRenderingContext2D, entry: HitNode, colorOf: (type: GraphNodeType) => string): void {
+function drawNode(
+	context: CanvasRenderingContext2D,
+	entry: HitNode,
+	colorOf: (type: GraphNodeType) => string,
+	layoutOf: (node: GraphNode) => CloudLayout,
+): void {
 	const { node, layout, x, y, selected } = entry
 	const baseColor = selected ? SELECTED_COLOR : colorOf(node.type)
 	const isCloud = node.type !== 'subNode'
@@ -67,6 +74,16 @@ function drawNode(context: CanvasRenderingContext2D, entry: HitNode, colorOf: (t
 	context.fill()
 	context.stroke()
 
+	if (node.children) {
+		drawNestedGraph(context, node, x, y, (nestedContext, child, childX, childY) =>
+			drawNode(
+				nestedContext,
+				{ node: child, layout: layoutOf(child), x: childX, y: childY, selected: false },
+				colorOf,
+				layoutOf,
+			),
+		)
+	}
 	if (layout.focusedGroup) {
 		context.beginPath()
 		context.arc(x, y, (layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2, 0, Math.PI * 2)
@@ -119,11 +136,7 @@ export function createCanvasRenderer(
 	let zoomScale = 1
 	let width = 0
 	let height = 0
-	let transform = { x: 0, y: 0, k: 1 }
-	let pointerDownPosition: { x: number; y: number } | null = null
-	let dragging: HitNode | null = null
-	let dragStart: { x: number; y: number } | null = null
-	let didDrag = false
+	const transform = { x: 0, y: 0, k: 1 }
 	let resizeObserver: ResizeObserver | null = null
 	let hitNodes: HitNode[] = []
 	const nodeClick = onNodeClick
@@ -213,72 +226,24 @@ export function createCanvasRenderer(
 			context.stroke()
 		})
 		context.globalAlpha = 1
-		prepared.forEach((entry) => drawNode(context, entry, colorOf))
+		prepared.forEach((entry) => drawNode(context, entry, colorOf, layoutOf))
 	}
 
-	function pointerDown(event: PointerEvent): void {
-		const hit = findHit(event.clientX, event.clientY)
-		if (hit) {
-			event.preventDefault()
-			event.stopImmediatePropagation()
-			dragging = hit
-			dragStart = { x: event.clientX, y: event.clientY }
-			didDrag = false
-			canvas.setPointerCapture(event.pointerId)
-			return
-		}
-		pointerDownPosition = worldPoint(event.clientX, event.clientY)
-	}
+	const pointerHandlers = createCanvasPointerHandlers(
+		canvas,
+		{ pointerDownPosition: null, dragging: null, dragStart: null, didDrag: false, transform },
+		(x, y) => worldPoint(x, y),
+		(x, y) => findHit(x, y),
+		render,
+		onDrag,
+		nodeClick,
+		nodeTooltip,
+	)
 
-	function pointerMove(event: PointerEvent): void {
-		if (pointerDownPosition && !dragging) {
-			const point = worldPoint(event.clientX, event.clientY)
-			transform.x += point.x - pointerDownPosition.x
-			transform.y += point.y - pointerDownPosition.y
-			pointerDownPosition = point
-			canvas.setAttribute('data-transform', `${transform.x},${transform.y},${transform.k}`)
-			render()
-			return
-		}
-		if (dragging && dragStart) {
-			if (Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y) > 3) didDrag = true
-			const point = worldPoint(event.clientX, event.clientY)
-			dragging.node.x = point.x
-			dragging.node.y = point.y
-			dragging.node.fx = point.x
-			dragging.node.fy = point.y
-			onDrag()
-			render()
-			return
-		}
-		const hit = findHit(event.clientX, event.clientY)
-		canvas.style.cursor = hit ? 'pointer' : 'grab'
-		if (hit) {
-			canvas.title = nodeTooltip(hit.node)
-		} else {
-			canvas.removeAttribute('title')
-		}
-	}
-
-	function pointerUp(event: PointerEvent): void {
-		if (!dragging) {
-			pointerDownPosition = null
-			return
-		}
-		const selected = dragging.node
-		if (!didDrag) nodeClick?.(selected.id)
-		selected.fx = null
-		selected.fy = null
-		dragging = null
-		dragStart = null
-		didDrag = false
-		if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
-	}
-
-	canvas.addEventListener('pointerdown', pointerDown)
-	canvas.addEventListener('pointermove', pointerMove)
-	canvas.addEventListener('pointerup', pointerUp)
-	canvas.addEventListener('pointercancel', pointerUp)
+	canvas.addEventListener('pointerdown', pointerHandlers.pointerDown)
+	canvas.addEventListener('pointermove', pointerHandlers.pointerMove)
+	canvas.addEventListener('pointerup', pointerHandlers.pointerUp)
+	canvas.addEventListener('pointercancel', pointerHandlers.pointerUp)
 	resizeObserver = new ResizeObserver(resize)
 	resizeObserver.observe(canvas)
 	resize()
@@ -306,16 +271,18 @@ export function createCanvasRenderer(
 		getTransform: () => transform,
 		isNodeAt: (x, y) => findHit(x, y) !== null,
 		setZoomTransform: (x, y, k) => {
-			transform = { x, y, k }
+			transform.x = x
+			transform.y = y
+			transform.k = k
 			canvas.setAttribute('data-transform', `${x},${y},${k}`)
 			render()
 		},
 		destroy: () => {
 			resizeObserver?.disconnect()
-			canvas.removeEventListener('pointerdown', pointerDown)
-			canvas.removeEventListener('pointermove', pointerMove)
-			canvas.removeEventListener('pointerup', pointerUp)
-			canvas.removeEventListener('pointercancel', pointerUp)
+			canvas.removeEventListener('pointerdown', pointerHandlers.pointerDown)
+			canvas.removeEventListener('pointermove', pointerHandlers.pointerMove)
+			canvas.removeEventListener('pointerup', pointerHandlers.pointerUp)
+			canvas.removeEventListener('pointercancel', pointerHandlers.pointerUp)
 			canvas.remove()
 		},
 	}

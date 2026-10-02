@@ -1,8 +1,8 @@
 import type { GraphData, GraphNode } from '../../types/graph'
 import { placeClusterCircles } from './clusterLayout'
 import { createSimulation, groupNeighborChargeMultiplier, type GraphPhysics } from './forceGraph'
-import { splitGraphIntoComponents, type GraphComponent, type LayoutCluster } from './graphComponents'
-import type { InitialLayout, InitialPosition, NestedInitialPosition } from './initialLayout'
+import { MAX_GROUP_SIZE, splitGraphIntoComponents, type GraphComponent, type LayoutCluster } from './graphComponents'
+import type { GraphLayout, LayoutPosition, NestedLayoutPosition } from './layout'
 
 type Position = { id: string; x: number; y: number }
 
@@ -36,10 +36,10 @@ function withGroupCharge(data: GraphData): GraphData {
 
 const workerScope = globalThis as typeof globalThis & {
 	onmessage: (event: MessageEvent<LayoutRequest>) => void
-	postMessage: (message: InitialLayout) => void
+	postMessage: (message: GraphLayout) => void
 }
 
-function calculate(data: GraphData, physics: GraphPhysics): InitialPosition[] {
+function calculate(data: GraphData, physics: GraphPhysics): LayoutPosition[] {
 	const nodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
 	const links = data.links.map((link) => ({ ...link }))
 	const simulation = createSimulation(nodes, links, physics).stop()
@@ -51,7 +51,7 @@ function calculate(data: GraphData, physics: GraphPhysics): InitialPosition[] {
 }
 
 /** Вложенные графы считают тем же `createSimulation`; усиленный заряд получает только внешний узел группы. */
-function nestedPositions(data: GraphData, physics: GraphPhysics): NestedInitialPosition[] {
+function nestedPositions(data: GraphData, physics: GraphPhysics): NestedLayoutPosition[] {
 	return data.nodes.flatMap((node) => {
 		if (!node.children) return []
 		const positionedChildren = withGroupCharge(node.children)
@@ -134,8 +134,15 @@ function placeClusters(clusters: LayoutCluster[], physics: GraphPhysics): Positi
 
 workerScope.onmessage = (event: MessageEvent<LayoutRequest>) => {
 	const { data, physics } = event.data
-	const clusters = splitGraphIntoComponents(data).map((component) => [component])
-	const positions = new Map(placeClusters(clusters, physics).map(({ id, x, y }) => [id, { id, x, y }]))
+	const positions = new Map(
+		(data.nodes.length < MAX_GROUP_SIZE
+			? calculate(data, physics)
+			: placeClusters(
+					splitGraphIntoComponents(data).map((component) => [component]),
+					physics,
+				)
+		).map(({ id, x, y }) => [id, { id, x, y }]),
+	)
 	workerScope.postMessage({
 		positions: data.nodes.flatMap(({ id }) => (positions.has(id) ? [positions.get(id)] : [])),
 		nestedPositions: nestedPositions(data, physics),

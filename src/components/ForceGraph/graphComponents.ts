@@ -1,6 +1,6 @@
 import type { GraphData, GraphNodeInput } from '../../types/graph'
 
-const MAX_GROUP_SIZE = 140
+export const MAX_GROUP_SIZE = 140
 
 export type GraphComponent = GraphData
 export type LayoutCluster = GraphComponent[]
@@ -69,7 +69,7 @@ function collectCandidate(
 	return candidate
 }
 
-/** Ищет компоненты по связности и сразу упаковывает их в группы до 200 узлов. */
+/** Ищет компоненты по связности и сразу упаковывает их в группы. */
 export function splitGraphIntoComponents(data: GraphData): GraphComponent[] {
 	const indexes = createGraphIndexes(data)
 	const visitedNodeIds = new Set<string>()

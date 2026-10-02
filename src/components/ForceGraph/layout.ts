@@ -1,27 +1,27 @@
 import type { GraphData, GraphNodeInput } from '../../types/graph'
 import type { GraphPhysics } from './forceGraph'
 
-export type InitialPosition = { id: string; x: number; y: number }
+export type LayoutPosition = { id: string; x: number; y: number }
 
 /** Координаты узла саб-графа; `groupId` связывает их с внешней группой. */
-export type NestedInitialPosition = InitialPosition & { groupId: string }
+export type NestedLayoutPosition = LayoutPosition & { groupId: string }
 
-export type InitialLayout = {
-	positions: InitialPosition[]
-	nestedPositions: NestedInitialPosition[]
+export type GraphLayout = {
+	positions: LayoutPosition[]
+	nestedPositions: NestedLayoutPosition[]
 }
 
 /** Один worker на запрос, чтобы cleanup мог остановить устаревший расчёт. */
-export function calculateInitialLayout(
+export function calculateLayout(
 	data: GraphData,
 	physics: GraphPhysics,
 ): {
-	promise: Promise<InitialLayout>
+	promise: Promise<GraphLayout>
 	cancel: () => void
 } {
-	const worker = new Worker(new URL('./initialLayout.worker.ts', import.meta.url), { type: 'module' })
-	const promise = new Promise<InitialLayout>((resolve, reject) => {
-		worker.onmessage = (event: MessageEvent<InitialLayout>) => {
+	const worker = new Worker(new URL('./layout.worker.ts', import.meta.url), { type: 'module' })
+	const promise = new Promise<GraphLayout>((resolve, reject) => {
+		worker.onmessage = (event: MessageEvent<GraphLayout>) => {
 			worker.terminate()
 			resolve(event.data)
 		}
@@ -35,7 +35,7 @@ export function calculateInitialLayout(
 }
 
 /** Копирует входные данные: d3 получит стартовые координаты, не мутируя React-данные. */
-export function applyInitialLayout(data: GraphData, layout: InitialLayout): GraphData {
+export function applyLayout(data: GraphData, layout: GraphLayout): GraphData {
 	const byId = new Map(layout.positions.map(({ id, x, y }) => [id, { x, y }]))
 	const nestedByGroup = new Map<string, Map<string, { x: number; y: number }>>()
 	layout.nestedPositions.forEach(({ groupId, id, x, y }) => {
