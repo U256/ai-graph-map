@@ -54,21 +54,28 @@ export function createCanvasRenderer(
 	const transform = { x: 0, y: 0, k: 1 }
 	let resizeObserver: ResizeObserver | null = null
 	let hitNodes: HitNode[] = []
-	const layouts = new WeakMap<GraphNode, CloudLayout>()
 	const nodeClick = onNodeClick
 	const markVisibilityDirty = onSceneChanged ?? (() => {})
 	let render = (): void => {}
 
-	function layoutFor(node: GraphNode): CloudLayout {
-		const cached = layouts.get(node)
-		if (cached) return cached
-		const layout = layoutOf(node)
-		layouts.set(node, layout)
-		return layout
-	}
-
 	function baseScale(): number {
 		return Math.min(width / GRAPH_WIDTH, height / GRAPH_HEIGHT)
+	}
+
+	function groupInViewport(node: GraphNode): boolean {
+		const viewportWidth = width / baseScale() / transform.k
+		const viewportHeight = height / baseScale() / transform.k
+		const centerX = -transform.x / transform.k
+		const centerY = -transform.y / transform.k
+		const radius = (layoutOf(node).focusedSize ?? GROUP_FOCUS_SIZE) / 2
+		const x = node.x ?? 0
+		const y = node.y ?? 0
+		return (
+			x + radius >= centerX - viewportWidth / 2 &&
+			x - radius <= centerX + viewportWidth / 2 &&
+			y + radius >= centerY - viewportHeight / 2 &&
+			y - radius <= centerY + viewportHeight / 2
+		)
 	}
 
 	function resize(): void {
@@ -128,7 +135,7 @@ export function createCanvasRenderer(
 			dpr * (height / 2 + scale * transform.y),
 		)
 		const prepared = nodes.map((node) => {
-			const baseLayout = layoutFor(node)
+			const baseLayout = layoutOf(node)
 			const layout =
 				zoomScale >= GROUP_DETAIL_SCALE && node.type === 'group' ? createFocusedGroupLayout(baseLayout) : baseLayout
 			return {
@@ -155,7 +162,7 @@ export function createCanvasRenderer(
 		context.globalAlpha = 1
 		prepared.forEach((entry) => {
 			drawCanvasNode(context, entry, colorOf)
-			if (zoomScale >= GROUP_DETAIL_SCALE && entry.node.type === 'group') {
+			if (zoomScale >= GROUP_DETAIL_SCALE && entry.node.type === 'group' && groupInViewport(entry.node)) {
 				context.save()
 				context.translate(entry.x, entry.y)
 				drawNestedGraph(context, entry.node, colorOf, layoutOf)
@@ -223,7 +230,6 @@ export function createCanvasRenderer(
 			transform.y = y
 			transform.k = k
 			canvas.setAttribute('data-transform', `${x},${y},${k}`)
-			render()
 			markVisibilityDirty()
 		},
 		destroy: () => {

@@ -33,12 +33,12 @@ function withGroupCharge(data: GraphData): GraphData {
 	}
 }
 
-function calculateSimulation(data: GraphData, warmupTicks: number): LayoutPosition[] {
+function calculateSimulation(data: GraphData): LayoutPosition[] {
 	const nodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
 	const links = data.links.map((link) => ({ ...link }))
 	const simulation = createSimulation(nodes, links).stop()
-	simulation.alphaTarget(warmupTicks === 1000 ? 0.2 : 0.05)
-	for (let tick = 0; tick < warmupTicks; tick += 1) simulation.tick()
+	simulation.alphaTarget(0.2)
+	for (let tick = 0; tick < 500; tick += 1) simulation.tick()
 	simulation.alphaTarget(0)
 	while (simulation.alpha() > simulation.alphaMin()) simulation.tick()
 	return nodes.map(({ id, x, y }) => ({ id, x: x ?? 0, y: y ?? 0 }))
@@ -48,7 +48,7 @@ function calculateSimulation(data: GraphData, warmupTicks: number): LayoutPositi
 function nestedPositions(data: GraphData): NestedLayoutPosition[] {
 	return data.nodes.flatMap((node) => {
 		if (!node.children) return []
-		const positions = calculateSimulation(withGroupCharge(node.children), 2000).map((position) => ({
+		const positions = calculateSimulation(withGroupCharge(node.children)).map((position) => ({
 			...position,
 			groupId: node.id,
 		}))
@@ -74,7 +74,7 @@ function placeCluster(components: GraphComponent[]): Position[] {
 	let rowHeight = 0
 	const result: Position[] = []
 	components.forEach((component) => {
-		const positions = calculateSimulation({ nodes: component.nodes, links: component.links }, 1000)
+		const positions = calculateSimulation({ nodes: component.nodes, links: component.links })
 		const bounds = getBounds(positions)
 		const width = bounds.maxX - bounds.minX
 		const height = bounds.maxY - bounds.minY
@@ -110,7 +110,7 @@ function placeClusters(clusters: LayoutCluster[]): Position[] {
 export function calculateGraphLayout(data: GraphData, revision = 0): GraphLayout {
 	const positions =
 		data.nodes.length < MAX_GROUP_SIZE
-			? calculateSimulation(data, 2000)
+			? calculateSimulation(data)
 			: placeClusters(splitGraphIntoComponents(data).map((component) => [component]))
 	const byId = new Map(positions.map((position) => [position.id, position]))
 	return {

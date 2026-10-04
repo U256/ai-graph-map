@@ -3,7 +3,7 @@ import type { GraphData, GraphNode } from '../../types/graph'
 import { attachCanvasPanZoom } from './canvasPanZoom'
 import { createCanvasRenderer } from './canvasRenderer'
 import { createTypeColors } from './forceGraph'
-import { createCloudLayouts } from './forceGraphCloud'
+import { createCloudLayouts, type CloudLayout } from './forceGraphCloud'
 import { createTextMeasurer } from './forceGraphText'
 import { createGroupVisibility } from './groupVisibility'
 import { applyLayout, calculateLayout } from './layout'
@@ -40,6 +40,14 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	const initialLinks = data.links.map((link) => ({ ...link }))
 	const colorOf = createTypeColors(initialNodes)
 	const drawnLinks = resolveLinks(initialNodes, initialLinks)
+	let layouts = new WeakMap<GraphNode, CloudLayout>()
+	const layoutOf = (node: GraphNode): CloudLayout => {
+		const cached = layouts.get(node)
+		if (cached) return cached
+		const layout = createCloudLayouts([node], measure).get(node)!
+		layouts.set(node, layout)
+		return layout
+	}
 	let currentNodes = initialNodes
 	let transitionFrame: number | null = null
 	let layoutRevision = 0
@@ -51,7 +59,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	let markVisibilityDirty = () => {}
 	const renderer = createCanvasRenderer(
 		colorOf,
-		(node) => createCloudLayouts([node], measure).get(node)!,
+		layoutOf,
 		(node) => {
 			draggedIds.add(node.id)
 			renderer.render()
@@ -100,6 +108,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 				const duration = 450
 				if (transitionFrame !== null) cancelAnimationFrame(transitionFrame)
 				currentNodes = nextNodes
+				layouts = new WeakMap<GraphNode, CloudLayout>()
 				renderer.setNodes(nextNodes)
 				renderer.setLinks(nextLinks)
 				const animate = (now: number): void => {
