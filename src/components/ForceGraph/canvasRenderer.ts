@@ -4,7 +4,7 @@ import { drawCanvasNode, type CanvasNodeEntry } from './canvasNodeRenderer'
 import { createCanvasPointerHandlers } from './canvasPointerHandlers'
 import { GRAPH_HEIGHT, GRAPH_WIDTH } from './forceGraph'
 import { createFocusedGroupLayout, GROUP_FOCUS_SIZE, type CloudLayout } from './forceGraphCloud'
-import { nodeTooltip } from './layers/graphNodeLayer'
+import { nodeTooltip } from './nodePresentation'
 
 const LINK_COLOR = '#999'
 const LINK_FORCE_DEFAULT = 2
@@ -16,9 +16,8 @@ export interface CanvasRenderer {
 	setLinks: (links: DrawnLink[]) => void
 	setSelectedNode: (id: string | null) => void
 	setZoomScale: (scale: number) => void
-	setVisibleGroupsCallback: (callback: () => void) => void
+	onSceneChanged?: () => void
 	getViewport: () => { left: number; right: number; top: number; bottom: number } | null
-	getTransform: () => { x: number; y: number; k: number }
 	isNodeAt: (clientX: number, clientY: number) => boolean
 	setZoomTransform: (x: number, y: number, k: number) => void
 	destroy: () => void
@@ -37,6 +36,7 @@ export function createCanvasRenderer(
 	onDrag: () => void,
 	onDragEnd: () => void,
 	onNodeClick?: (id: string) => void,
+	onSceneChanged?: () => void,
 ): CanvasRenderer {
 	const canvas = document.createElement('canvas')
 	canvas.className = 'force-graph__canvas-element'
@@ -55,7 +55,7 @@ export function createCanvasRenderer(
 	let resizeObserver: ResizeObserver | null = null
 	let hitNodes: HitNode[] = []
 	const nodeClick = onNodeClick
-	let markVisibilityDirty = () => {}
+	const markVisibilityDirty = onSceneChanged ?? (() => {})
 	let render = (): void => {}
 
 	function baseScale(): number {
@@ -197,10 +197,6 @@ export function createCanvasRenderer(
 			render()
 			markVisibilityDirty()
 		},
-		setVisibleGroupsCallback: (callback) => {
-			markVisibilityDirty = callback
-			markVisibilityDirty()
-		},
 		getViewport: () => {
 			const scale = baseScale()
 			if (width <= 0 || height <= 0 || !Number.isFinite(scale) || scale <= 0) return null
@@ -211,7 +207,6 @@ export function createCanvasRenderer(
 				bottom: (height / 2 / scale - transform.y) / transform.k,
 			}
 		},
-		getTransform: () => transform,
 		isNodeAt: (x, y) => findHit(x, y) !== null,
 		setZoomTransform: (x, y, k) => {
 			transform.x = x

@@ -165,7 +165,7 @@ function toKeySet(items: { key: string }[]): Set<string> {
 	return new Set(items.map(({ key }) => key))
 }
 
-/** Порядок списков — как в новых данных: он задаёт и порядок в симуляции, и порядок групп в svg. Связи пересобираются новыми объектами всегда: `forceLink.links()` заново разрешает строковые концы по id, а слой перерисовывает толщину по данным — переиспользование прежнего объекта ничего бы не сэкономило. */
+/** Порядок списков — как в новых данных: он задаёт и порядок в симуляции, и порядок групп в Canvas. Связи пересобираются новыми объектами всегда: `forceLink.links()` заново разрешает строковые концы по id, а renderer перерисовывает толщину по данным — переиспользование прежнего объекта ничего бы не сэкономило. */
 export function applyGraphUpdate(state: GraphState, plan: GraphUpdatePlan): GraphUpdateResult {
 	const nodes = plan.keptNodes.map(({ node, changed }, index) => {
 		const before = state.nodes.get(node.id)

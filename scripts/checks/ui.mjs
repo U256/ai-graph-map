@@ -94,8 +94,7 @@ function sceneScript() {
 		}
 	}
 
-	// узел для клика: первый, чей центр не просто вписывается в окно, а реально лежит под курсором —
-	// после панорамы и зума первый узел DOM-порядка уезжает за край, и клик приходился в фон
+	// Узел для клика ищется через Canvas hit-test: порядок отрисовки не является порядком DOM-узлов.
 	const canvas = document.querySelector('.force-graph__canvas-element')
 	const rect = canvas?.getBoundingClientRect()
 	let node = null

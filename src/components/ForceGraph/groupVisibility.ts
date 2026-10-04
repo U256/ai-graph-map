@@ -1,8 +1,8 @@
 import type { GraphNode } from '../../types/graph'
 import { snapshotGroups, type VisibilityViewport } from './visibleGroups'
-import type { VisibilityRequest, VisibilityResponse } from './visibleGroups.worker'
+import type { VisibilityRequest, VisibilityResponse } from './visibleGroupsProtocol'
 
-const VISIBILITY_INTERVAL = 2000
+const VISIBILITY_INTERVAL = 1000
 
 /** Проверяет только изменённую сцену; устаревшие ответы воркера не попадают наружу. */
 export function createGroupVisibility(
@@ -28,6 +28,12 @@ export function createGroupVisibility(
 			lastIds = key
 			onChange?.(data.ids)
 		}
+	}
+	worker.onerror = (event) => {
+		pending = false
+		dirty = true
+		// eslint-disable-next-line no-console
+		console.error('Не удалось рассчитать видимые группы', event.error ?? event.message)
 	}
 	const timer = setInterval(() => {
 		if (!dirty) return

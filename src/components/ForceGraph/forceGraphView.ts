@@ -1,6 +1,7 @@
 import type { ForceLink } from 'd3-force'
 import { zoomIdentity, type ZoomTransform } from 'd3-zoom'
 import type { DrawnLink, GraphData, GraphLink, GraphNode } from '../../types/graph'
+import { attachCanvasPanZoom } from './canvasPanZoom'
 import { createCanvasRenderer } from './canvasRenderer'
 import {
 	createSimulation,
@@ -11,7 +12,6 @@ import {
 	type GraphPhysics,
 } from './forceGraph'
 import { createCloudLayouts } from './forceGraphCloud'
-import { attachCanvasPanZoom } from './forceGraphInteractions'
 import { createTextMeasurer } from './forceGraphText'
 import { applyGraphUpdate, planGraphUpdate, readGraphState } from './forceGraphUpdate'
 import { createGroupVisibility } from './groupVisibility'
@@ -139,13 +139,13 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 			renderer.render()
 		},
 		onNodeClick,
+		() => markVisibilityDirty(),
 	)
 	const visibility = createGroupVisibility(
 		() => ({ nodes: currentNodes, viewport: renderer.getViewport(), scale: getZoomTransform().k }),
 		onVisibleGroupsChange,
 	)
 	markVisibilityDirty = visibility.markDirty
-	renderer.setVisibleGroupsCallback(markVisibilityDirty)
 	const zoomIndicator = document.createElement('div')
 	zoomIndicator.className = 'force-graph__zoom'
 	zoomIndicator.textContent = 'Зум: 1.0'

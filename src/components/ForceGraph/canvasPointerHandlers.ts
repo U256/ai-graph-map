@@ -17,7 +17,7 @@ export function createCanvasPointerHandlers(
 	render: () => void,
 	onDrag: () => void,
 	onDragEnd: () => void,
-	onMove: () => void,
+	onSceneChanged: () => void,
 	onNodeClick: ((id: string) => void) | undefined,
 	nodeTooltip: (node: GraphNode) => string,
 ): {
@@ -53,7 +53,7 @@ export function createCanvasPointerHandlers(
 				`${pointerState.transform.x},${pointerState.transform.y},${pointerState.transform.k}`,
 			)
 			render()
-			onMove()
+			onSceneChanged()
 			return
 		}
 		if (pointerState.dragging && pointerState.dragStart) {
@@ -65,7 +65,7 @@ export function createCanvasPointerHandlers(
 			pointerState.dragging.node.fx = point.x
 			pointerState.dragging.node.fy = point.y
 			onDrag()
-			onMove()
+			onSceneChanged()
 			render()
 			return
 		}
