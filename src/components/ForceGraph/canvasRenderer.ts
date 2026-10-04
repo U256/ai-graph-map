@@ -33,7 +33,7 @@ interface HitNode extends CanvasNodeEntry {
 export function createCanvasRenderer(
 	colorOf: (type: GraphNodeType) => string,
 	layoutOf: (node: GraphNode) => CloudLayout,
-	onDrag: () => void,
+	onDrag: (node: GraphNode) => void,
 	onDragEnd: () => void,
 	onNodeClick?: (id: string) => void,
 	onSceneChanged?: () => void,

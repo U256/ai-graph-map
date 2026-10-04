@@ -1,13 +1,4 @@
 import type { GraphSettings } from '../../types/settings'
-import {
-	CHARGE_STRENGTH,
-	DRAG_ALPHA_TARGET,
-	LAYOUT_SCALE,
-	LINK_DISTANCE,
-	LINK_STRENGTH,
-	UPDATE_ALPHA,
-	VELOCITY_DECAY,
-} from '../ForceGraph/forceGraph'
 
 /**
  * Настройки карты без DOM и React. Разбор строки из хранилища (`parseGraphSettings`) — чистая функция,
@@ -25,98 +16,11 @@ export const NODE_CLONES_OPTIONS = [
 	{ value: 'mini3', label: 'Мини-граф на 90 нод' },
 ] as const
 
-/** Пределы и шаг range-а; дефолты берутся у констант сцены, чтобы панель не разъезжалась с кодом. */
-export interface NumberFieldSpec {
-	key: keyof Pick<
-		GraphSettings,
-		| 'layoutScale'
-		| 'linkDistance'
-		| 'linkStrength'
-		| 'chargeStrength'
-		| 'velocityDecay'
-		| 'dragAlphaTarget'
-		| 'updateAlpha'
-	>
-	min: number
-	max: number
-	step: number
-	label: string
-	/** Короткое пояснение — в `title` контрола. */
-	hint: string
-}
-
-export const NUMBER_FIELDS: NumberFieldSpec[] = [
-	{
-		key: 'layoutScale',
-		min: 1,
-		max: 20,
-		step: 1,
-		label: 'Растяжка раскладки (layoutScale)',
-		hint: 'Простор между несвязанными узлами: он растёт как квадрат этого числа.',
-	},
-	{
-		key: 'linkDistance',
-		min: 20,
-		max: 400,
-		step: 10,
-		label: 'Дистанция связи (linkDistance)',
-		hint: 'Плотность связок внутри кластера: короче — связанные узлы стоят ближе.',
-	},
-	{
-		key: 'linkStrength',
-		min: 0,
-		max: 1,
-		step: 0.05,
-		label: 'Крепость связи (linkStrength)',
-		hint: 'Как крепко концы держатся друг за друга; плоская для всех связей.',
-	},
-	{
-		key: 'chargeStrength',
-		min: -80,
-		max: -5,
-		step: 5,
-		label: 'Сила заряда (chargeStrength)',
-		hint: 'Отталкивание узлов: сильнее по модулю — больше простор между ними.',
-	},
-	{
-		key: 'velocityDecay',
-		min: 0.1,
-		max: 0.95,
-		step: 0.05,
-		label: 'Демпфирование (velocityDecay)',
-		hint: 'Доля скорости, теряемая за тик: выше — карта останавливается быстрее.',
-	},
-	{
-		key: 'dragAlphaTarget',
-		min: 0,
-		max: 0.3,
-		step: 0.01,
-		label: 'Разогрев drag’а (dragAlphaTarget)',
-		hint: 'Насколько сильно карта едет, пока тащишь один узел.',
-	},
-	{
-		key: 'updateAlpha',
-		min: 0,
-		max: 1,
-		step: 0.05,
-		label: 'Разогрев обновления (updateAlpha)',
-		hint: 'Насколько заметно перекладывается карта после изменения данных.',
-	},
-]
-
 /** С них форма стартует и к ним же возвращает кнопка «Сбросить». */
 export const DEFAULT_GRAPH_SETTINGS: GraphSettings = {
 	nodeClones: 1,
-	dynamicGraph: false,
 	showFullSubNodes: false,
 	hideSubNodes: false,
-	layoutScale: LAYOUT_SCALE,
-	linkDistance: LINK_DISTANCE,
-	linkStrength: LINK_STRENGTH,
-	chargeStrength: CHARGE_STRENGTH,
-	velocityDecay: VELOCITY_DECAY,
-	dragAlphaTarget: DRAG_ALPHA_TARGET,
-	updateAlpha: UPDATE_ALPHA,
 }
 
 /** Ключ localStorage, под которым лежат применённые настройки. */
@@ -129,25 +33,14 @@ function createDefaultSettings(): GraphSettings {
 
 /**
  * Чужой или устаревший объект отбрасывается целиком, а не по полям: частичный разбор дал бы смешанные
- * настройки, где одно поле из старой версии, а другое — из сохранённых. Пределы берутся у
- * `NUMBER_FIELDS`, чтобы не поддерживать их в двух местах.
+ * настройки, где одно поле из старой версии, а другое — из сохранённых.
  */
 function isGraphSettings(value: unknown): value is GraphSettings {
 	if (typeof value !== 'object' || value === null) return false
 	const settings = value as Partial<Record<keyof GraphSettings, unknown>>
 	const clonesMatch = NODE_CLONES_OPTIONS.some((option) => option.value === settings.nodeClones)
 	if (!clonesMatch) return false
-	if (
-		typeof settings.dynamicGraph !== 'boolean' ||
-		typeof settings.showFullSubNodes !== 'boolean' ||
-		typeof settings.hideSubNodes !== 'boolean'
-	)
-		return false
-
-	return NUMBER_FIELDS.every(({ key, min, max }) => {
-		const field = settings[key]
-		return typeof field === 'number' && Number.isFinite(field) && field >= min && field <= max
-	})
+	return typeof settings.showFullSubNodes === 'boolean' && typeof settings.hideSubNodes === 'boolean'
 }
 
 /** Битый JSON, `null` и чужие значения дают настройки по умолчанию. */
@@ -155,7 +48,13 @@ export function parseGraphSettings(raw: string | null): GraphSettings {
 	if (!raw) return createDefaultSettings()
 	try {
 		const parsed: unknown = JSON.parse(raw)
-		return isGraphSettings(parsed) ? parsed : createDefaultSettings()
+		return isGraphSettings(parsed)
+			? {
+					nodeClones: parsed.nodeClones,
+					showFullSubNodes: parsed.showFullSubNodes,
+					hideSubNodes: parsed.hideSubNodes,
+				}
+			: createDefaultSettings()
 	} catch {
 		return createDefaultSettings()
 	}

@@ -2,10 +2,7 @@
  * Проверка чистой логики графа в Node — без браузера и без тестового фреймворка (см. AGENTS.md).
  * Модули исходников загружаются через Vite в SSR-режиме, поэтому TypeScript ему доступен.
  *
- * Разделы прогона: инварианты разбора (`forceGraphUpdate`, `crud/*`) — пустой план на идентичных
- * данных, правка заголовка трогает только этот узел и сохраняет его координаты, две правки подряд
- * одного узла замечаются обе, координаты нового узла конечны и не нулевые, связи разрешены в объекты,
- * `NaN` нет, связь с недостающим концом отбрасывается, цвет типа стабилен.
+ * Разделы прогона: полный layout с revision, конечные координаты, связи и цвета.
  *
  * Правки данных (`nodeForm`): неиспорченный исходник, id `custom-N`, направление связи по типу,
  * отсев несуществующего соседа и дубликатов, уход связей при удалении, набор вариантов соседей.
@@ -167,13 +164,12 @@ const root = process.cwd()
 const server = await createServer({ root, server: { middlewareMode: true }, appType: 'custom', logLevel: 'warn' })
 
 const physics = await server.ssrLoadModule('/src/components/ForceGraph/forceGraph.ts')
-const logic = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphUpdate.ts')
 const cloud = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphCloud.ts')
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts')
-const nodesCrud = await server.ssrLoadModule('/src/components/ForceGraph/crud/graphNodesCRUD.ts')
 const graphComponents = await server.ssrLoadModule('/src/components/ForceGraph/graphComponents.ts')
 const visibility = await server.ssrLoadModule('/src/components/ForceGraph/visibleGroups.ts')
-const scene = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphScene.ts')
+const layout = await server.ssrLoadModule('/src/components/ForceGraph/layout.ts')
+const linksLogic = await server.ssrLoadModule('/src/components/ForceGraph/resolveLinks.ts')
 const source = await server.ssrLoadModule('/src/data/graph.ts')
 
 const {
@@ -182,13 +178,10 @@ const {
 	groupNeighborChargeMultiplier,
 	GROUP_LINK_STRENGTH,
 	createTypeColors,
-	UPDATE_ALPHA,
-	NEW_NODE_SEED_RADIUS,
-	NEW_NODE_SEED_FALLBACK,
 	LINK_DISTANCE,
 } = physics
-const { applyGraphUpdate, planGraphUpdate, readGraphState } = logic
-const { seedPosition } = nodesCrud
+const { calculateGraphLayout, applyLayout } = layout
+const { resolveLinks } = linksLogic
 const { MAX_GROUP_SIZE, splitGraphIntoComponents } = graphComponents
 const {
 	CLOUD_MAX_TEXT_WIDTH,
@@ -249,278 +242,67 @@ check(
 )
 check('пустой граф даёт пустой список компонент', splitGraphIntoComponents({ nodes: [], links: [] }).length === 0)
 
-/**
- * Прогон «добавили один узел» — та же последовательность, что в `forceGraphView.update`, только без
- * DOM. Возвращает смещение непричастных узлов: тех, что после разбора остались теми же объектами.
- */
-function runAdd({ alpha, settle, seed, hops, equilibrium = false, pin = false }) {
-	const start = prepareGraph(base)
-	const simulation = createSimulation(start.nodes, start.links)
-	const linkForce = simulation.force('link')
-
-	cool(simulation, equilibrium)
-	start.nodes.forEach((node) => {
-		node.vx = 0
-		node.vy = 0
-	})
-
-	// снимок координат, а не ссылки на узлы: узлы непричастных сохраняются теми же объектами,
-	// и сравнение объекта с самим собой дало бы ноль вместо смещения
-	const geometry = new Map([...simulation.nodes()].map((node) => [node.id, { x: node.x, y: node.y }]))
-	const previous = readGraphState(simulation.nodes(), linkForce.links())
-	const partner = base.nodes[1].id
-	const nextData = {
-		nodes: [...base.nodes, { id: NEW_ID, type: 'node', title: 'Новая работа', description: 'Проверка' }],
-		links: [...base.links, { source: NEW_ID, target: partner, force: 2 }],
-	}
-	const applied = applyGraphUpdate(previous, planGraphUpdate(previous, nextData))
-
-	// `plan.seeds` считается по прежним связям, в которых нового узла ещё нет, поэтому плечо свипа
-	// берётся вокруг соседа, с которым узел связали: иначе свип мерил бы высадку из центра сцены
-	if (seed !== null) {
-		const node = byId(applied.nodes).get(NEW_ID)
-		const center = byId(applied.nodes).get(partner)
-		const placed = seedPosition(center, applied.nodes.length - 1)
-
-		// то же направление, что у приложения, но плечо из аргумента свипа
-		const scale = seed / NEW_NODE_SEED_RADIUS
-
-		node.x = center.x + (placed.x - center.x) * scale
-		node.y = center.y + (placed.y - center.y) * scale
-	}
-
-	// путь нового узла считается от точки высадки: без него доля непричастных была бы льстивой
-	const landed = byId(applied.nodes).get(NEW_ID)
-
-	geometry.set(NEW_ID, { x: landed.x, y: landed.y, start: true })
-
-	if (settle) {
-		applied.nodes.forEach((node) => {
-			if (previous.nodes.get(node.id) === node) {
-				node.vx = 0
-				node.vy = 0
-			}
-		})
-	}
-
-	// закрепление непричастных узлов — единственный способ не сдвинуть их вовсе: равновесие d3 с
-	// глобальными силами нелокально, так что alpha решает лишь то, успеем мы туда доехать
-	if (pin) {
-		applied.nodes.forEach((node) => {
-			if (previous.nodes.get(node.id) === node) {
-				node.fx = node.x
-				node.fy = node.y
-			}
-		})
-	}
-
-	simulation.nodes(applied.nodes)
-	linkForce.links(applied.links)
-	simulation.alpha(alpha)
-	cool(simulation, equilibrium)
-
-	if (pin) {
-		applied.nodes.forEach((node) => {
-			node.fx = null
-			node.fy = null
-		})
-	}
-
-	const after = byId(simulation.nodes())
-	const hopOf = hopsFrom(NEW_ID, applied.links)
-	const moved = [...geometry.keys()].map((id) => ({ id, value: distance(after.get(id), geometry.get(id)) }))
-	const kept = moved.filter(({ id }) => id !== NEW_ID)
-	const far = kept.filter(({ id }) => (hopOf.get(id) ?? 9) >= hops)
-	const total = sum(moved.map(({ value }) => value))
-	const keptSum = sum(kept.map(({ value }) => value))
-
-	return {
-		kept: keptSum,
-		perNode: kept.length > 0 ? keptSum / kept.length : 0,
-		far: sum(far.map(({ value }) => value)),
-		max: Math.max(...kept.map(({ value }) => value), 0),
-		share: total > 0 ? keptSum / total : 0,
-		gap: medianLinkGap(simulation.nodes(), linkForce.links()),
-		overlaps: bodyOverlaps(simulation.nodes(), createCloudLayouts(simulation.nodes(), measure)),
-		// судьба нового узла: встал ли он к тому, с кем его связали, и не лёг ли чужим телом
-		newLink: distance(after.get(NEW_ID), after.get(partner)),
-		newOverlaps: overlapsOf(simulation.nodes(), createCloudLayouts(simulation.nodes(), measure), NEW_ID),
-	}
+console.log('\n== полный расчёт раскладки ==')
+const initial = calculateGraphLayout(base, 7)
+const positioned = applyLayout(base, initial)
+const located = byId(positioned.nodes)
+const resolved = resolveLinks(positioned.nodes, positioned.links)
+check(
+	'worker возвращает revision и позицию каждой ноды',
+	initial.revision === 7 && initial.positions.length === base.nodes.length,
+)
+check(
+	'раскладка не мутирует исходные данные',
+	base.nodes.every((node) => node.x === undefined),
+)
+check(
+	'координаты конечны, связи разрешены',
+	positioned.nodes.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y)) &&
+		resolved.every(({ source, target }) => located.get(source.id) === source && located.get(target.id) === target),
+)
+const changedData = {
+	nodes: [...base.nodes, { id: 'probe-new', title: 'Новая', type: 'node', hasWarning: false }],
+	links: [...base.links, { source: 'probe-new', target: base.nodes[1].id }],
 }
-
-/** Сколько чужих тел накрыло тело узла с таким id. */
-function overlapsOf(nodes, layouts, id) {
-	const self = nodes.find((node) => node.id === id)
-	const a = { x: self.x, y: self.y, w: layouts.get(self).width, h: layouts.get(self).height }
-
-	return nodes
-		.filter((node) => node.id !== id)
-		.filter((node) => {
-			const b = { x: node.x, y: node.y, w: layouts.get(node).width, h: layouts.get(node).height }
-
-			return Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2
-		}).length
-}
-
-const args = parseArgs(process.argv.slice(2))
-
-console.log('\n== инварианты разбора ==')
-
-const settled = prepareGraph(base)
-const settledSimulation = createSimulation(settled.nodes, settled.links)
-const settledLinkForce = settledSimulation.force('link')
-
-cool(settledSimulation)
-
-const restPositions = byId(settled.nodes)
-const restGap = medianLinkGap(settled.nodes, settledLinkForce.links())
-const restOverlaps = bodyOverlaps(settled.nodes, createCloudLayouts(settled.nodes, measure))
-const partner = base.nodes[0].id
-let state = readGraphState(settled.nodes, settledLinkForce.links())
-
-const same = planGraphUpdate(state, base)
-
+const changedLayout = calculateGraphLayout(changedData, 8)
 check(
-	'пустой план на идентичных данных',
-	same.removedNodeKeys.length === 0 &&
-		same.removedLinkKeys.length === 0 &&
-		same.addedNodes.length === 0 &&
-		same.addedLinks.length === 0 &&
-		same.changed.nodes.length === 0,
-)
-
-const edited = {
-	nodes: base.nodes.map((node) => (node.id === partner ? { ...node, title: 'Правка заголовка' } : node)),
-	links: base.links,
-}
-const editPlan = planGraphUpdate(state, edited)
-const editResult = applyGraphUpdate(state, editPlan)
-const editNodes = byId(editResult.nodes)
-
-check(
-	'правка заголовка помечает только этот узел',
-	editPlan.changed.nodes.length === 1 && editPlan.changed.nodes[0].node.id === partner,
-	`помечено ${editPlan.changed.nodes.length}`,
-)
-check('слоям отдан ровно один изменённый узел', editResult.changedNodeKeys.size === 1)
-check('правка заголовка сохраняет позицию', distance(editNodes.get(partner), restPositions.get(partner)) < 1e-9)
-check('изменённый узел — новый объект', editNodes.get(partner) !== restPositions.get(partner))
-check(
-	'неизменённый узел остаётся тем же объектом',
-	editNodes.get(base.nodes[1].id) === restPositions.get(base.nodes[1].id),
-)
-
-// состояние перечитывается из результата применения: снимок значений обязан пережить applyGraphUpdate,
-// иначе вторая правка того же узла станет невидимой (регрессия с мутированным «прежним» снимком)
-state = readGraphState(editResult.nodes, editResult.links)
-
-const twice = planGraphUpdate(state, {
-	nodes: edited.nodes.map((node) => (node.id === partner ? { ...node, title: 'Вторая правка' } : node)),
-	links: base.links,
-})
-
-check(
-	'вторая правка того же узла замечена',
-	twice.changed.nodes.length === 1 && twice.changed.nodes[0].node.id === partner,
-	`помечено ${twice.changed.nodes.length}`,
-)
-
-const broken = {
-	nodes: [...base.nodes, { id: NEW_ID, type: 'node', title: 'Новая работа', description: 'Проверка' }],
-	links: [
-		...base.links,
-		{ source: NEW_ID, target: partner, force: 2 },
-		{ source: NEW_ID, target: 'нет-такого', force: 2 },
-	],
-}
-const brokenPlan = planGraphUpdate(state, broken)
-
-check(
-	'связь с недостающим концом отсеяна',
-	brokenPlan.addedLinks.length === 1 &&
-		brokenPlan.keptLinks.length + brokenPlan.addedLinks.length === base.links.length + 1,
-	`добавлено ${brokenPlan.addedLinks.length} связок из двух новых`,
-)
-
-const newResult = applyGraphUpdate(state, brokenPlan)
-const nextNodes = byId(newResult.nodes)
-const newcomer = nextNodes.get(NEW_ID)
-
-check('новый узел добавлен ровно один раз', newResult.nodes.filter((node) => node.id === NEW_ID).length === 1)
-check('новый узел помечен добавленным', newResult.addedNodeKeys.has(`n:${NEW_ID}`))
-check(
-	'координаты нового узла конечны и не нулевые',
-	Number.isFinite(newcomer.x) && Number.isFinite(newcomer.y) && (newcomer.x !== 0 || newcomer.y !== 0),
-	`${newcomer.x},${newcomer.y}`,
-)
-
-const landedNear = distance(newcomer, nextNodes.get(partner))
-
-// `plan.seeds` считается по прежним связям, в которых нового узла ещё нет: он всегда едет из запасной
-// точки у начала координат, а соседей его доводит до нужного места связь на разогреве
-console.log(
-	`  высадка нового узла: ${landedNear.toFixed(0)} ед. до соседа при плече посева ${NEW_NODE_SEED_RADIUS} и запасном ${NEW_NODE_SEED_FALLBACK}`,
-)
-
-const newSimulation = createSimulation(newResult.nodes, newResult.links)
-
-newSimulation.force('link').links(newResult.links)
-newSimulation.stop()
-newSimulation.tick()
-
-check(
-	'после links() концы связей — объекты узлов',
-	newResult.links.every((link) => typeof link.source === 'object' && typeof link.target === 'object'),
+	'полный перерасчёт включает новую ноду и связь',
+	changedLayout.revision === 8 &&
+		changedLayout.positions.length === changedData.nodes.length &&
+		resolveLinks(applyLayout(changedData, changedLayout).nodes, applyLayout(changedData, changedLayout).links)
+			.length === changedData.links.length,
 )
 check(
-	'NaN в координатах нет',
-	newResult.nodes.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y)),
+	'отсутствующий конец связи отбрасывается',
+	resolveLinks(positioned.nodes, [{ source: 'missing', target: base.nodes[0].id }]).length === 0,
 )
-
-const dropPlan = planGraphUpdate(readGraphState(settled.nodes, settledLinkForce.links()), {
-	nodes: base.nodes.slice(1),
-	links: base.links,
-})
-
-check(
-	'при удалении узла уходят и его связи',
-	dropPlan.removedNodeKeys.length === 1 && dropPlan.removedLinkKeys.length > 0,
-	`узлов ${dropPlan.removedNodeKeys.length}, связей ${dropPlan.removedLinkKeys.length}`,
-)
-
 const types = [...new Set(base.nodes.map((node) => node.type))]
 const colors = createTypeColors(base.nodes)
-
-check('разным типам — разные цвета', new Set(types.map((type) => colors(type))).size === types.length)
 check(
-	'цвет типа стабилен между сборками палитры',
+	'цвета типов стабильны',
 	types.every((type) => colors(type) === createTypeColors(base.nodes)(type)),
 )
-
 const chargeNodes = [
-	{ id: 'charge-default', type: 'node', title: 'Обычный', hasWarning: false },
-	{ id: 'charge-strong', type: 'node', title: 'Сильный', hasWarning: false, chargeMultiplier: 2 },
+	{ id: 'default', type: 'node', title: 'Обычный', hasWarning: false },
+	{ id: 'strong', type: 'node', title: 'Сильный', hasWarning: false, chargeMultiplier: 2 },
 ]
 const chargeSimulation = createSimulation(chargeNodes, [])
 const chargeForce = chargeSimulation.force('charge')
-
 check(
-	'индивидуальный множитель меняет только силу конкретной ноды',
-	chargeForce.strength()(chargeNodes[1]) === chargeForce.strength()(chargeNodes[0]) * 2,
-)
-check(
-	'отталкивание соседей группы соответствует калибровке 40 / 90 / 270',
-	[40, 90, 270].every((count, index) => Math.abs(groupNeighborChargeMultiplier(count) - [2, 4.5, 21][index]) < 0.001),
+	'индивидуальный заряд учитывается',
+	chargeForce.strength()(chargeNodes[1]) === 2 * chargeForce.strength()(chargeNodes[0]),
 )
 chargeSimulation.stop()
-
+check(
+	'множитель заряда группы откалиброван',
+	[40, 90, 270].every((count, index) => Math.abs(groupNeighborChargeMultiplier(count) - [2, 4.5, 21][index]) < 0.001),
+)
 const groupNode = { id: 'group', type: 'group', title: 'Группа', hasWarning: false, children: { nodes: [], links: [] } }
 const outsideNode = { id: 'outside', type: 'node', title: 'Снаружи', hasWarning: false }
 const groupLinkSimulation = createSimulation([groupNode, outsideNode], [{ source: 'group', target: 'outside' }])
-const groupLinkForce = groupLinkSimulation.force('link')
 check(
-	'связь с группой ослаблена, обычная связь не меняется',
-	groupLinkForce.strength()({ source: groupNode, target: outsideNode }) === GROUP_LINK_STRENGTH,
+	'связь группы ослаблена',
+	groupLinkSimulation.force('link').strength()({ source: groupNode, target: outsideNode }) === GROUP_LINK_STRENGTH,
 )
 groupLinkSimulation.stop()
 
@@ -685,140 +467,11 @@ check(
 	visibility.visibleGroupIds(snapshots, { left: 950, right: 1250, top: -150, bottom: 150 }).join(',') === 'far',
 )
 
-console.log('\n== геометрия покоя ==')
-console.log(`  узлов ${base.nodes.length}, связей ${base.links.length}`)
-console.log(`  медианный просвет связанной пары: ${restGap.toFixed(1)}`)
-console.log(`  наездов тел друг на друга: ${restOverlaps}`)
-
-console.log('\n== смещение непричастных узлов при добавлении одного узла ==')
-
-/** Проверяет тот же путь, что статичный updateData: diff → resolve → локальное усаживание. */
-function checkLocalAddition(name, added, links, expectedNeighborIds) {
-	const start = prepareGraph(base)
-	const simulation = createSimulation(start.nodes, start.links)
-	cool(simulation)
-	const before = new Map(start.nodes.map((node) => [node.id, { x: node.x, y: node.y }]))
-	const state = readGraphState(start.nodes, simulation.force('link').links())
-	const next = { nodes: [...base.nodes, ...added], links: [...base.links, ...links] }
-	const plan = planGraphUpdate(state, next)
-	const result = applyGraphUpdate(state, plan)
-	const resolved = scene.resolveLinks(result.nodes, result.links)
-	scene.settleAddedNodes(result.nodes, resolved, new Set(added.map(({ id }) => id)), {})
-	const after = byId(result.nodes)
-	const unchanged = start.nodes.filter((node) => !expectedNeighborIds.includes(node.id))
-	const maxUnrelated = Math.max(...unchanged.map((node) => distance(after.get(node.id), before.get(node.id))))
-	const maxNeighbor = Math.max(0, ...expectedNeighborIds.map((id) => distance(after.get(id), before.get(id))))
-	check(`${name}: остальная карта не сдвинулась`, maxUnrelated < 0.01, `максимум ${maxUnrelated}`)
-	check(`${name}: соседи сдвинулись ограниченно`, maxNeighbor <= 24.01, `максимум ${maxNeighbor}`)
-	check(
-		`${name}: координаты и концы связей конечны`,
-		result.nodes.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y)) &&
-			resolved.every(({ source, target }) => after.get(source.id) === source && after.get(target.id) === target),
-	)
-	check(
-		`${name}: временное закрепление снято`,
-		result.nodes.every((node) => node.fx == null && node.fy == null),
-	)
-	simulation.stop()
-}
-
-checkLocalAddition(
-	'один сосед',
-	[{ id: 'new-one', type: 'node', title: 'Новый', hasWarning: false }],
-	[{ source: 'new-one', target: base.nodes[1].id }],
-	[base.nodes[1].id],
-)
-checkLocalAddition(
-	'два соседа',
-	[{ id: 'new-two', type: 'node', title: 'Новый', hasWarning: false }],
-	[
-		{ source: 'new-two', target: base.nodes[1].id },
-		{ source: 'new-two', target: base.nodes[3].id },
-	],
-	[base.nodes[1].id, base.nodes[3].id],
-)
-checkLocalAddition(
-	'новая компонента',
-	[{ id: 'new-isolated', type: 'node', title: 'Новый', hasWarning: false }],
-	[],
-	[],
-)
-
-/**
- * Стартовое усидание — «остывание», как в браузере: d3 гасит stepper на alphaMin и считает раскладку
- * готовой. Две ручки: alpha (насколько далеко успеем уехать за остаток остывания) и pin (временно
- * закрепить непричастные узлы).
- */
-const rowsTable = []
-
-console.log('  режим        | посев | alpha | ед/узел | всего | дальние | нового до связи | наездов нового')
-
-for (const pin of [false, true]) {
-	for (const seed of [null, 24]) {
-		for (const alpha of [...new Set([...args.alphas, UPDATE_ALPHA])]) {
-			const result = runAdd({ alpha, settle: true, seed, hops: 3, pin })
-
-			rowsTable.push({ pin, seed, alpha, ...result })
-			console.log(
-				`  ${pin ? 'закрепление' : 'разогрев'.padEnd(12)} | ${String(seed ?? 'конст').padStart(5)} | ${alpha.toFixed(
-					3,
-				)} | ${result.perNode.toFixed(2).padStart(8)} | ${result.kept.toFixed(0).padStart(6)} | ${result.far
-					.toFixed(0)
-					.padStart(7)} | ${result.newLink.toFixed(0).padStart(8)} | ${String(result.newOverlaps).padStart(9)}`,
-			)
-		}
-	}
-}
-
-const find = (pin, seed, alpha) =>
-	rowsTable.find((item) => item.pin === pin && item.seed === seed && item.alpha === alpha)
-const low = Math.min(...args.alphas)
-const current = find(false, null, UPDATE_ALPHA)
-const quiet = find(false, null, low)
-const pinned = find(true, null, UPDATE_ALPHA)
-
-console.log('\n== сводка ==')
-;[
-	[`разогрев ${UPDATE_ALPHA} (как сейчас)`, current],
-	[`разогрев ${low}`, quiet],
-	['закрепление (узлы заморожены)', pinned],
-].forEach(([name, item]) => {
-	if (!item) return
-	console.log(
-		`  ${name.padEnd(30)} → ${item.perNode.toFixed(2)} ед/узел, до связи ${item.newLink.toFixed(0)}, наездов нового ${
-			item.newOverlaps
-		}, просвет ${item.gap.toFixed(1)}`,
-	)
-})
-
-check(
-	'низкий разогрев оставляет непричастные узлы на месте',
-	quiet && current && quiet.perNode < 2,
-	`alpha ${low}: ${quiet?.perNode?.toFixed(2)} ед/узел против ${current?.perNode?.toFixed(2)} при ${UPDATE_ALPHA}`,
-)
-// посадка меряется при том разогреве, с которым узел приезжает в сцену на самом деле (UPDATE_ALPHA):
-// при alpha 0.005 силы не успевают ни дотянуть новое тело до соседа, ни развести его с чужими
-check(
-	'новый узел встаёт к своему соседу',
-	Boolean(current) && current.newLink > LINK_DISTANCE * 0.4 && current.newLink < LINK_DISTANCE * 3,
-	`${current?.newLink?.toFixed(0)} единиц при дистанции связи ${LINK_DISTANCE}`,
-)
-check('число наездов нового тела ограничено', current?.newOverlaps <= 1, `наездов: ${current?.newOverlaps}`)
-check(
-	'закрепление даёт нулевой сдвиг вовсе',
-	pinned.perNode < 0.01,
-	`${pinned.perNode.toFixed(4)} ед/узел (ожидание — ноль)`,
-)
-
-/**
- * Нелокальность равновесия — свойство сил, а не недоработка разогрева: тот же прогон, доведённый
- * до равновесия с обеих сторон, даёт сдвиг, от alpha не зависящий.
- */
-const hotRows = [0.3, 0.005].map((alpha) => runAdd({ alpha, settle: true, seed: null, hops: 3, equilibrium: true }))
-
-console.log(
-	`  равновесие с обеих сторон: alpha 0.300 → ${hotRows[0].perNode.toFixed(2)}, alpha 0.005 → ${hotRows[1].perNode.toFixed(2)} ед/узел`,
-)
+console.log('\n== геометрия полной раскладки ==')
+const restGap = medianLinkGap(positioned.nodes, positioned.links)
+const restOverlaps = bodyOverlaps(positioned.nodes, createCloudLayouts(positioned.nodes, measure))
+check('связанные узлы не совпадают', restGap > LINK_DISTANCE * 0.3, `просвет ${restGap}`)
+check('тела не схлопнулись', restOverlaps < base.nodes.length / 2, `наездов ${restOverlaps}`)
 
 await server.close()
 

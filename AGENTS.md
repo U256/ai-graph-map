@@ -57,13 +57,12 @@
 - Комментарии не пересказывают код: нужен только «почему» — обоснование значения, следствие замера,
   ограничение. Остальное уже сказано именем или типом.
 - `SettingsPanel/SettingsPanel.tsx` — форма настроек на `react-hook-form`: клоны нод, тоггл полного
-  вида саб нод, чекбокс скрытия саб нод, range-поля физики, «Применить»/«Сбросить». Сабмит пишет в
-  localStorage и отдаёт значения в `App`. Поля физики рисуются списком `NUMBER_FIELDS`, а не вручную;
+  вида саб нод, чекбокс скрытия саб нод, «Применить»/«Сбросить». Сабмит пишет в localStorage и отдаёт
+  значения в `App`.
   у каждого поля `title` с пояснением. В шапке — угловая кнопка «+» (`onStartCreate`,
   `type="button"`, чтобы не отправлять форму).
-- `SettingsPanel/settingsPanel.ts` — логика панели без React: дефолты, опции клонов, `NUMBER_FIELDS`,
-  ключ и чтение/запись localStorage. Дефолты физики импортируются из `forceGraph.ts`, чтобы панель и
-  сцена не разошлись при подгонке по картинке. Разбор строки хранилища — чистая `parseGraphSettings`.
+- `SettingsPanel/settingsPanel.ts` — логика панели без React: дефолты, опции клонов, ключ и
+  чтение/запись localStorage. Разбор строки хранилища — чистая `parseGraphSettings`.
 - `SettingsPanel/SettingsPanel.css` — вид панели (`settings-panel__*`): тоггл и чекбокс нарисованы
   подменами поверх настоящих input'ов; шапка `sticky`, угловая кнопка общая для «+» и «←».
 - `SettingsPanel/nodeForm.ts` — правки данных графа без React и DOM: `updateNodeInData` (поля
@@ -79,17 +78,8 @@
   удаления (`node-form__*`).
 - `ForceGraph/forceGraph.ts` — чистая логика без DOM: константы сцены, `prepareGraph`,
   `createSimulation`, `createLinkForce`, `createTypeColors`, `tintToWhite`, типы
-  `NodeRenderData`/`SeedPoint`/`GraphPhysics`. Сила заряда читает необязательный `chargeMultiplier` у
-  каждой ноды: отсутствие поля означает множитель 1. Поля `GraphPhysics` необязательные: силы читают
-  их через `??`, отсутствие поля означает прежнюю константу, а не ноль.
-- `ForceGraph/forceGraphUpdate.ts` — сведение CRUD-операций в план: `readGraphState` (состояние
-  читается из симуляции и силы связей, отдельного «прежнего графа» нет), `diffNodes`,
-  `planGraphUpdate`, `applyGraphUpdate`. Чистый модуль — весь разбор проверяется в Node.
-- `ForceGraph/crud/graphNodesCRUD.ts` — CRUD узла: `nodeKey`, `nodeRenderData`,
-  `isNodeRenderDataChanged`, `buildNode`, `seedPosition`. Чистый.
-- `ForceGraph/crud/graphLinksCRUD.ts` — CRUD связи: направленный `linkKey`/`linkKeyOf`, `diffLinks`
-  (добавление/оставление, отбрасывание связи с несуществующим концом и дубликата), `collectSeeds`,
-  `buildLink`. Чистый.
+  `NodeRenderData`. Сила заряда читает необязательный `chargeMultiplier` у каждой ноды.
+- `ForceGraph/resolveLinks.ts` — разрешение концов связей для Canvas с отбрасыванием отсутствующих узлов.
 - `ForceGraph/forceGraphCloud.ts` — геометрия узлов без DOM: кегли, паддинги, `truncateToWidth`,
   `createCloudLayouts(nodes, measure)`. Мерка приходит аргументом, поэтому проверяется в Node.
   Порог раскрытия групп и масштаб вложенных графов общие для Canvas и расчёта видимости.
@@ -103,8 +93,7 @@
 - `ForceGraph/canvasPanZoom.ts` — d3 zoom для Canvas и кнопки управления масштабом.
 - `ForceGraph/forceGraphView.ts` — компоновщик Canvas-сцены, simulation, обновления данных и worker-а
   видимости; возвращает API `ForceGraphHandle`.
-- `ForceGraph/forceGraphScene.ts` — разрешение концов связей и локальное усаживание новых узлов без DOM;
-  `forceGraphView.ts` оставляет за собой жизненный цикл сцены.
+- `ForceGraph/resolveLinks.ts` — разрешение концов связей для Canvas с отбрасыванием отсутствующих узлов.
 - Клик отличается от перетаскивания признаком `didDrag`: без порога смещения любой сдвиг узла открывал бы
   форму. Координаты после подготовки статичны: drag меняет только выбранный узел и перерисовывает
   линии. `updateData` сопоставляет узлы по id и сохраняет координаты
@@ -125,8 +114,7 @@
   Связи перепакованы искусственно (см. «Правила работы с графом»), id патентов идут с пропусками:
   удалённые патенты своих номеров не отдают, и по `patent-N` всё ещё видно, откуда узел родом.
 - `src/types/graph.ts` — типы данных и уровня симуляции; `src/types/settings.ts` — `GraphSettings`
-  (числовые поля не опциональные: панель обязана привезти значения, а `GraphPhysics` опциональный,
-  чтобы вызывающий передал только то, что крутит).
+  (настройки панели содержат только отображение и количество клонов).
 
 ## scripts — как проверять, а не изобретать
 
@@ -149,9 +137,8 @@
 
 Быстрый выбор файлов по формулировке задачи (полный список экспортов — `npm run check:map`):
 
-- физика, силы, разогревы, константы сцены — `ForceGraph/forceGraph.ts` (`createSimulation`,
-  `createLinkForce`, `GraphPhysics`); дефолты панели — `SettingsPanel/settingsPanel.ts` (`NUMBER_FIELDS`);
-  применение значений на лету — `forceGraphView.ts` (`setPhysics`).
+- физика, силы и константы сцены — `ForceGraph/forceGraph.ts` (`createSimulation`, `createLinkForce`);
+  полный layout и worker — `ForceGraph/layout.ts`.
 - вид узла, облака, текст, цвет — `ForceGraph/canvasNodeRenderer.ts` (что нарисовать),
   `ForceGraph/forceGraphCloud.ts` (геометрия и переносы), `ForceGraph/forceGraphText.ts` (мерка),
   `ForceGraph/forceGraph.ts` (`createTypeColors`, `tintToWhite`).
@@ -219,10 +206,8 @@
 - Кластеры заданы данными, а не физикой: если карта покажется разрозненной, сначала смотреть на форму
   данных, а не крутить `LAYOUT_SCALE`/`LINK_DISTANCE`. Плотность связок и простор между узлами — это
   подгонка по картинке, и в кластеры она узлы не собирает.
-- Константы физики — источник дефолтов, но переопределяются из панели (`GraphPhysics`): в код значение
-  переезжает только подтверждённым как новое постоянное и вместе с обоснованием замера. Правильные
-  значения живут у константы, а не в localStorage: хранилище отдаёт старые настройки целиком, если
-  поля не сошлись (`parseGraphSettings`).
+- Константы физики — источник фиксированных параметров layout-worker и не хранятся в localStorage.
+  Настройки localStorage содержат только клоны и отображение сабнод.
 - Цвет — по `type`, оттенки выдаются в порядке первого появления типа, легенда не нужна. Типов два:
   `node` — научные работы, `subNode` — цитирующие их патенты.
 - Тела узлов — скруглённые прямоугольники центрами на координатах узла; группу двигает один

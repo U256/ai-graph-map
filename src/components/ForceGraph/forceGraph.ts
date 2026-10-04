@@ -68,17 +68,6 @@ export const DRAG_CLICK_SLOP = 4
 /** Тело не прозрачное — под подписями не должны просвечивать связи. */
 export const BODY_FILL_WHITE = 0.85
 
-/** Поля необязательные: отсутствие означает текущую константу, а не ноль. Зум и размеры сцены не входят — они не ручки раскладки. */
-export interface GraphPhysics {
-	layoutScale?: number
-	linkDistance?: number
-	linkStrength?: number
-	chargeStrength?: number
-	velocityDecay?: number
-	updateAlpha?: number
-	dragAlphaTarget?: number
-}
-
 /** Сравниваются значения, а не идентичность объекта: данные приезжают новым массивом и могли измениться на месте. */
 export interface NodeRenderData {
 	title: string
@@ -103,22 +92,18 @@ export function prepareGraph(data: GraphData): { nodes: GraphNode[]; links: Grap
 }
 
 /** Сила связи отдельно от симуляции: при обновлении её нужно переключить на новый список, не пересобирая остальные силы. */
-export function createLinkForce(links: GraphLink[], physics: GraphPhysics = {}): ForceLink<GraphNode, GraphLink> {
+export function createLinkForce(links: GraphLink[]): ForceLink<GraphNode, GraphLink> {
 	return forceLink<GraphNode, GraphLink>(links)
 		.id((node) => node.id)
-		.distance(physics.linkDistance ?? LINK_DISTANCE)
-		.strength((link) => (isGroupLink(link) ? GROUP_LINK_STRENGTH : (physics.linkStrength ?? LINK_STRENGTH)))
+		.distance(LINK_DISTANCE)
+		.strength((link) => (isGroupLink(link) ? GROUP_LINK_STRENGTH : LINK_STRENGTH))
 }
 
 /** Позиционирующие силы вместо центрирующей: у графа много несвязных компонент, и `forceCenter` разносит их за пределы сцены. */
-export function createSimulation(
-	nodes: GraphNode[],
-	links: GraphLink[],
-	physics: GraphPhysics = {},
-): Simulation<GraphNode, GraphLink> {
-	const link = createLinkForce(links, physics)
-	const charge = physics.chargeStrength ?? CHARGE_STRENGTH
-	const scale = physics.layoutScale ?? LAYOUT_SCALE
+export function createSimulation(nodes: GraphNode[], links: GraphLink[]): Simulation<GraphNode, GraphLink> {
+	const link = createLinkForce(links)
+	const charge = CHARGE_STRENGTH
+	const scale = LAYOUT_SCALE
 
 	return forceSimulation(nodes)
 		.force('link', link)
@@ -128,7 +113,7 @@ export function createSimulation(
 		)
 		.force('x', forceX())
 		.force('y', forceY())
-		.velocityDecay(physics.velocityDecay ?? VELOCITY_DECAY)
+		.velocityDecay(VELOCITY_DECAY)
 }
 
 /** Оттенки в порядке первого появления типа, поэтому легенда не нужна; тип, приехавший с обновлением, держит свой оттенок. */

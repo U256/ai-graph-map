@@ -3,7 +3,6 @@ import type { GraphData } from '../../types/graph'
 import type { GraphSettings } from '../../types/settings'
 import { multiplyWithClones } from '../../utils/graphUtlis'
 import './ForceGraph.css'
-import type { GraphPhysics } from './forceGraph'
 import { createForceGraph, type ForceGraphHandle } from './forceGraphView'
 import { applyLayout, calculateLayout } from './layout'
 
@@ -22,27 +21,9 @@ export function ForceGraph({
 	onNodeClick,
 	onVisibleGroupsChange,
 }: ForceGraphProps) {
-	const {
-		nodeClones,
-		layoutScale,
-		linkDistance,
-		linkStrength,
-		chargeStrength,
-		velocityDecay,
-		dragAlphaTarget,
-		updateAlpha,
-	} = settings
-
-	// useMemo нужен, чтобы эффект ниже не срабатывал на каждый рендер
-	const physics = useMemo<GraphPhysics>(
-		() => ({ layoutScale, linkDistance, linkStrength, chargeStrength, velocityDecay, dragAlphaTarget, updateAlpha }),
-		[layoutScale, linkDistance, linkStrength, chargeStrength, velocityDecay, dragAlphaTarget, updateAlpha],
-	)
+	const { nodeClones } = settings
 
 	const containerRef = useRef<HTMLDivElement | null>(null)
-	// Режим раскладки выбирается при загрузке; изменение настройки ждёт перезагрузки страницы.
-	const layoutModeRef = useRef(settings.dynamicGraph)
-
 	// клоны снимаются с исходных данных, а не с уже расширенного массива: иначе клонировались бы
 	// клоны и граф рос геометрически, а не в `nodeClones` раз
 	const data = useMemo(() => {
@@ -52,7 +33,7 @@ export function ForceGraph({
 		return multiplyWithClones(originalData, nodeClones)
 	}, [originalData, nodeClones])
 	// Зависимость по значениям нужна для правок, которые могли изменить данные на месте: одна ссылка на
-	// GraphData тогда не меняется, а множитель заряда всё равно обязан перезапустить расчёт worker.
+	// GraphData тогда не меняется, а изменение всё равно обязано перезапустить расчёт worker.
 	const dataRevision = data
 		? JSON.stringify({
 				nodes: data.nodes,
@@ -61,7 +42,6 @@ export function ForceGraph({
 		: ''
 
 	const graphRef = useRef<ForceGraphHandle | null>(null)
-	const layoutPhysicsRef = useRef<GraphPhysics | null>(null)
 	const [layoutLoading, setLayoutLoading] = useState(false)
 	// сцена создаётся один раз, а колбэк клика пересоздаётся с родителем: наружу уходит обёртка,
 	// читающая актуальное замыкание из ref
@@ -79,16 +59,14 @@ export function ForceGraph({
 		let cancelLayout = () => {}
 		const graph = graphRef.current
 		if (container && data) {
-			const physicsChanged = layoutPhysicsRef.current !== physics
-			if (graph && !physicsChanged) {
+			if (graph) {
 				graph.updateData(data)
 				return () => cancelLayout()
 			}
-			const zoomTransform = graph?.getZoomTransform()
 			setLayoutLoading(true)
 			const measureStart = performance.now()
 			let active = true
-			const layout = calculateLayout(data, physics, !layoutModeRef.current)
+			const layout = calculateLayout(data)
 			layout.promise
 				.then((positions) => {
 					if (!active) return
@@ -99,14 +77,9 @@ export function ForceGraph({
 					const next = createForceGraph(applyLayout(data, positions), {
 						onNodeClick: handleNodeClick,
 						onVisibleGroupsChange: handleVisibleGroupsChange,
-						dynamic: layoutModeRef.current,
-						physics,
 					})
-					graph?.destroy()
 					graphRef.current = next
-					layoutPhysicsRef.current = physics
 					container.replaceChildren(next.canvas, next.zoomIndicator, next.zoomControls)
-					if (zoomTransform) next.setZoomTransform(zoomTransform)
 					setLayoutLoading(false)
 				})
 				.catch(() => {
@@ -114,14 +87,9 @@ export function ForceGraph({
 					const next = createForceGraph(data, {
 						onNodeClick: handleNodeClick,
 						onVisibleGroupsChange: handleVisibleGroupsChange,
-						dynamic: layoutModeRef.current,
-						physics,
 					})
-					graph?.destroy()
 					graphRef.current = next
-					layoutPhysicsRef.current = physics
 					container.replaceChildren(next.canvas, next.zoomIndicator, next.zoomControls)
-					if (zoomTransform) next.setZoomTransform(zoomTransform)
 					setLayoutLoading(false)
 				})
 			cancelLayout = () => {
@@ -130,7 +98,7 @@ export function ForceGraph({
 			}
 		}
 		return () => cancelLayout()
-	}, [data, dataRevision, physics, handleNodeClick, handleVisibleGroupsChange])
+	}, [data, dataRevision, handleNodeClick, handleVisibleGroupsChange])
 
 	useEffect(() => {
 		graphRef.current?.setSelectedNode(selectedNodeId)
@@ -142,7 +110,6 @@ export function ForceGraph({
 		() => () => {
 			graphRef.current?.destroy()
 			graphRef.current = null
-			layoutPhysicsRef.current = null
 			setLayoutLoading(false)
 			containerRef.current?.replaceChildren()
 		},

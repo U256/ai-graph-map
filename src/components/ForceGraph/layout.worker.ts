@@ -1,10 +1,9 @@
 import type { GraphData } from '../../types/graph'
-import type { GraphPhysics } from './forceGraph'
 import { calculateGraphLayout, type GraphLayout } from './layout'
 
 type LayoutRequest = {
 	data: GraphData
-	physics: GraphPhysics
+	revision: number
 }
 
 const workerScope = globalThis as typeof globalThis & {
@@ -13,6 +12,6 @@ const workerScope = globalThis as typeof globalThis & {
 }
 
 workerScope.onmessage = (event: MessageEvent<LayoutRequest>) => {
-	const { data, physics } = event.data
-	workerScope.postMessage(calculateGraphLayout(data, physics))
+	const { data, revision } = event.data
+	workerScope.postMessage(calculateGraphLayout(data, revision))
 }

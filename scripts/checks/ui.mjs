@@ -395,25 +395,10 @@ try {
 	await hideInput.press('Space')
 	check('пробел на самом input переключает обратно', !(await hideInput.isChecked()))
 
-	// range — контролируемый React input: присвоить `value` и послать `input` недостаточно (трекер
-	// значений React решит, что ничего не изменилось), поэтому ставим значение нативным сеттером
-	const setRange = (id, value) =>
-		page.evaluate(
-			({ selector, next }) => {
-				const input = document.querySelector(selector)
-				const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
-
-				setter.call(input, String(next))
-				input.dispatchEvent(new Event('input', { bubbles: true }))
-			},
-			{ selector: id, next: value },
-		)
-
 	await waitCalm(page)
 
 	const beforeApply = await page.evaluate(positionsScript)
 
-	await setRange('#linkDistance', 180)
 	await page.locator('.settings-panel__button', { hasText: 'Применить' }).click()
 
 	const stored = await page.evaluate(
@@ -421,16 +406,11 @@ try {
 		GRAPH_SETTINGS_STORAGE_KEY,
 	)
 
-	check(
-		'«Применить» пишет настройки в хранилище',
-		stored?.linkDistance === 180,
-		`в хранилище ${JSON.stringify(stored?.linkDistance)}`,
-	)
+	check('«Применить» пишет настройки в хранилище', stored?.nodeClones === 1, `в хранилище ${JSON.stringify(stored)}`)
 
 	await page.waitForTimeout(600)
 	const afterApply = await page.evaluate(positionsScript)
-	const shifted = maxDelta(beforeApply, afterApply)
-	check('применение обновляет данные Canvas без сброса координат', afterApply.length === beforeApply.length)
+	check('применение сохраняет число узлов Canvas', afterApply.length === beforeApply.length)
 
 	await waitCalm(page)
 

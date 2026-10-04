@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
 import type { GraphSettings } from '../../types/settings'
 import './SettingsPanel.css'
-import { DEFAULT_GRAPH_SETTINGS, NODE_CLONES_OPTIONS, NUMBER_FIELDS, saveGraphSettings } from './settingsPanel'
+import { DEFAULT_GRAPH_SETTINGS, NODE_CLONES_OPTIONS, saveGraphSettings } from './settingsPanel'
 
 type SettingsPanelProps = {
 	initialSettings: GraphSettings
@@ -10,9 +10,7 @@ type SettingsPanelProps = {
 }
 
 export function SettingsPanel({ initialSettings, onApply, onStartCreate }: SettingsPanelProps) {
-	const { register, handleSubmit, reset, watch } = useForm<GraphSettings>({ defaultValues: initialSettings })
-	// цифра берётся из формы, а не из применённых настроек: иначе отставала бы от бегунка до «Применить»
-	const liveSettings = watch()
+	const { register, handleSubmit, reset } = useForm<GraphSettings>({ defaultValues: initialSettings })
 
 	function applySettings(settings: GraphSettings) {
 		saveGraphSettings(settings)
@@ -50,31 +48,6 @@ export function SettingsPanel({ initialSettings, onApply, onStartCreate }: Setti
 					))}
 				</select>
 			</label>
-			<label className="settings-panel__option">
-				<input className="settings-panel__input" type="checkbox" {...register('dynamicGraph')} />
-				<span className="settings-panel__toggle" aria-hidden="true" />
-				<span className="settings-panel__label">Динамический граф</span>
-			</label>
-			{NUMBER_FIELDS.map(({ key, min, max, step, label, hint }) => (
-				<label className="settings-panel__field" htmlFor={key} key={key}>
-					<span className="settings-panel__label">
-						{label}
-						<output className="settings-panel__value" htmlFor={key}>
-							{liveSettings[key]}
-						</output>
-					</span>
-					<input
-						className="settings-panel__range"
-						id={key}
-						type="range"
-						title={hint}
-						min={min}
-						max={max}
-						step={step}
-						{...register(key, { valueAsNumber: true })}
-					/>
-				</label>
-			))}
 			<label className="settings-panel__option">
 				<input className="settings-panel__input" type="checkbox" {...register('showFullSubNodes')} />
 				<span className="settings-panel__toggle" aria-hidden="true" />
