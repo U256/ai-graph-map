@@ -14,6 +14,7 @@ import { createCloudLayouts } from './forceGraphCloud'
 import { attachCanvasPanZoom } from './forceGraphInteractions'
 import { createTextMeasurer } from './forceGraphText'
 import { applyGraphUpdate, planGraphUpdate, readGraphState } from './forceGraphUpdate'
+import { createGroupVisibility } from './groupVisibility'
 
 /** Компоновщик Canvas-сцены; раскладка и обновление графа остаются независимы от отрисовки. */
 
@@ -26,6 +27,7 @@ export interface ForceGraphOptions {
 	 * нет — вызывающий сам решает, что с этим делать (см. `App`).
 	 */
 	onNodeClick?: (id: string) => void
+	onVisibleGroupsChange?: (ids: string[]) => void
 }
 
 export interface ForceGraphHandle {
@@ -111,7 +113,7 @@ function settleAddedNodes(nodes: GraphNode[], links: GraphLink[], addedIds: Set<
 }
 
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
-	const { panZoom = true, dynamic = false, onNodeClick } = options
+	const { panZoom = true, dynamic = false, onNodeClick, onVisibleGroupsChange } = options
 	const physics = options.physics ?? {}
 	const measure = createTextMeasurer()
 	const initialNodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
@@ -124,6 +126,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	let zoomControls = document.createElement('div')
 	let getZoomTransform = () => zoomIdentity
 	let setZoomTransform = (_transform: ZoomTransform) => {}
+	let markVisibilityDirty = () => {}
 	const renderer = createCanvasRenderer(
 		colorOf,
 		(node) => createCloudLayouts([node], measure).get(node)!,
@@ -137,6 +140,12 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		},
 		onNodeClick,
 	)
+	const visibility = createGroupVisibility(
+		() => ({ nodes: currentNodes, viewport: renderer.getViewport(), scale: getZoomTransform().k }),
+		onVisibleGroupsChange,
+	)
+	markVisibilityDirty = visibility.markDirty
+	renderer.setVisibleGroupsCallback(markVisibilityDirty)
 	const zoomIndicator = document.createElement('div')
 	zoomIndicator.className = 'force-graph__zoom'
 	zoomIndicator.textContent = 'Зум: 1.0'
@@ -145,7 +154,10 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	if (dynamic) {
 		simulation = createSimulation(initialNodes, drawnLinks, physics)
 			.alphaTarget(DYNAMIC_ALPHA_TARGET)
-			.on('tick', renderer.render)
+			.on('tick', () => {
+				renderer.render()
+				markVisibilityDirty()
+			})
 	}
 	function setSelectedNode(id: string | null): void {
 		renderer.setSelectedNode(id)
@@ -166,6 +178,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		}
 		renderer.setNodes(result.nodes)
 		renderer.setLinks(nextLinks)
+		markVisibilityDirty()
 	}
 
 	if (panZoom) {
@@ -192,6 +205,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		destroy: () => {
 			simulation?.stop().on('tick', null)
 			simulation = null
+			visibility.destroy()
 			renderer.destroy()
 			zoomIndicator.remove()
 			zoomControls.remove()

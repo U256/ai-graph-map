@@ -16,6 +16,8 @@ export interface CanvasRenderer {
 	setLinks: (links: DrawnLink[]) => void
 	setSelectedNode: (id: string | null) => void
 	setZoomScale: (scale: number) => void
+	setVisibleGroupsCallback: (callback: () => void) => void
+	getViewport: () => { left: number; right: number; top: number; bottom: number } | null
 	getTransform: () => { x: number; y: number; k: number }
 	isNodeAt: (clientX: number, clientY: number) => boolean
 	setZoomTransform: (x: number, y: number, k: number) => void
@@ -53,7 +55,12 @@ export function createCanvasRenderer(
 	let resizeObserver: ResizeObserver | null = null
 	let hitNodes: HitNode[] = []
 	const nodeClick = onNodeClick
+	let markVisibilityDirty = () => {}
 	let render = (): void => {}
+
+	function baseScale(): number {
+		return Math.min(width / GRAPH_WIDTH, height / GRAPH_HEIGHT)
+	}
 
 	function resize(): void {
 		const bounds = canvas.getBoundingClientRect()
@@ -63,10 +70,7 @@ export function createCanvasRenderer(
 		canvas.width = Math.max(1, Math.round(width * dpr))
 		canvas.height = Math.max(1, Math.round(height * dpr))
 		render()
-	}
-
-	function baseScale(): number {
-		return Math.min(width / GRAPH_WIDTH, height / GRAPH_HEIGHT)
+		markVisibilityDirty()
 	}
 
 	function worldPoint(clientX: number, clientY: number): { x: number; y: number } {
@@ -158,6 +162,7 @@ export function createCanvasRenderer(
 		render,
 		onDrag,
 		onDragEnd,
+		() => markVisibilityDirty(),
 		nodeClick,
 		nodeTooltip,
 	)
@@ -177,6 +182,7 @@ export function createCanvasRenderer(
 			nodes = next
 			Object.assign(canvas, { __graphNodes: next })
 			render()
+			markVisibilityDirty()
 		},
 		setLinks: (next) => {
 			links = next
@@ -189,6 +195,21 @@ export function createCanvasRenderer(
 		setZoomScale: (scaleValue) => {
 			zoomScale = scaleValue
 			render()
+			markVisibilityDirty()
+		},
+		setVisibleGroupsCallback: (callback) => {
+			markVisibilityDirty = callback
+			markVisibilityDirty()
+		},
+		getViewport: () => {
+			const scale = baseScale()
+			if (width <= 0 || height <= 0 || !Number.isFinite(scale) || scale <= 0) return null
+			return {
+				left: (-width / 2 / scale - transform.x) / transform.k,
+				right: (width / 2 / scale - transform.x) / transform.k,
+				top: (-height / 2 / scale - transform.y) / transform.k,
+				bottom: (height / 2 / scale - transform.y) / transform.k,
+			}
 		},
 		getTransform: () => transform,
 		isNodeAt: (x, y) => findHit(x, y) !== null,
@@ -198,6 +219,7 @@ export function createCanvasRenderer(
 			transform.k = k
 			canvas.setAttribute('data-transform', `${x},${y},${k}`)
 			render()
+			markVisibilityDirty()
 		},
 		destroy: () => {
 			resizeObserver?.disconnect()

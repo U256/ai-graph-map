@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { GraphData } from '../../types/graph'
 import type { GraphSettings } from '../../types/settings'
 import { multiplyWithClones } from '../../utils/graphUtlis'
@@ -12,9 +12,16 @@ type ForceGraphProps = {
 	settings: GraphSettings
 	selectedNodeId?: string | null
 	onNodeClick?: (id: string) => void
+	onVisibleGroupsChange?: (ids: string[]) => void
 }
 
-export function ForceGraph({ data: originalData, settings, selectedNodeId = null, onNodeClick }: ForceGraphProps) {
+export function ForceGraph({
+	data: originalData,
+	settings,
+	selectedNodeId = null,
+	onNodeClick,
+	onVisibleGroupsChange,
+}: ForceGraphProps) {
 	const {
 		nodeClones,
 		layoutScale,
@@ -61,6 +68,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 	const nodeClickRef = useRef(onNodeClick)
 	nodeClickRef.current = onNodeClick
 	const handleNodeClick = useCallback((id: string) => nodeClickRef.current?.(id), [])
+	const handleVisibleGroupsChange = useEffectEvent((ids: string[]) => onVisibleGroupsChange?.(ids))
 
 	// React владеет только контейнером, Canvas императивный. Разрушение сцены — отдельный эффект ниже:
 	// в cleanup этого она пересобирала бы Canvas на каждую смену зависимости
@@ -88,6 +96,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 					)
 					const next = createForceGraph(applyLayout(data, positions), {
 						onNodeClick: handleNodeClick,
+						onVisibleGroupsChange: handleVisibleGroupsChange,
 						dynamic: layoutModeRef.current,
 						physics,
 					})
@@ -102,6 +111,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 					if (!active) return
 					const next = createForceGraph(data, {
 						onNodeClick: handleNodeClick,
+						onVisibleGroupsChange: handleVisibleGroupsChange,
 						dynamic: layoutModeRef.current,
 						physics,
 					})
@@ -118,7 +128,7 @@ export function ForceGraph({ data: originalData, settings, selectedNodeId = null
 			}
 		}
 		return () => cancelLayout()
-	}, [data, dataRevision, physics, handleNodeClick])
+	}, [data, dataRevision, physics, handleNodeClick, handleVisibleGroupsChange])
 
 	useEffect(() => {
 		graphRef.current?.setSelectedNode(selectedNodeId)

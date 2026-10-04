@@ -55,6 +55,11 @@ export function App() {
 		[data],
 	)
 
+	const handleVisibleGroupsChange = useCallback((ids: string[]) => {
+		// eslint-disable-next-line no-console
+		console.log('Видимые группы:', ids)
+	}, [])
+
 	const handleCreate = useCallback((draft: NodeCreateDraft, neighbors: string[]) => {
 		setData((current) => (current ? createNodeInData(current, draft, neighbors) : current))
 		setPanel({ kind: 'settings' })
@@ -101,6 +106,7 @@ export function App() {
 						data={data}
 						selectedNodeId={view.kind === 'edit' ? view.id : null}
 						onNodeClick={handleNodeClick}
+						onVisibleGroupsChange={handleVisibleGroupsChange}
 					/>
 				</main>
 			</div>
