@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { GraphData } from '../../types/graph'
 import type { GraphSettings } from '../../types/settings'
 import { multiplyWithClones } from '../../utils/graphUtlis'
@@ -68,7 +68,9 @@ export function ForceGraph({
 	const nodeClickRef = useRef(onNodeClick)
 	nodeClickRef.current = onNodeClick
 	const handleNodeClick = useCallback((id: string) => nodeClickRef.current?.(id), [])
-	const handleVisibleGroupsChange = useEffectEvent((ids: string[]) => onVisibleGroupsChange?.(ids))
+	const visibleGroupsChangeRef = useRef(onVisibleGroupsChange)
+	visibleGroupsChangeRef.current = onVisibleGroupsChange
+	const handleVisibleGroupsChange = useCallback((ids: string[]) => visibleGroupsChangeRef.current?.(ids), [])
 
 	// React владеет только контейнером, Canvas императивный. Разрушение сцены — отдельный эффект ниже:
 	// в cleanup этого она пересобирала бы Canvas на каждую смену зависимости

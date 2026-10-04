@@ -1,6 +1,6 @@
 import { forceLink, forceManyBody, forceSimulation, forceX, forceY, type ForceLink, type Simulation } from 'd3-force'
 import { schemeCategory10 } from 'd3-scale-chromatic'
-import type { DrawnLink, GraphData, GraphLink, GraphNode, GraphNodeType } from '../../types/graph'
+import type { GraphData, GraphLink, GraphNode, GraphNodeType } from '../../types/graph'
 
 /** Размер окна сцены; viewBox вокруг нуля — все силы целятся в ноль. */
 export const GRAPH_WIDTH = 928
@@ -129,11 +129,6 @@ export function createSimulation(
 		.force('x', forceX())
 		.force('y', forceY())
 		.velocityDecay(physics.velocityDecay ?? VELOCITY_DECAY)
-}
-
-/** forceLink подменяет концы связей узлами во время выполнения, поэтому типам нужна подсказка. */
-export function asDrawnLinks(links: GraphLink[]): DrawnLink[] {
-	return links as unknown as DrawnLink[]
 }
 
 /** Оттенки в порядке первого появления типа, поэтому легенда не нужна; тип, приехавший с обновлением, держит свой оттенок. */

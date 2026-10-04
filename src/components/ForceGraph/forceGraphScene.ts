@@ -2,77 +2,80 @@ import type { DrawnLink, GraphLink, GraphNode } from '../../types/graph'
 import { createSimulation, type GraphPhysics } from './forceGraph'
 
 const INCREMENTAL_TICKS = 180
-const TEMPORARY_OLD_CHARGE = 0.15
-const OLD_POSITION_BLEND = 0.24
-const DISCONNECTED_SEED_RADIUS = 180
-const DISCONNECTED_SEED_STEP = 26
+const NEIGHBOR_MAX_SHIFT = 24
+const DISCONNECTED_SEED_GAP = 180
 
 /** Превращает строковые концы входных связей в узлы, как раньше это делал `forceLink`. */
 export function resolveLinks(nodes: GraphNode[], links: GraphLink[]): DrawnLink[] {
 	const byId = new Map(nodes.map((node) => [node.id, node]))
 	return links.flatMap((link) => {
-		const source = typeof link.source === 'string' ? byId.get(link.source) : link.source
-		const target = typeof link.target === 'string' ? byId.get(link.target) : link.target
-		return source && target ? [{ ...link, source, target } as DrawnLink] : []
+		const source = typeof link.source === 'object' ? link.source : byId.get(String(link.source))
+		const target = typeof link.target === 'object' ? link.target : byId.get(String(link.target))
+		return source && target ? [{ ...link, source, target }] : []
 	})
 }
 
 /**
- * Коротко доводит только новые узлы: старые закреплены на прежних координатах, поэтому добавление компоненты
- * не перетряхивает уже разложенную карту. Для полностью новой компоненты стартовые точки разводятся заранее,
- * иначе одинаковый запасной seed оставляет все её узлы в центре до первого тика.
+ * В статичной сцене доводит новые узлы и их соседей; остальные старые узлы закреплены и не меняют координаты.
  */
 export function settleAddedNodes(
 	nodes: GraphNode[],
-	links: GraphLink[],
+	links: DrawnLink[],
 	addedIds: Set<string>,
 	physics: GraphPhysics,
 ): void {
 	if (addedIds.size === 0) return
-	const existingIds = new Set(nodes.filter((node) => !addedIds.has(node.id)).map((node) => node.id))
-	const oldPositions = new Map(nodes.map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }]))
-	const simulationNodes = nodes.map((node, index) => {
-		const added = addedIds.has(node.id)
-		const hasExistingNeighbor = links.some((link) => {
-			const source = String(link.source)
-			const target = String(link.target)
-			return (
-				added &&
-				((source === node.id && existingIds.has(target)) || (target === node.id && existingIds.has(source)))
-			)
-		})
-		const angle = index * 2.399963
-		const radius = DISCONNECTED_SEED_RADIUS + index * DISCONNECTED_SEED_STEP
-		return {
-			...node,
-			x: hasExistingNeighbor ? node.x : (node.x ?? 0) + Math.cos(angle) * radius,
-			y: hasExistingNeighbor ? node.y : (node.y ?? 0) + Math.sin(angle) * radius,
-			vx: 0,
-			vy: 0,
-			fx: null,
-			fy: null,
-			chargeMultiplier: added ? node.chargeMultiplier : TEMPORARY_OLD_CHARGE,
-			index,
+	const neighbors = new Set<string>()
+	links.forEach(({ source, target }) => {
+		if (addedIds.has(source.id) && !addedIds.has(target.id)) neighbors.add(target.id)
+		if (addedIds.has(target.id) && !addedIds.has(source.id)) neighbors.add(source.id)
+	})
+	const oldPositions = new Map(
+		nodes.filter((node) => neighbors.has(node.id)).map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }]),
+	)
+	const maxX = Math.max(0, ...nodes.filter((node) => !addedIds.has(node.id)).map((node) => node.x ?? 0))
+	let disconnected = 0
+	const linkedNew = new Set(
+		links.flatMap(({ source, target }) => {
+			if (addedIds.has(source.id) && !addedIds.has(target.id)) return [source.id]
+			if (addedIds.has(target.id) && !addedIds.has(source.id)) return [target.id]
+			return []
+		}),
+	)
+	nodes.forEach((node) => {
+		if (addedIds.has(node.id)) {
+			if (!linkedNew.has(node.id)) {
+				// Новая компонента не должна начинать расчёт поверх уже разложенной карты.
+				Object.assign(node, {
+					x: maxX + DISCONNECTED_SEED_GAP + disconnected * DISCONNECTED_SEED_GAP,
+					y: 0,
+				})
+				disconnected += 1
+			}
+		} else if (!neighbors.has(node.id)) {
+			Object.assign(node, { fx: node.x, fy: node.y })
 		}
 	})
-	const simulationLinks = links.map((link) => ({ ...link }))
-	const simulation = createSimulation(simulationNodes, simulationLinks, physics).stop()
+	const simulation = createSimulation(nodes, links, physics).stop()
 
 	for (let tick = 0; tick < INCREMENTAL_TICKS; tick += 1) simulation.tick()
 
-	const positions = new Map(simulationNodes.map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }]))
 	nodes.forEach((node) => {
-		const position = positions.get(node.id)
-		if (position) {
-			const oldPosition = oldPositions.get(node.id)
-			if (oldPosition && !addedIds.has(node.id)) {
-				position.x = oldPosition.x + (position.x - oldPosition.x) * OLD_POSITION_BLEND
-				position.y = oldPosition.y + (position.y - oldPosition.y) * OLD_POSITION_BLEND
-			}
-			// eslint-disable-next-line no-param-reassign
-			node.x = position.x
-			// eslint-disable-next-line no-param-reassign
-			node.y = position.y
+		if (!addedIds.has(node.id) && !neighbors.has(node.id)) {
+			Object.assign(node, { fx: null, fy: null })
 		}
+		const before = oldPositions.get(node.id)
+		if (before) {
+			const dx = (node.x ?? 0) - before.x
+			const dy = (node.y ?? 0) - before.y
+			const distance = Math.hypot(dx, dy)
+			if (distance > NEIGHBOR_MAX_SHIFT) {
+				Object.assign(node, {
+					x: before.x + (dx / distance) * NEIGHBOR_MAX_SHIFT,
+					y: before.y + (dy / distance) * NEIGHBOR_MAX_SHIFT,
+				})
+			}
+		}
+		Object.assign(node, { vx: 0, vy: 0 })
 	})
 }

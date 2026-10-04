@@ -97,8 +97,9 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		const state = readGraphState(currentNodes, currentLinks)
 		const plan = planGraphUpdate(state, nextData)
 		const result = applyGraphUpdate(state, plan)
-		settleAddedNodes(result.nodes, result.links, new Set(plan.addedNodes.map(({ node }) => node.id)), physics)
 		const nextLinks = resolveLinks(result.nodes, result.links)
+		if (!simulation)
+			settleAddedNodes(result.nodes, nextLinks, new Set(plan.addedNodes.map(({ node }) => node.id)), physics)
 		currentNodes = result.nodes
 		currentLinks = nextLinks
 		if (simulation) {

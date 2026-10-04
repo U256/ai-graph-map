@@ -3,7 +3,7 @@ import { drawNestedGraph } from './canvasNestedRenderer'
 import { drawCanvasNode, type CanvasNodeEntry } from './canvasNodeRenderer'
 import { createCanvasPointerHandlers } from './canvasPointerHandlers'
 import { GRAPH_HEIGHT, GRAPH_WIDTH } from './forceGraph'
-import { createFocusedGroupLayout, GROUP_FOCUS_SIZE, type CloudLayout } from './forceGraphCloud'
+import { createFocusedGroupLayout, GROUP_DETAIL_SCALE, GROUP_FOCUS_SIZE, type CloudLayout } from './forceGraphCloud'
 import { nodeTooltip } from './nodePresentation'
 
 const LINK_COLOR = '#999'
@@ -54,9 +54,18 @@ export function createCanvasRenderer(
 	const transform = { x: 0, y: 0, k: 1 }
 	let resizeObserver: ResizeObserver | null = null
 	let hitNodes: HitNode[] = []
+	const layouts = new WeakMap<GraphNode, CloudLayout>()
 	const nodeClick = onNodeClick
 	const markVisibilityDirty = onSceneChanged ?? (() => {})
 	let render = (): void => {}
+
+	function layoutFor(node: GraphNode): CloudLayout {
+		const cached = layouts.get(node)
+		if (cached) return cached
+		const layout = layoutOf(node)
+		layouts.set(node, layout)
+		return layout
+	}
 
 	function baseScale(): number {
 		return Math.min(width / GRAPH_WIDTH, height / GRAPH_HEIGHT)
@@ -119,8 +128,9 @@ export function createCanvasRenderer(
 			dpr * (height / 2 + scale * transform.y),
 		)
 		const prepared = nodes.map((node) => {
-			const baseLayout = layoutOf(node)
-			const layout = zoomScale >= 1 && node.type === 'group' ? createFocusedGroupLayout(baseLayout) : baseLayout
+			const baseLayout = layoutFor(node)
+			const layout =
+				zoomScale >= GROUP_DETAIL_SCALE && node.type === 'group' ? createFocusedGroupLayout(baseLayout) : baseLayout
 			return {
 				node,
 				layout,
@@ -145,7 +155,7 @@ export function createCanvasRenderer(
 		context.globalAlpha = 1
 		prepared.forEach((entry) => {
 			drawCanvasNode(context, entry, colorOf)
-			if (zoomScale >= 1 && entry.node.type === 'group') {
+			if (zoomScale >= GROUP_DETAIL_SCALE && entry.node.type === 'group') {
 				context.save()
 				context.translate(entry.x, entry.y)
 				drawNestedGraph(context, entry.node, colorOf, layoutOf)

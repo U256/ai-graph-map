@@ -5,6 +5,7 @@ import {
 	DESCRIPTION_FONT_SIZE,
 	FONT_FAMILY,
 	GROUP_FOCUS_SIZE,
+	NESTED_GRAPH_SCALE,
 	SUB_NODE_CORNER,
 	SUB_NODE_DOT_RADIUS,
 	TITLE_FONT_SIZE,
@@ -88,10 +89,10 @@ export function drawNestedGraph(
 ): void {
 	if (!group.children) return
 
-	const children: GraphNode[] = group.children.nodes.map((child) => ({ ...child }))
+	const children: GraphNode[] = group.children.nodes
 	const byId = new Map(children.map((child) => [child.id, child]))
 	context.save()
-	context.scale(0.2, 0.2)
+	context.scale(NESTED_GRAPH_SCALE, NESTED_GRAPH_SCALE)
 	context.globalAlpha = 0.6
 	context.strokeStyle = LINK_COLOR
 	context.lineWidth = 5

@@ -57,6 +57,12 @@ export const GROUP_FOCUS_SIZE = 200
 /** Контрольный размер круга для группы из 40 элементов. */
 export const GROUP_FOCUS_SIZE_AT_40 = 370
 
+/** Масштаб, начиная с которого Canvas раскрывает вложенные группы. */
+export const GROUP_DETAIL_SCALE = 1
+
+/** Вложенный граф рисуется в локальной системе координат группы. */
+export const NESTED_GRAPH_SCALE = 0.2
+
 /** Степень роста меньше единицы: размер растёт без предела, но медленнее линейного. */
 export const GROUP_FOCUS_SIZE_EXPONENT = 0.7
 

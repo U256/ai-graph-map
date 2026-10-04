@@ -1,5 +1,5 @@
 import type { GraphNode } from '../../types/graph'
-import { createCloudLayouts, createFocusedGroupLayout, groupFocusSize } from './forceGraphCloud'
+import { createCloudLayouts, createFocusedGroupLayout, groupFocusSize, NESTED_GRAPH_SCALE } from './forceGraphCloud'
 
 /** Снимок координат групп без ссылок на объекты симуляции. */
 export type VisibilityGroup = { id: string; x: number; y: number; radius: number; children: VisibilityGroup[] }
@@ -50,7 +50,7 @@ export function visibleGroupIds(groups: VisibilityGroup[], viewport: VisibilityV
 			)
 				ids.push(group.id)
 			// Вложенный круг может выходить за пределы родителя.
-			visit(group.children, x, y, scale * 0.2)
+			visit(group.children, x, y, scale * NESTED_GRAPH_SCALE)
 		})
 	}
 	visit(groups, 0, 0, 1)

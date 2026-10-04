@@ -1,4 +1,5 @@
 import type { GraphNode } from '../../types/graph'
+import { GROUP_DETAIL_SCALE } from './forceGraphCloud'
 import { snapshotGroups, type VisibilityViewport } from './visibleGroups'
 import type { VisibilityRequest, VisibilityResponse } from './visibleGroupsProtocol'
 
@@ -22,7 +23,7 @@ export function createGroupVisibility(
 	}
 	worker.onmessage = ({ data }: MessageEvent<VisibilityResponse>) => {
 		pending = false
-		if (data.revision !== revision || !enabledBefore || getState().scale < 1) return
+		if (data.revision !== revision || !enabledBefore || getState().scale < GROUP_DETAIL_SCALE) return
 		const key = JSON.stringify(data.ids)
 		if (key !== lastIds) {
 			lastIds = key
@@ -38,7 +39,7 @@ export function createGroupVisibility(
 	const timer = setInterval(() => {
 		if (!dirty) return
 		const { nodes, viewport, scale } = getState()
-		if (scale < 1 || !viewport) {
+		if (scale < GROUP_DETAIL_SCALE || !viewport) {
 			dirty = false
 			if (enabledBefore) {
 				lastIds = null

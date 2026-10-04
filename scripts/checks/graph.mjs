@@ -173,6 +173,7 @@ const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeF
 const nodesCrud = await server.ssrLoadModule('/src/components/ForceGraph/crud/graphNodesCRUD.ts')
 const graphComponents = await server.ssrLoadModule('/src/components/ForceGraph/graphComponents.ts')
 const visibility = await server.ssrLoadModule('/src/components/ForceGraph/visibleGroups.ts')
+const scene = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphScene.ts')
 const source = await server.ssrLoadModule('/src/data/graph.ts')
 
 const {
@@ -690,6 +691,58 @@ console.log(`  медианный просвет связанной пары: ${
 console.log(`  наездов тел друг на друга: ${restOverlaps}`)
 
 console.log('\n== смещение непричастных узлов при добавлении одного узла ==')
+
+/** Проверяет тот же путь, что статичный updateData: diff → resolve → локальное усаживание. */
+function checkLocalAddition(name, added, links, expectedNeighborIds) {
+	const start = prepareGraph(base)
+	const simulation = createSimulation(start.nodes, start.links)
+	cool(simulation)
+	const before = new Map(start.nodes.map((node) => [node.id, { x: node.x, y: node.y }]))
+	const state = readGraphState(start.nodes, simulation.force('link').links())
+	const next = { nodes: [...base.nodes, ...added], links: [...base.links, ...links] }
+	const plan = planGraphUpdate(state, next)
+	const result = applyGraphUpdate(state, plan)
+	const resolved = scene.resolveLinks(result.nodes, result.links)
+	scene.settleAddedNodes(result.nodes, resolved, new Set(added.map(({ id }) => id)), {})
+	const after = byId(result.nodes)
+	const unchanged = start.nodes.filter((node) => !expectedNeighborIds.includes(node.id))
+	const maxUnrelated = Math.max(...unchanged.map((node) => distance(after.get(node.id), before.get(node.id))))
+	const maxNeighbor = Math.max(0, ...expectedNeighborIds.map((id) => distance(after.get(id), before.get(id))))
+	check(`${name}: остальная карта не сдвинулась`, maxUnrelated < 0.01, `максимум ${maxUnrelated}`)
+	check(`${name}: соседи сдвинулись ограниченно`, maxNeighbor <= 24.01, `максимум ${maxNeighbor}`)
+	check(
+		`${name}: координаты и концы связей конечны`,
+		result.nodes.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y)) &&
+			resolved.every(({ source, target }) => after.get(source.id) === source && after.get(target.id) === target),
+	)
+	check(
+		`${name}: временное закрепление снято`,
+		result.nodes.every((node) => node.fx == null && node.fy == null),
+	)
+	simulation.stop()
+}
+
+checkLocalAddition(
+	'один сосед',
+	[{ id: 'new-one', type: 'node', title: 'Новый', hasWarning: false }],
+	[{ source: 'new-one', target: base.nodes[1].id }],
+	[base.nodes[1].id],
+)
+checkLocalAddition(
+	'два соседа',
+	[{ id: 'new-two', type: 'node', title: 'Новый', hasWarning: false }],
+	[
+		{ source: 'new-two', target: base.nodes[1].id },
+		{ source: 'new-two', target: base.nodes[3].id },
+	],
+	[base.nodes[1].id, base.nodes[3].id],
+)
+checkLocalAddition(
+	'новая компонента',
+	[{ id: 'new-isolated', type: 'node', title: 'Новый', hasWarning: false }],
+	[],
+	[],
+)
 
 /**
  * Стартовое усидание — «остывание», как в браузере: d3 гасит stepper на alphaMin и считает раскладку
