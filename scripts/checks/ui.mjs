@@ -229,6 +229,60 @@ try {
 	await page.screenshot({ path: join(SHOTS, 'ui-graph.png') })
 	console.log(`  скриншот покоя: ${SHOTS.replace(ROOT, '.')}/ui-graph.png`)
 
+	console.log('\n== видимость групп ==')
+	await page.evaluate(async () => {
+		const { createForceGraph } = await import('/src/components/ForceGraph/forceGraphView.ts')
+		const fixture = document.createElement('div')
+		fixture.style.cssText = 'position:fixed;width:600px;height:400px;left:-1000px;top:0'
+		document.body.append(fixture)
+		window.__visibilityResults = []
+		const group = (id, x) => ({
+			id,
+			x,
+			y: 0,
+			title: id,
+			type: 'group',
+			hasWarning: false,
+			children: { nodes: [], links: [] },
+		})
+		window.__visibilityGraph = createForceGraph(
+			{ nodes: [group('near', 0), group('far', 2000)], links: [] },
+			{ onVisibleGroupsChange: (ids) => window.__visibilityResults.push(ids) },
+		)
+		fixture.append(window.__visibilityGraph.canvas)
+		window.__visibilityFixture = fixture
+	})
+	const waitVisible = (ids) =>
+		page.waitForFunction(
+			(expected) => {
+				const results = window.__visibilityResults
+				return results.length > 0 && JSON.stringify(results.at(-1)) === JSON.stringify(expected)
+			},
+			ids,
+			{ timeout: 6000 },
+		)
+	await waitVisible(['near'])
+	check('worker выдаёт группу в исходном viewport', true)
+	await page.evaluate(() =>
+		window.__visibilityGraph.setZoomTransform(window.__visibilityGraph.getZoomTransform().scale(0.9)),
+	)
+	await waitVisible([])
+	check('ниже масштаба 1 видимые группы сбрасываются', true)
+	await page.evaluate(() =>
+		window.__visibilityGraph.setZoomTransform(window.__visibilityGraph.getZoomTransform().scale(1 / 0.9)),
+	)
+	await waitVisible(['near'])
+	check('при масштабе 1 видимость снова считается', true)
+	await page.evaluate(() =>
+		window.__visibilityGraph.setZoomTransform(window.__visibilityGraph.getZoomTransform().translate(-2000, 0)),
+	)
+	await waitVisible(['far'])
+	check('смена viewport возвращает другую группу', true)
+	await page.evaluate(() => {
+		window.__visibilityGraph.destroy()
+		window.__visibilityFixture.remove()
+	})
+
 	const points = await page.evaluate(sceneScript)
 
 	check('в сцене есть пустое место для жеста', points.empty !== null)

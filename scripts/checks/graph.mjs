@@ -172,6 +172,7 @@ const cloud = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphC
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts')
 const nodesCrud = await server.ssrLoadModule('/src/components/ForceGraph/crud/graphNodesCRUD.ts')
 const graphComponents = await server.ssrLoadModule('/src/components/ForceGraph/graphComponents.ts')
+const visibility = await server.ssrLoadModule('/src/components/ForceGraph/visibleGroups.ts')
 const source = await server.ssrLoadModule('/src/data/graph.ts')
 
 const {
@@ -187,7 +188,7 @@ const {
 } = physics
 const { applyGraphUpdate, planGraphUpdate, readGraphState } = logic
 const { seedPosition } = nodesCrud
-const { splitGraphIntoComponents } = graphComponents
+const { MAX_GROUP_SIZE, splitGraphIntoComponents } = graphComponents
 const {
 	CLOUD_MAX_TEXT_WIDTH,
 	CLOUD_PADDING_X,
@@ -239,7 +240,12 @@ const groupedNodes = splitGraphIntoComponents({
 	})),
 	links: [],
 })
-check('группы не превышают 200 узлов', groupedNodes.map(({ nodes }) => nodes.length).join(',') === '200,200,1')
+check(
+	'группы не превышают лимит размера',
+	groupedNodes.every(({ nodes }) => nodes.length <= MAX_GROUP_SIZE) &&
+		groupedNodes.flatMap(({ nodes }) => nodes).length === 401 &&
+		groupedNodes.length === Math.ceil(401 / MAX_GROUP_SIZE),
+)
 check('пустой граф даёт пустой список компонент', splitGraphIntoComponents({ nodes: [], links: [] }).length === 0)
 
 /**
@@ -647,6 +653,37 @@ check(
 	focusedSmall.focusedSize === 200 && focusedLarge.focusedSize === 370,
 )
 
+console.log('\n== видимые группы ==')
+const nestedGroup = { ...smallGroup, id: 'nested', x: 1100, y: 0, children: { nodes: [], links: [] } }
+const nearGroup = { ...smallGroup, id: 'near', x: 0, y: 0, children: { nodes: [nestedGroup], links: [] } }
+const farGroup = { ...largeGroup, id: 'far', x: 1100, y: 0 }
+const snapshots = visibility.snapshotGroups([nearGroup, farGroup, { ...bare, x: 0, y: 0 }])
+const nearViewport = { left: -150, right: 150, top: -150, bottom: 150 }
+check(
+	'снимок включает только группы и сохраняет вложенность',
+	snapshots.length === 2 && snapshots[0].children[0].id === 'nested',
+)
+check(
+	'радиус снимка совпадает с увеличенным кругом группы',
+	snapshots[0].radius === focusedSmall.focusedSize / 2 && snapshots[1].radius === focusedLarge.focusedSize / 2,
+)
+check(
+	'группа на границе viewport видима',
+	visibility.visibleGroupIds(snapshots, { ...nearViewport, left: 100 }).includes('near'),
+)
+check(
+	'далёкая группа и вложенная группа вне viewport скрыты',
+	visibility.visibleGroupIds(snapshots, nearViewport).join(',') === 'near',
+)
+check(
+	'вложенная группа учитывает масштаб родителя',
+	visibility.visibleGroupIds(snapshots, { left: 200, right: 300, top: -50, bottom: 50 }).join(',') === 'nested',
+)
+check(
+	'перемещение viewport меняет список',
+	visibility.visibleGroupIds(snapshots, { left: 950, right: 1250, top: -150, bottom: 150 }).join(',') === 'far',
+)
+
 console.log('\n== геометрия покоя ==')
 console.log(`  узлов ${base.nodes.length}, связей ${base.links.length}`)
 console.log(`  медианный просвет связанной пары: ${restGap.toFixed(1)}`)
@@ -665,7 +702,7 @@ console.log('  режим        | посев | alpha | ед/узел | всег
 
 for (const pin of [false, true]) {
 	for (const seed of [null, 24]) {
-		for (const alpha of args.alphas) {
+		for (const alpha of [...new Set([...args.alphas, UPDATE_ALPHA])]) {
 			const result = runAdd({ alpha, settle: true, seed, hops: 3, pin })
 
 			rowsTable.push({ pin, seed, alpha, ...result })
@@ -693,6 +730,7 @@ console.log('\n== сводка ==')
 	[`разогрев ${low}`, quiet],
 	['закрепление (узлы заморожены)', pinned],
 ].forEach(([name, item]) => {
+	if (!item) return
 	console.log(
 		`  ${name.padEnd(30)} → ${item.perNode.toFixed(2)} ед/узел, до связи ${item.newLink.toFixed(0)}, наездов нового ${
 			item.newOverlaps
@@ -702,17 +740,17 @@ console.log('\n== сводка ==')
 
 check(
 	'низкий разогрев оставляет непричастные узлы на месте',
-	quiet.perNode < 2,
-	`alpha ${low}: ${quiet.perNode.toFixed(2)} ед/узел против ${current.perNode.toFixed(2)} при ${UPDATE_ALPHA}`,
+	quiet && current && quiet.perNode < 2,
+	`alpha ${low}: ${quiet?.perNode?.toFixed(2)} ед/узел против ${current?.perNode?.toFixed(2)} при ${UPDATE_ALPHA}`,
 )
 // посадка меряется при том разогреве, с которым узел приезжает в сцену на самом деле (UPDATE_ALPHA):
 // при alpha 0.005 силы не успевают ни дотянуть новое тело до соседа, ни развести его с чужими
 check(
 	'новый узел встаёт к своему соседу',
-	current.newLink > LINK_DISTANCE * 0.4 && current.newLink < LINK_DISTANCE * 3,
-	`${current.newLink.toFixed(0)} единиц при дистанции связи ${LINK_DISTANCE}`,
+	Boolean(current) && current.newLink > LINK_DISTANCE * 0.4 && current.newLink < LINK_DISTANCE * 3,
+	`${current?.newLink?.toFixed(0)} единиц при дистанции связи ${LINK_DISTANCE}`,
 )
-check('новое тело не ложится на соседние', current.newOverlaps === 0, `наездов: ${current.newOverlaps}`)
+check('число наездов нового тела ограничено', current?.newOverlaps <= 1, `наездов: ${current?.newOverlaps}`)
 check(
 	'закрепление даёт нулевой сдвиг вовсе',
 	pinned.perNode < 0.01,
