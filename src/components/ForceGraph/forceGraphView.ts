@@ -1,13 +1,118 @@
 import { zoomIdentity, type ZoomTransform } from 'd3-zoom'
-import type { GraphData, GraphNode } from '../../types/graph'
+import type { GraphData, GraphNode, GraphNodeInput } from '../../types/graph'
 import { attachCanvasPanZoom } from './canvasPanZoom'
 import { createCanvasRenderer } from './canvasRenderer'
-import { createTypeColors } from './forceGraph'
+import { createSimulation, createTypeColors } from './forceGraph'
 import { createCloudLayouts } from './forceGraphCloud'
 import { createTextMeasurer } from './forceGraphText'
 import { createGroupVisibility } from './groupVisibility'
-import { applyLayout, calculateLayout } from './layout'
 import { resolveLinks } from './resolveLinks'
+
+const LOCAL_LAYOUT_TICKS = 180
+
+function nodeFieldsEqual(left: GraphNodeInput, right: GraphNodeInput): boolean {
+	return (
+		left.title === right.title &&
+		left.description === right.description &&
+		left.hasWarning === right.hasWarning &&
+		left.type === right.type &&
+		left.chargeMultiplier === right.chargeMultiplier
+	)
+}
+
+function linkKey(link: { source: string; target: string }): string {
+	return `${link.source}>${link.target}`
+}
+
+function locallyPositionData(
+	nextData: GraphData,
+	previousNodes: GraphNode[],
+	previousLinks: GraphData['links'],
+): GraphData {
+	const previousById = new Map(previousNodes.map((node) => [node.id, node]))
+	const previousIds = new Set(previousById.keys())
+	const nextIds = new Set(nextData.nodes.map((node) => node.id))
+	const forceIds = new Set<string>()
+	const previousLinkKeys = new Set(previousLinks.map(linkKey))
+	const nextLinkKeys = new Set(nextData.links.map(linkKey))
+	const linksChanged =
+		previousLinks.length !== nextData.links.length ||
+		[...previousLinkKeys].some((key) => !nextLinkKeys.has(key)) ||
+		[...nextLinkKeys].some((key) => !previousLinkKeys.has(key))
+
+	nextData.nodes.forEach((node) => {
+		const previous = previousById.get(node.id)
+		if (!previous || previous.chargeMultiplier !== node.chargeMultiplier || previous.type !== node.type)
+			forceIds.add(node.id)
+	})
+	previousNodes.forEach((node) => {
+		if (!nextIds.has(node.id)) forceIds.add(node.id)
+	})
+	if (linksChanged) {
+		previousLinks.forEach((link) => {
+			if (nextLinkKeys.has(linkKey(link))) return
+			forceIds.add(link.source)
+			forceIds.add(link.target)
+		})
+		nextData.links.forEach((link) => {
+			if (previousLinkKeys.has(linkKey(link))) return
+			forceIds.add(link.source)
+			forceIds.add(link.target)
+		})
+	}
+	const nodes: GraphNode[] = nextData.nodes.map((node) => {
+		const previous = previousById.get(node.id)
+		return previous && nodeFieldsEqual(previous, node) ? previous : { ...node, x: previous?.x, y: previous?.y }
+	})
+	const nodeById = new Map(nodes.map((node) => [node.id, node]))
+	const neighborIds = new Set(forceIds)
+	;[...previousLinks, ...nextData.links].forEach((link) => {
+		if (forceIds.has(link.source)) neighborIds.add(link.target)
+		if (forceIds.has(link.target)) neighborIds.add(link.source)
+	})
+	const added = nodes.filter((node) => !previousIds.has(node.id))
+	added.forEach((entry, index) => {
+		const node = entry
+		const neighbors = nextData.links
+			.filter((link) => link.source === node.id || link.target === node.id)
+			.map((link) => nodeById.get(link.source === node.id ? link.target : link.source))
+			.filter((neighbor): neighbor is GraphNode =>
+				Boolean(neighbor && Number.isFinite(neighbor.x) && Number.isFinite(neighbor.y)),
+			)
+		const anchor = neighbors[0]
+		node.x = anchor?.x ?? (index + 1) * 12
+		node.y = anchor?.y ?? (index + 1) * 12
+	})
+
+	if (forceIds.size > 0) {
+		const simulated = nodes.map((node) => ({ ...node }))
+		const simulation = createSimulation(
+			simulated,
+			nextData.links.map((link) => ({ ...link })),
+		).stop()
+		simulated.forEach((entry) => {
+			const node = entry
+			if (!neighborIds.has(node.id)) {
+				node.fx = node.x
+				node.fy = node.y
+			}
+		})
+		for (let tick = 0; tick < LOCAL_LAYOUT_TICKS; tick += 1) simulation.tick()
+		simulated.forEach((node, index) => {
+			if (!neighborIds.has(node.id)) return
+			if (previousIds.has(node.id)) {
+				// Локальный расчёт не вправе менять объект, на который смотрит Canvas и активный drag.
+				nodes[index] = { ...nodes[index], x: node.x, y: node.y }
+			} else {
+				nodes[index].x = node.x
+				nodes[index].y = node.y
+			}
+		})
+		simulation.stop()
+	}
+
+	return { nodes, links: nextData.links }
+}
 
 /** Компоновщик Canvas-сцены; раскладка и обновление графа остаются независимы от отрисовки. */
 
@@ -41,10 +146,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	const colorOf = createTypeColors(initialNodes)
 	const drawnLinks = resolveLinks(initialNodes, initialLinks)
 	let currentNodes = initialNodes
-	let transitionFrame: number | null = null
-	let layoutRevision = 0
-	let pendingLayout: ReturnType<typeof calculateLayout> | null = null
-	let draggedIds = new Set<string>()
+	let inputLinks = data.links.map((link) => ({ ...link }))
 	let zoomControls = document.createElement('div')
 	let getZoomTransform = () => zoomIdentity
 	let setZoomTransform = (_transform: ZoomTransform) => {}
@@ -52,10 +154,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	const renderer = createCanvasRenderer(
 		colorOf,
 		(node) => createCloudLayouts([node], measure).get(node)!,
-		(node) => {
-			draggedIds.add(node.id)
-			renderer.render()
-		},
+		(_node) => renderer.render(),
 		() => renderer.render(),
 		onNodeClick,
 		() => markVisibilityDirty(),
@@ -74,60 +173,17 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		renderer.setSelectedNode(id)
 	}
 	function updateData(nextData: GraphData): void {
-		layoutRevision += 1
-		const revision = layoutRevision
-		pendingLayout?.cancel()
-		const layout = calculateLayout(nextData, revision)
-		pendingLayout = layout
-		layout.promise
-			.then((result) => {
-				if (result.revision !== layoutRevision) return
-				pendingLayout = null
-				const positioned = applyLayout(nextData, result)
-				const previous = new Map(currentNodes.map((node) => [node.id, node]))
-				const nextNodes: GraphNode[] = positioned.nodes.map((node) => {
-					const old = previous.get(node.id)
-					if (old) return Object.assign(old, node, { x: old.x, y: old.y })
-					return { ...node } as GraphNode
-				})
-				const nextLinks = resolveLinks(
-					nextNodes,
-					positioned.links.map((link) => ({ ...link })),
-				)
-				const targets = new Map(result.positions.map(({ id, x, y }) => [id, { x, y }]))
-				const from = new Map(nextNodes.map((node) => [node.id, { x: node.x ?? 0, y: node.y ?? 0 }]))
-				const started = performance.now()
-				const duration = 450
-				if (transitionFrame !== null) cancelAnimationFrame(transitionFrame)
-				currentNodes = nextNodes
-				renderer.setNodes(nextNodes)
-				renderer.setLinks(nextLinks)
-				const animate = (now: number): void => {
-					const progress = Math.min(1, (now - started) / duration)
-					const eased = 1 - (1 - progress) ** 3
-					nextNodes.forEach((entry) => {
-						if (!draggedIds.has(entry.id)) {
-							const start = from.get(entry.id)!
-							const target = targets.get(entry.id) ?? start
-							Object.assign(entry, {
-								x: start.x + (target.x - start.x) * eased,
-								y: start.y + (target.y - start.y) * eased,
-							})
-						}
-					})
-					renderer.render()
-					markVisibilityDirty()
-					if (progress < 1) transitionFrame = requestAnimationFrame(animate)
-					else {
-						transitionFrame = null
-						draggedIds = new Set()
-					}
-				}
-				transitionFrame = requestAnimationFrame(animate)
-			})
-			.catch(() => {
-				if (revision === layoutRevision) pendingLayout = null
-			})
+		const positioned = locallyPositionData(nextData, currentNodes, inputLinks)
+		const nextNodes = positioned.nodes as GraphNode[]
+		const nextLinks = resolveLinks(
+			nextNodes,
+			positioned.links.map((link) => ({ ...link })),
+		)
+		currentNodes = nextNodes
+		inputLinks = positioned.links.map((link) => ({ ...link }))
+		renderer.setNodes(nextNodes)
+		renderer.setLinks(nextLinks)
+		markVisibilityDirty()
 	}
 
 	if (panZoom) {
@@ -152,9 +208,6 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		setSelectedNode,
 		updateData,
 		destroy: () => {
-			layoutRevision += 1
-			pendingLayout?.cancel()
-			if (transitionFrame !== null) cancelAnimationFrame(transitionFrame)
 			visibility.destroy()
 			renderer.destroy()
 			zoomIndicator.remove()

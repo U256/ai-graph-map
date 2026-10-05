@@ -3,7 +3,6 @@ import type { GraphData, GraphNodeInput } from '../../types/graph'
 export const MAX_GROUP_SIZE = 140
 
 export type GraphComponent = GraphData
-export type LayoutCluster = GraphComponent[]
 
 type GraphIndexes = {
 	nodesById: Map<string, GraphNodeInput>

@@ -1,7 +1,7 @@
 import type { GraphData, GraphNode, GraphNodeInput } from '../../types/graph'
 import { placeClusterCircles } from './clusterLayout'
 import { createSimulation, groupNeighborChargeMultiplier } from './forceGraph'
-import { MAX_GROUP_SIZE, splitGraphIntoComponents, type GraphComponent, type LayoutCluster } from './graphComponents'
+import { MAX_GROUP_SIZE, splitGraphIntoComponents, type GraphComponent } from './graphComponents'
 
 export type LayoutPosition = { id: string; x: number; y: number }
 
@@ -16,9 +16,6 @@ export type GraphLayout = {
 
 type Position = LayoutPosition
 type Bounds = { minX: number; maxX: number; minY: number; maxY: number }
-
-const COMPONENT_GAP = 40
-const LAYOUT_ROW_WIDTH = 1600
 
 function withGroupCharge(data: GraphData): GraphData {
 	return {
@@ -68,40 +65,18 @@ function getBounds(positions: Position[]): Bounds {
 	)
 }
 
-function placeCluster(components: GraphComponent[]): Position[] {
-	let cursorX = 0
-	let cursorY = 0
-	let rowHeight = 0
-	const result: Position[] = []
-	components.forEach((component) => {
-		const positions = calculateSimulation({ nodes: component.nodes, links: component.links }, 1000)
-		const bounds = getBounds(positions)
-		const width = bounds.maxX - bounds.minX
-		const height = bounds.maxY - bounds.minY
-		if (cursorX > 0 && cursorX + width > LAYOUT_ROW_WIDTH) {
-			cursorX = 0
-			cursorY += rowHeight + COMPONENT_GAP
-			rowHeight = 0
-		}
-		result.push(
-			...positions.map((position) => ({
-				...position,
-				x: position.x - bounds.minX + cursorX,
-				y: position.y - bounds.minY + cursorY,
-			})),
-		)
-		cursorX += width + COMPONENT_GAP
-		rowHeight = Math.max(rowHeight, height)
-	})
-	return result
+function placeCluster(component: GraphComponent): Position[] {
+	const positions = calculateSimulation({ nodes: component.nodes, links: component.links }, 1000)
+	const bounds = getBounds(positions)
+	return positions.map((position) => ({ ...position, x: position.x - bounds.minX, y: position.y - bounds.minY }))
 }
 
 /** Раскладывает визуальные кластеры отдельно, не создавая между их компонентами фиктивных связей. */
-function placeClusters(clusters: LayoutCluster[]): Position[] {
+function placeClusters(components: GraphComponent[]): Position[] {
 	return placeClusterCircles(
-		clusters.map((cluster) => ({
-			positions: placeCluster(cluster),
-			nodeCount: cluster.reduce((count, component) => count + component.nodes.length, 0),
+		components.map((component) => ({
+			positions: placeCluster(component),
+			nodeCount: component.nodes.length,
 		})),
 	)
 }
@@ -111,7 +86,7 @@ export function calculateGraphLayout(data: GraphData, revision = 0): GraphLayout
 	const positions =
 		data.nodes.length < MAX_GROUP_SIZE
 			? calculateSimulation(data, 2000)
-			: placeClusters(splitGraphIntoComponents(data).map((component) => [component]))
+			: placeClusters(splitGraphIntoComponents(data))
 	const byId = new Map(positions.map((position) => [position.id, position]))
 	return {
 		revision,

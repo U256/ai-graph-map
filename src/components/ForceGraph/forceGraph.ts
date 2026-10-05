@@ -41,47 +41,11 @@ function isGroupLink(link: GraphLink): boolean {
 
 export const LINK_FORCE_DEFAULT = 2
 
-/** Без `restart()` остывшая симуляция не сдвинется, даже если `alpha` поднять; ниже стартовой единицы, чтобы карта не «взрывалась». */
-export const UPDATE_ALPHA = 0.45
-
-/** Иначе d3 разводит новый узел спиралью от нуля, и он «прилетает из центра карты». */
-export const NEW_NODE_SEED_RADIUS = 24
-
-/** Посев узла без связей; смещение ненулевое: совпавшие координаты двух тел дают в силах деление на ноль. */
-export const NEW_NODE_SEED_FALLBACK = 12
-
 /** Выше дефолта d3 (0.4), чтобы карта не «плыла» как желе после сдвига. */
 export const VELOCITY_DECAY = 0.6
 
-/**
- * Главная ручка «желе» и она же предел: замер на жесте в 320 единиц даёт при 0.1 прокат остальных узлов
- * 1788 (пик 2.8 за тик), при 0.05 — 879 и 1.5. Ниже 0.05 соседи за курсором уже не поспевают.
- */
-export const DRAG_ALPHA_TARGET = 0.1
-
-/** Небольшой постоянный разогрев не даёт динамическому графу остановиться после начальной раскладки. */
-export const DYNAMIC_ALPHA_TARGET = 0.03
-
-/** d3-drag не глушит последующий `click`: без порога любой сдвиг узла открывал бы форму правки. */
-export const DRAG_CLICK_SLOP = 4
-
 /** Тело не прозрачное — под подписями не должны просвечивать связи. */
 export const BODY_FILL_WHITE = 0.85
-
-/** Сравниваются значения, а не идентичность объекта: данные приезжают новым массивом и могли измениться на месте. */
-export interface NodeRenderData {
-	title: string
-	description?: string
-	hasWarning: boolean
-	type: GraphNodeType
-	chargeMultiplier?: number
-}
-
-/** Точка высадки нового узла. */
-export interface SeedPoint {
-	x: number
-	y: number
-}
 
 /** Симуляция мутирует узлы и связи, поэтому ей отдаются копии данных. */
 export function prepareGraph(data: GraphData): { nodes: GraphNode[]; links: GraphLink[] } {

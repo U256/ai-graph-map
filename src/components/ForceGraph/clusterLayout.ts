@@ -19,8 +19,6 @@ type ClusterBody = {
 	radius: number
 	x: number
 	y: number
-	targetX: number
-	targetY: number
 }
 
 /** Диаметр круга кластера: грубая оценка зависит только от количества его узлов. */
@@ -42,8 +40,6 @@ export function placeClusterCircles(clusters: ClusterLayoutInput[]): ClusterPosi
 			radius,
 			x: column * maxDiameter * GRID_STEP_FACTOR,
 			y: row * maxDiameter * GRID_STEP_FACTOR,
-			targetX: column * maxDiameter * GRID_STEP_FACTOR,
-			targetY: row * maxDiameter * GRID_STEP_FACTOR,
 		}
 	})
 

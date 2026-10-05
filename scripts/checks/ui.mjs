@@ -283,6 +283,52 @@ try {
 		window.__visibilityFixture.remove()
 	})
 
+	console.log('\n== обновление узлов ==')
+	const updateResults = await page.evaluate(async () => {
+		const { createForceGraph } = await import('/src/components/ForceGraph/forceGraphView.ts')
+		const fixture = document.createElement('div')
+		fixture.style.cssText = 'position:fixed;width:600px;height:400px;left:0;top:0'
+		document.body.append(fixture)
+		const node = (id, x, title = id) => ({ id, x, y: 0, title, type: 'node', hasWarning: false })
+		const initial = { nodes: [node('a', 0), node('b', 200), node('far', 600)], links: [{ source: 'a', target: 'b' }] }
+		const graph = createForceGraph(initial, { panZoom: false })
+		fixture.append(graph.canvas)
+		const first = graph.canvas.__graphNodes[0]
+		graph.updateData({
+			...initial,
+			nodes: [node('a', 0, 'Новое длинное название'), initial.nodes[1], initial.nodes[2]],
+		})
+		const edited = graph.canvas.__graphNodes[0]
+		const textUpdate = {
+			replaced: first !== edited,
+			title: edited.title,
+			stable: graph.canvas.__graphNodes.every((item, index) => item.x === initial.nodes[index].x),
+		}
+		const before = graph.canvas.__graphNodes.map(({ id, x, y }) => ({ id, x, y }))
+		graph.updateData({
+			nodes: [...initial.nodes, node('new', 0)],
+			links: [...initial.links, { source: 'a', target: 'new' }],
+		})
+		const after = graph.canvas.__graphNodes
+		const structural = {
+			finite: after.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y)),
+			farStable: after.find(({ id }) => id === 'far').x === before.find(({ id }) => id === 'far').x,
+		}
+		graph.destroy()
+		fixture.remove()
+		return { textUpdate, structural }
+	})
+	check(
+		'правка подписи заменяет объект и не двигает координаты',
+		updateResults.textUpdate.replaced &&
+			updateResults.textUpdate.stable &&
+			updateResults.textUpdate.title === 'Новое длинное название',
+	)
+	check(
+		'новый узел имеет конечные координаты, дальний остаётся на месте',
+		updateResults.structural.finite && updateResults.structural.farStable,
+	)
+
 	const points = await page.evaluate(sceneScript)
 
 	check('в сцене есть пустое место для жеста', points.empty !== null)

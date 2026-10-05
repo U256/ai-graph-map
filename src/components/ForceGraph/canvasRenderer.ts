@@ -2,13 +2,11 @@ import type { DrawnLink, GraphNode, GraphNodeType } from '../../types/graph'
 import { drawNestedGraph } from './canvasNestedRenderer'
 import { drawCanvasNode, type CanvasNodeEntry } from './canvasNodeRenderer'
 import { createCanvasPointerHandlers } from './canvasPointerHandlers'
-import { GRAPH_HEIGHT, GRAPH_WIDTH } from './forceGraph'
+import { GRAPH_HEIGHT, GRAPH_WIDTH, LINK_FORCE_DEFAULT } from './forceGraph'
 import { createFocusedGroupLayout, GROUP_DETAIL_SCALE, GROUP_FOCUS_SIZE, type CloudLayout } from './forceGraphCloud'
 import { nodeTooltip } from './nodePresentation'
 
 const LINK_COLOR = '#999'
-const LINK_FORCE_DEFAULT = 2
-
 export interface CanvasRenderer {
 	canvas: HTMLCanvasElement
 	render: () => void
