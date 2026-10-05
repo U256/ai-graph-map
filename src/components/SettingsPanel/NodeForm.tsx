@@ -26,11 +26,6 @@ type NodeFormValues = NodeCreateDraft & {
 	thirdNeighbor: NeighborOption | null
 }
 
-const DEFAULT_CHARGE_MULTIPLIER = 1
-const CHARGE_MULTIPLIER_MIN = 0
-const CHARGE_MULTIPLIER_MAX = 50
-const CHARGE_MULTIPLIER_STEP = 0.1
-
 /** По этим же именам ключи соседних полей и селектов. */
 const NEIGHBOR_FIELDS: { name: 'firstNeighbor' | 'secondNeighbor' | 'thirdNeighbor'; label: string }[] = [
 	{ name: 'firstNeighbor', label: 'Связать с узлом' },
@@ -85,7 +80,6 @@ export function NodeForm({ node, data, onCreate, onUpdate, onDelete, onCancel }:
 					title: node.title,
 					description: node.description ?? '',
 					hasWarning: node.hasWarning,
-					chargeMultiplier: node.chargeMultiplier ?? DEFAULT_CHARGE_MULTIPLIER,
 					...EMPTY_NEIGHBORS,
 				}
 			: {
@@ -93,7 +87,6 @@ export function NodeForm({ node, data, onCreate, onUpdate, onDelete, onCancel }:
 					title: '',
 					description: '',
 					hasWarning: false,
-					chargeMultiplier: DEFAULT_CHARGE_MULTIPLIER,
 					...EMPTY_NEIGHBORS,
 				},
 	})
@@ -112,7 +105,6 @@ export function NodeForm({ node, data, onCreate, onUpdate, onDelete, onCancel }:
 			title: values.title.trim(),
 			description: values.description.trim(),
 			hasWarning: values.hasWarning,
-			chargeMultiplier: values.chargeMultiplier,
 		}
 		if (editing) {
 			onUpdate(node.id, draft)
@@ -174,25 +166,6 @@ export function NodeForm({ node, data, onCreate, onUpdate, onDelete, onCancel }:
 					rows={3}
 					title="Полное название: оно остаётся в подсказке узла, когда подпись на карте обрезана."
 					{...register('description')}
-				/>
-			</label>
-
-			<label className="settings-panel__field" htmlFor="node-charge-multiplier">
-				<span className="settings-panel__label">
-					Отталкивание
-					<output className="settings-panel__value" htmlFor="node-charge-multiplier">
-						{watch('chargeMultiplier').toFixed(1)}×
-					</output>
-				</span>
-				<input
-					className="settings-panel__range"
-					id="node-charge-multiplier"
-					type="range"
-					title="Множитель силы, с которой узел отталкивает остальные: 1 — обычная сила."
-					min={CHARGE_MULTIPLIER_MIN}
-					max={CHARGE_MULTIPLIER_MAX}
-					step={CHARGE_MULTIPLIER_STEP}
-					{...register('chargeMultiplier', { valueAsNumber: true })}
 				/>
 			</label>
 

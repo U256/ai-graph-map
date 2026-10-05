@@ -4,23 +4,16 @@ import type { GraphSettings } from '../../types/settings'
 import { multiplyWithClones } from '../../utils/graphUtlis'
 import './ForceGraph.css'
 import { createForceGraph, type ForceGraphHandle } from './forceGraphView'
-import { applyLayout, calculateLayout } from './layout'
+import { makeCoordinates } from './graphApi'
 
 type ForceGraphProps = {
 	data: GraphData | null
 	settings: GraphSettings
 	selectedNodeId?: string | null
 	onNodeClick?: (id: string) => void
-	onVisibleGroupsChange?: (ids: string[]) => void
 }
 
-export function ForceGraph({
-	data: originalData,
-	settings,
-	selectedNodeId = null,
-	onNodeClick,
-	onVisibleGroupsChange,
-}: ForceGraphProps) {
+export function ForceGraph({ data: originalData, settings, selectedNodeId = null, onNodeClick }: ForceGraphProps) {
 	const { nodeClones } = settings
 
 	const containerRef = useRef<HTMLDivElement | null>(null)
@@ -32,15 +25,6 @@ export function ForceGraph({
 		}
 		return multiplyWithClones(originalData, nodeClones)
 	}, [originalData, nodeClones])
-	// Зависимость по значениям нужна для правок, которые могли изменить данные на месте: одна ссылка на
-	// GraphData тогда не меняется, а изменение всё равно обязано перезапустить расчёт worker.
-	const dataRevision = data
-		? JSON.stringify({
-				nodes: data.nodes,
-				links: data.links,
-			})
-		: ''
-
 	const graphRef = useRef<ForceGraphHandle | null>(null)
 	const [layoutLoading, setLayoutLoading] = useState(false)
 	// сцена создаётся один раз, а колбэк клика пересоздаётся с родителем: наружу уходит обёртка,
@@ -48,57 +32,45 @@ export function ForceGraph({
 	const nodeClickRef = useRef(onNodeClick)
 	nodeClickRef.current = onNodeClick
 	const handleNodeClick = useCallback((id: string) => nodeClickRef.current?.(id), [])
-	const visibleGroupsChangeRef = useRef(onVisibleGroupsChange)
-	visibleGroupsChangeRef.current = onVisibleGroupsChange
-	const handleVisibleGroupsChange = useCallback((ids: string[]) => visibleGroupsChangeRef.current?.(ids), [])
 
 	// React владеет только контейнером, Canvas императивный. Разрушение сцены — отдельный эффект ниже:
 	// в cleanup этого она пересобирала бы Canvas на каждую смену зависимости
 	useEffect(() => {
 		const container = containerRef.current
-		let cancelLayout = () => {}
-		const graph = graphRef.current
+		let active = true
 		if (container && data) {
-			if (graph) {
-				graph.updateData(data)
-				return () => cancelLayout()
-			}
-			setLayoutLoading(true)
-			const measureStart = performance.now()
-			let active = true
-			const layout = calculateLayout(data)
-			layout.promise
-				.then((positions) => {
+			const needsCoordinates = typeof nodeClones === 'number' && nodeClones > 1
+			if (needsCoordinates) setLayoutLoading(true)
+			const positionedData = needsCoordinates ? makeCoordinates(data, true) : Promise.resolve(data)
+			positionedData
+				.then((positioned) => {
+					if (!active) return
+					if (graphRef.current) {
+						graphRef.current.updateData(positioned)
+						setLayoutLoading(false)
+						return
+					}
+					const next = createForceGraph(positioned, {
+						onNodeClick: handleNodeClick,
+					})
+					graphRef.current = next
+					container.replaceChildren(next.canvas, next.zoomIndicator, next.zoomControls)
+					setLayoutLoading(false)
+				})
+				.catch((error: unknown) => {
 					if (!active) return
 					// eslint-disable-next-line no-console
-					console.log(
-						`Узлов: ${data.nodes.length}, рёбер: ${data.links.length}, время: ${(performance.now() - measureStart).toFixed(2)} ms`,
-					)
-					const next = createForceGraph(applyLayout(data, positions), {
-						onNodeClick: handleNodeClick,
-						onVisibleGroupsChange: handleVisibleGroupsChange,
-					})
-					graphRef.current = next
-					container.replaceChildren(next.canvas, next.zoomIndicator, next.zoomControls)
+					console.error('Не удалось получить раскладку графа', error)
 					setLayoutLoading(false)
 				})
-				.catch(() => {
-					if (!active) return
-					const next = createForceGraph(data, {
-						onNodeClick: handleNodeClick,
-						onVisibleGroupsChange: handleVisibleGroupsChange,
-					})
-					graphRef.current = next
-					container.replaceChildren(next.canvas, next.zoomIndicator, next.zoomControls)
-					setLayoutLoading(false)
-				})
-			cancelLayout = () => {
+			return () => {
 				active = false
-				layout.cancel()
 			}
 		}
-		return () => cancelLayout()
-	}, [data, dataRevision, handleNodeClick, handleVisibleGroupsChange])
+		return () => {
+			active = false
+		}
+	}, [data, handleNodeClick, nodeClones])
 
 	useEffect(() => {
 		graphRef.current?.setSelectedNode(selectedNodeId)

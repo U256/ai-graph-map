@@ -1,4 +1,7 @@
 import type { GraphNode } from '../../types/graph'
+import { GROUP_FOCUS_SIZE, groupFocusSize } from './groupMetrics'
+
+export { GROUP_FOCUS_SIZE, GROUP_FOCUS_SIZE_AT_40, GROUP_FOCUS_SIZE_EXPONENT, groupFocusSize } from './groupMetrics'
 
 /**
  * Геометрия узлов. Модуль чистый: DOM не трогает, мерку текста получает аргументом, поэтому его можно
@@ -51,26 +54,11 @@ export const WARNING_COLOR = '#d92b2b'
 export const SUB_NODE_SIZE = 16
 export const SUB_NODE_CORNER = 7
 export const SUB_NODE_DOT_RADIUS = 4
-/** Диаметр круга группы на 15 элементов. */
-export const GROUP_FOCUS_SIZE = 200
-
-/** Контрольный размер круга для группы из 40 элементов. */
-export const GROUP_FOCUS_SIZE_AT_40 = 370
-
 /** Масштаб, начиная с которого Canvas раскрывает вложенные группы. */
 export const GROUP_DETAIL_SCALE = 1
 
 /** Вложенный граф рисуется в локальной системе координат группы. */
 export const NESTED_GRAPH_SCALE = 0.2
-
-/** Степень роста меньше единицы: размер растёт без предела, но медленнее линейного. */
-export const GROUP_FOCUS_SIZE_EXPONENT = 0.7
-
-/** Диаметр круга группы при приближении, рассчитанный по числу вложенных элементов. */
-export function groupFocusSize(elementCount: number): number {
-	const progress = Math.max(0, (elementCount - 15) / (40 - 15))
-	return GROUP_FOCUS_SIZE + (GROUP_FOCUS_SIZE_AT_40 - GROUP_FOCUS_SIZE) * progress ** GROUP_FOCUS_SIZE_EXPONENT
-}
 
 /** Увеличенный круг группы; диаметр и вертикальный вынос заголовка зависят от одной величины. */
 export function createFocusedGroupLayout(layout: CloudLayout): CloudLayout {

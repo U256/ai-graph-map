@@ -1,5 +1,3 @@
-import type { SimulationLinkDatum, SimulationNodeDatum } from 'd3-force'
-
 /**
  * Типы данных графа, общие для слоя данных, чистой логики и отрисовки.
  */
@@ -7,7 +5,7 @@ import type { SimulationLinkDatum, SimulationNodeDatum } from 'd3-force'
 export type GraphNodeType = 'node' | 'subNode' | 'group'
 
 export interface GraphNodeInput {
-	/** По нему forceLink сопоставляет концы связей. */
+	/** Уникальный идентификатор узла. */
 	id: string
 	/** У работы — сокращённое название, у патента — номер. */
 	title: string
@@ -17,11 +15,10 @@ export interface GraphNodeInput {
 	hasWarning: boolean
 	/** Вместе с типом приходит и цвет. */
 	type: GraphNodeType
-	/** Множитель индивидуального отталкивания; отсутствие сохраняет общую силу. */
-	chargeMultiplier?: number
-
 	/** Только для групп */
 	children?: GraphData
+	/** Размер группы для плоского запроса раскладки без передачи children. */
+	childrenCount?: number
 }
 
 /** Концы связи заданы идентификаторами узлов. */
@@ -33,15 +30,19 @@ export interface GraphLinkInput {
 }
 
 export interface GraphData {
-	nodes: GraphNodeInput[]
+	nodes: GraphNode[]
 	links: GraphLinkInput[]
 }
 
-/** d3-force дописывает сюда x, y, vx, vy и index. */
-export type GraphNode = SimulationNodeDatum & GraphNodeInput
-
-/** forceLink заменяет строковые концы на сами узлы. */
-export type GraphLink = SimulationLinkDatum<GraphNode> & { force?: number }
+/** Узел с координатами, рассчитанными сервером. */
+export type GraphNode = GraphNodeInput & {
+	x?: number
+	y?: number
+	fx?: number | null
+	fy?: number | null
+	/** Вычисленное поле ответа сервера: есть только у узлов с `childrenCount`. */
+	chargeMultiplier?: number
+}
 
 /** Связь после инициализации: у обоих концов можно читать координаты. */
 export interface DrawnLink {

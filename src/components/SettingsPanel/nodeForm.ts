@@ -10,7 +10,6 @@ export interface NodeDraft {
 	title: string
 	description: string
 	hasWarning: boolean
-	chargeMultiplier: number
 }
 
 export interface NodeCreateDraft extends NodeDraft {
@@ -52,14 +51,11 @@ function linkKey(source: string, target: string): string {
 }
 
 /** Пустое описание превращается в отсутствующее, а не в `description: ''`. */
-function nodeFields(
-	draft: NodeDraft,
-): Pick<GraphNodeInput, 'title' | 'hasWarning' | 'description' | 'chargeMultiplier'> {
+function nodeFields(draft: NodeDraft): Pick<GraphNodeInput, 'title' | 'hasWarning' | 'description'> {
 	return {
 		title: draft.title,
 		hasWarning: draft.hasWarning,
 		description: draft.description || undefined,
-		chargeMultiplier: draft.chargeMultiplier,
 	}
 }
 

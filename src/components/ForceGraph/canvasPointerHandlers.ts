@@ -8,7 +8,7 @@ interface PointerState {
 	transform: { x: number; y: number; k: number }
 }
 
-/** Подключает pan, drag и click к Canvas, не смешивая жесты с отрисовкой. */
+/** Подключает pan и click к Canvas; движение по узлу не меняет серверные координаты. */
 export function createCanvasPointerHandlers(
 	canvas: HTMLCanvasElement,
 	state: PointerState,
@@ -59,12 +59,14 @@ export function createCanvasPointerHandlers(
 		if (pointerState.dragging && pointerState.dragStart) {
 			if (Math.hypot(event.clientX - pointerState.dragStart.x, event.clientY - pointerState.dragStart.y) > 3)
 				pointerState.didDrag = true
+			if (!pointerState.didDrag) return
 			const point = worldPoint(event.clientX, event.clientY)
-			pointerState.dragging.node.x = point.x
-			pointerState.dragging.node.y = point.y
-			pointerState.dragging.node.fx = point.x
-			pointerState.dragging.node.fy = point.y
-			onDrag(pointerState.dragging.node)
+			const { node } = pointerState.dragging
+			node.x = point.x
+			node.y = point.y
+			node.fx = point.x
+			node.fy = point.y
+			onDrag(node)
 			onSceneChanged()
 			render()
 			return

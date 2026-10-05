@@ -165,9 +165,9 @@ const server = await createServer({ root, server: { middlewareMode: true }, appT
 
 const physics = await server.ssrLoadModule('/src/components/ForceGraph/forceGraph.ts')
 const cloud = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphCloud.ts')
+const groupMetrics = await server.ssrLoadModule('/src/components/ForceGraph/groupMetrics.ts')
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts')
 const graphComponents = await server.ssrLoadModule('/src/components/ForceGraph/graphComponents.ts')
-const visibility = await server.ssrLoadModule('/src/components/ForceGraph/visibleGroups.ts')
 const layout = await server.ssrLoadModule('/src/components/ForceGraph/layout.ts')
 const linksLogic = await server.ssrLoadModule('/src/components/ForceGraph/resolveLinks.ts')
 const source = await server.ssrLoadModule('/src/data/graph.ts')
@@ -196,6 +196,7 @@ const {
 	groupFocusSize,
 	truncateToWidth,
 } = cloud
+const { groupChargeMultiplier } = groupMetrics
 const { createNodeInData, deleteNodeFromData, neighborOptions, updateNodeInData } = nodeForm
 
 const base = source.graphData
@@ -282,20 +283,11 @@ check(
 	'цвета типов стабильны',
 	types.every((type) => colors(type) === createTypeColors(base.nodes)(type)),
 )
-const chargeNodes = [
-	{ id: 'default', type: 'node', title: 'Обычный', hasWarning: false },
-	{ id: 'strong', type: 'node', title: 'Сильный', hasWarning: false, chargeMultiplier: 2 },
-]
-const chargeSimulation = createSimulation(chargeNodes, [])
-const chargeForce = chargeSimulation.force('charge')
 check(
-	'индивидуальный заряд учитывается',
-	chargeForce.strength()(chargeNodes[1]) === 2 * chargeForce.strength()(chargeNodes[0]),
-)
-chargeSimulation.stop()
-check(
-	'множитель заряда группы откалиброван',
-	[40, 90, 270].every((count, index) => Math.abs(groupNeighborChargeMultiplier(count) - [2, 4.5, 21][index]) < 0.001),
+	'множитель заряда группы считается по площади',
+	[15, 40, 90, 270].every(
+		(count) => Math.abs(groupNeighborChargeMultiplier(count) - groupChargeMultiplier(count)) < 0.001,
+	),
 )
 const groupNode = { id: 'group', type: 'group', title: 'Группа', hasWarning: false, children: { nodes: [], links: [] } }
 const outsideNode = { id: 'outside', type: 'node', title: 'Снаружи', hasWarning: false }
@@ -316,7 +308,6 @@ const renamed = updateNodeInData(fixture, 'w-1', {
 	title: 'Новое название',
 	description: '',
 	hasWarning: true,
-	chargeMultiplier: 2,
 })
 
 check(
@@ -324,17 +315,15 @@ check(
 	fixture.nodes[0].title === 'Работа' && renamed.nodes[0] !== fixture.nodes[0],
 )
 check('пустое описание не заводится пустой строкой', renamed.nodes[0].description === undefined)
-check('правка узла сохраняет множитель отталкивания', renamed.nodes[0].chargeMultiplier === 2)
 check('ссылка на список связей сохраняется', renamed.links === fixture.links)
 
 const created = createNodeInData(
 	fixture,
-	{ type: 'subNode', title: 'Новый патент', description: 'описание', hasWarning: false, chargeMultiplier: 0.5 },
+	{ type: 'subNode', title: 'Новый патент', description: 'описание', hasWarning: false },
 	['w-1', 'w-1', 'нет-такого'],
 )
 
 check('новый узел получает id custom-N', created.nodes.at(-1).id === 'custom-1')
-check('новый узел получает множитель отталкивания', created.nodes.at(-1).chargeMultiplier === 0.5)
 check('неизвестный сосед отброшен, дубликат схлопнут', created.links.length === 2, `связей ${created.links.length}`)
 check(
 	'направление связи задаётся типом',

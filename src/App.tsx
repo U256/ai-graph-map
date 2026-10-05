@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 import { ForceGraph } from './components/ForceGraph/ForceGraph'
+import { addNode, makeCoordinates, removeNode } from './components/ForceGraph/graphApi'
 import { NodeForm } from './components/SettingsPanel/NodeForm'
 import {
 	type NodeCreateDraft,
 	type NodeDraft,
 	createNodeInData,
-	deleteNodeFromData,
 	updateNodeInData,
 } from './components/SettingsPanel/nodeForm'
 import { SettingsPanel } from './components/SettingsPanel/SettingsPanel'
@@ -26,19 +26,30 @@ type PanelView = { kind: 'settings' } | { kind: 'create' } | { kind: 'edit'; id:
 /** Форма новой ноды может открыться до загрузки данных, а варианты соседей ей нужны. */
 const EMPTY_DATA: GraphData = { nodes: [], links: [] }
 
+function sourceGraph(nodeClones: GraphSettings['nodeClones']): GraphData {
+	if (nodeClones === 'mini1') return graphMini1
+	if (nodeClones === 'mini2') return graphMini2
+	if (nodeClones === 'mini3') return graphMini3
+	return graphData
+}
+
 export function App() {
 	// ленивая инициализация: localStorage читается один раз при монтировании
 	const [settings, setSettings] = useState<GraphSettings>(loadGraphSettings)
 
 	const [data, setData] = useState<GraphData | null>(null)
 	useEffect(() => {
+		let active = true
 		const timer = setTimeout(() => {
-			if (settings.nodeClones === 'mini1') setData(graphMini1)
-			else if (settings.nodeClones === 'mini2') setData(graphMini2)
-			else if (settings.nodeClones === 'mini3') setData(graphMini3)
-			else setData(graphData)
+			const source = sourceGraph(settings.nodeClones)
+			makeCoordinates(source, true).then((positioned) => {
+				if (active) setData(positioned)
+			})
 		}, LOAD_DELAY_MS)
-		return () => clearTimeout(timer)
+		return () => {
+			active = false
+			clearTimeout(timer)
+		}
 	}, [settings.nodeClones])
 
 	const [panel, setPanel] = useState<PanelView>({ kind: 'settings' })
@@ -55,25 +66,35 @@ export function App() {
 		[data],
 	)
 
-	const handleVisibleGroupsChange = useCallback((ids: string[]) => {
-		// eslint-disable-next-line no-console
-		console.log('Видимые группы:', ids)
-	}, [])
-
-	const handleCreate = useCallback((draft: NodeCreateDraft, neighbors: string[]) => {
-		setData((current) => (current ? createNodeInData(current, draft, neighbors) : current))
-		setPanel({ kind: 'settings' })
-	}, [])
+	const handleCreate = useCallback(
+		async (draft: NodeCreateDraft, neighbors: string[]) => {
+			if (!data) return
+			const next = createNodeInData(data, draft, neighbors)
+			const node = next.nodes[next.nodes.length - 1]
+			const links = next.links.slice(data.links.length)
+			setData(await addNode(data, node, links))
+			setPanel({ kind: 'settings' })
+		},
+		[data],
+	)
 
 	// после сохранения панель остаётся открытой: форма показывает те же значения, что ушли в данные
-	const handleUpdate = useCallback((id: string, draft: NodeDraft) => {
-		setData((current) => (current ? updateNodeInData(current, id, draft) : current))
-	}, [])
+	const handleUpdate = useCallback(
+		async (id: string, draft: NodeDraft) => {
+			if (!data) return
+			setData(await makeCoordinates(updateNodeInData(data, id, draft)))
+		},
+		[data],
+	)
 
-	const handleDelete = useCallback((id: string) => {
-		setData((current) => (current ? deleteNodeFromData(current, id) : current))
-		setPanel({ kind: 'settings' })
-	}, [])
+	const handleDelete = useCallback(
+		async (id: string) => {
+			if (!data) return
+			setData(await removeNode(data, id))
+			setPanel({ kind: 'settings' })
+		},
+		[data],
+	)
 
 	const startCreate = useCallback(() => setPanel({ kind: 'create' }), [])
 	const backToSettings = useCallback(() => setPanel({ kind: 'settings' }), [])
@@ -106,7 +127,6 @@ export function App() {
 						data={data}
 						selectedNodeId={view.kind === 'edit' ? view.id : null}
 						onNodeClick={handleNodeClick}
-						onVisibleGroupsChange={handleVisibleGroupsChange}
 					/>
 				</main>
 			</div>

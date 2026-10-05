@@ -20,6 +20,7 @@ export interface CanvasRenderer {
 	getViewport: () => { left: number; right: number; top: number; bottom: number } | null
 	isNodeAt: (clientX: number, clientY: number) => boolean
 	setZoomTransform: (x: number, y: number, k: number) => void
+	getPixelsPerWorldUnit: () => number
 	destroy: () => void
 }
 
@@ -225,6 +226,7 @@ export function createCanvasRenderer(
 			}
 		},
 		isNodeAt: (x, y) => findHit(x, y) !== null,
+		getPixelsPerWorldUnit: () => baseScale() * transform.k,
 		setZoomTransform: (x, y, k) => {
 			transform.x = x
 			transform.y = y
