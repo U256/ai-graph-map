@@ -1,4 +1,4 @@
-import { zoomIdentity, type ZoomTransform } from 'd3-zoom'
+import { type ZoomTransform } from 'd3-zoom'
 import type { GraphData, GraphNode } from '../../types/graph'
 import { attachCanvasPanZoom } from './canvasPanZoom'
 import { createCanvasRenderer } from './canvasRenderer'
@@ -11,7 +11,6 @@ import { resolveLinks } from './resolveLinks'
 /** Компоновщик Canvas-сцены; раскладка и обновление графа остаются независимы от отрисовки. */
 
 export interface ForceGraphOptions {
-	panZoom?: boolean
 	/** Наружу уходит только id: данные живут в стейте вызывающего. */
 	onNodeClick?: (id: string) => void
 }
@@ -19,7 +18,11 @@ export interface ForceGraphOptions {
 export interface ForceGraphHandle {
 	canvas: HTMLCanvasElement
 	zoomIndicator: HTMLDivElement
-	zoomControls: HTMLDivElement
+	zoomControls: {
+		zoomIn: () => void
+		zoomOut: () => void
+		resetZoom: () => void
+	}
 	getZoomTransform: () => ZoomTransform
 	setZoomTransform: (transform: ZoomTransform) => void
 	setSelectedNode: (id: string | null) => void
@@ -29,7 +32,7 @@ export interface ForceGraphHandle {
 
 /** Создаёт сцену отображения; координаты приходят только от сервера. */
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
-	const { panZoom = true, onNodeClick } = options
+	const { onNodeClick } = options
 	const measure = createTextMeasurer()
 	const initialNodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
 	let currentNodes = initialNodes
@@ -44,9 +47,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		layouts.set(node, layout)
 		return layout
 	}
-	let zoomControls = document.createElement('div')
-	let getZoomTransform = () => zoomIdentity
-	let setZoomTransform = (_transform: ZoomTransform) => {}
+
 	let renderMotion = () => {}
 	let motion = createLocalMotion(initialNodes, () => renderMotion())
 	const renderer = createCanvasRenderer(
@@ -80,51 +81,45 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		renderer.render()
 	}
 
-	if (panZoom) {
-		let previousScale = 1
-		const panZoomState = attachCanvasPanZoom(
-			renderer.canvas,
-			zoomIndicator,
-			(transform) => renderer.setZoomTransform(transform.x, transform.y, transform.k),
-			(scale) => {
-				renderer.setZoomScale(scale)
-				if (scale === previousScale) return
-				previousScale = scale
-				const viewport = renderer.getViewport()
-				if (!viewport) return
-				const centerX = (viewport.left + viewport.right) / 2
-				const centerY = (viewport.top + viewport.bottom) / 2
-				const pixelsPerUnit = renderer.getPixelsPerWorldUnit()
-				const closest = currentNodes.reduce<GraphNode | null>((best, node) => {
-					if (node.type !== 'group' || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return best
-					const distance = Math.hypot((node.x ?? 0) - centerX, (node.y ?? 0) - centerY)
-					if (distance * pixelsPerUnit > LOCAL_RADIUS_PX) return best
-					if (!best) return node
-					return distance < Math.hypot((best.x ?? 0) - centerX, (best.y ?? 0) - centerY) ? node : best
-				}, null)
-				if (closest) motion.start(closest, pixelsPerUnit, false)
-				else motion.cool()
-			},
-			renderer.isNodeAt,
-		)
-		zoomControls = panZoomState.controls
-		getZoomTransform = panZoomState.getTransform
-		setZoomTransform = panZoomState.setTransform
-	}
+	let previousScale = 1
+	const panZoomState = attachCanvasPanZoom(
+		renderer.canvas,
+		zoomIndicator,
+		(transform) => renderer.setZoomTransform(transform.x, transform.y, transform.k),
+		(scale) => {
+			renderer.setZoomScale(scale)
+			if (scale === previousScale) return
+			previousScale = scale
+			const viewport = renderer.getViewport()
+			if (!viewport) return
+			const centerX = (viewport.left + viewport.right) / 2
+			const centerY = (viewport.top + viewport.bottom) / 2
+			const pixelsPerUnit = renderer.getPixelsPerWorldUnit()
+			const closest = currentNodes.reduce<GraphNode | null>((best, node) => {
+				if (node.type !== 'group' || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return best
+				const distance = Math.hypot((node.x ?? 0) - centerX, (node.y ?? 0) - centerY)
+				if (distance * pixelsPerUnit > LOCAL_RADIUS_PX) return best
+				if (!best) return node
+				return distance < Math.hypot((best.x ?? 0) - centerX, (best.y ?? 0) - centerY) ? node : best
+			}, null)
+			if (closest) motion.start(closest, pixelsPerUnit, false)
+			else motion.cool()
+		},
+		renderer.isNodeAt,
+	)
 
 	return {
 		canvas: renderer.canvas,
 		zoomIndicator,
-		zoomControls,
-		getZoomTransform,
-		setZoomTransform,
+		zoomControls: panZoomState.controls,
+		getZoomTransform: panZoomState.getTransform,
+		setZoomTransform: panZoomState.setTransform,
 		setSelectedNode,
 		updateData,
 		destroy: () => {
 			motion.stop()
 			renderer.destroy()
 			zoomIndicator.remove()
-			zoomControls.remove()
 		},
 	}
 }

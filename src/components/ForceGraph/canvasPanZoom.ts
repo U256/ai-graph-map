@@ -8,15 +8,11 @@ export function attachCanvasPanZoom(
 	onTransform: (transform: ZoomTransform) => void,
 	onScale: (scale: number) => void,
 	isNodeAt: (x: number, y: number) => boolean,
-): {
-	controls: HTMLDivElement
-	getTransform: () => ZoomTransform
-	setTransform: (transform: ZoomTransform) => void
-	destroy: () => void
-} {
+) {
 	let current = zoomIdentity
 	const indicator = zoomIndicator
 	const zoomExtent: [number, number] = [0.1, 8]
+	const viewCenter: [number, number] = [0, 0]
 	const pointerPosition = (event: MouseEvent | WheelEvent): [number, number] => {
 		const rect = canvas.getBoundingClientRect()
 		const scale = Math.min(rect.width / 928, rect.height / 680)
@@ -43,33 +39,25 @@ export function attachCanvasPanZoom(
 			wheel.preventDefault()
 		})
 	const setTransform = (transform: ZoomTransform) => select(canvas).call(behavior.transform, transform)
-	const controls = document.createElement('div')
-	controls.className = 'force-graph__zoom-controls'
-	const createZoomButton = (label: string, title: string, onClick: () => void): HTMLButtonElement => {
-		const button = document.createElement('button')
-		button.type = 'button'
-		button.textContent = label
-		button.title = title
-		button.setAttribute('aria-label', title)
-		button.addEventListener('click', onClick)
-		return button
+	const controls = {
+		resetZoom: () => setTransform(zoomIdentity),
+		zoomIn: () => {
+			const { k } = current
+			const step = k > 0.7 ? 0.3 : 0.1
+			return select(canvas).call(behavior.scaleBy, Math.min(zoomExtent[1], k + step) / k, viewCenter)
+		},
+		zoomOut: () => {
+			const { k } = current
+			const step = k > 1.3 ? 0.3 : 0.1
+			return select(canvas).call(behavior.scaleBy, Math.max(zoomExtent[0], k - step) / k, viewCenter)
+		},
 	}
-	controls.append(
-		createZoomButton('□', 'Отцентровать карту', () => setTransform(zoomIdentity)),
-		createZoomButton('+', 'Приблизить карту', () =>
-			select(canvas).call(behavior.scaleBy, Math.min(zoomExtent[1], current.k + 0.3) / current.k),
-		),
-		createZoomButton('−', 'Отдалить карту', () =>
-			select(canvas).call(behavior.scaleBy, Math.max(zoomExtent[0], current.k - 0.3) / current.k),
-		),
-	)
 	return {
 		controls,
 		getTransform: () => current,
 		setTransform,
 		destroy: () => {
 			select(canvas).on('.zoom', null)
-			controls.remove()
 		},
 	}
 }

@@ -38,7 +38,7 @@ export function ForceGraph({ data, settings, selectedNodeId = null, onNodeClick 
 				onNodeClick: handleNodeClick,
 			})
 			graphRef.current = next
-			container.replaceChildren(next.canvas, next.zoomIndicator, next.zoomControls)
+			container.replaceChildren(next.canvas, next.zoomIndicator)
 		}
 	}, [data, handleNodeClick])
 
@@ -60,6 +60,32 @@ export function ForceGraph({ data, settings, selectedNodeId = null, onNodeClick 
 	return (
 		<figure className="force-graph">
 			<div className="force-graph__canvas" ref={containerRef} />
+			<div className="force-graph__zoom-controls">
+				<button
+					type="button"
+					title="Отцентровать карту"
+					aria-label="Отцентровать карту"
+					onClick={() => graphRef.current?.zoomControls.resetZoom()}
+				>
+					□
+				</button>
+				<button
+					type="button"
+					title="Приблизить карту"
+					aria-label="Приблизить карту"
+					onClick={() => graphRef.current?.zoomControls.zoomIn()}
+				>
+					+
+				</button>
+				<button
+					type="button"
+					title="Отдалить карту"
+					aria-label="Отдалить карту"
+					onClick={() => graphRef.current?.zoomControls.zoomOut()}
+				>
+					−
+				</button>
+			</div>
 			{data && (
 				<p className="force-graph__counter">
 					Нод: {data.nodes.length}, рёбер: {data.links.length}
