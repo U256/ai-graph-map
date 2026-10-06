@@ -169,6 +169,7 @@ const groupMetrics = await server.ssrLoadModule('/src/components/ForceGraph/grou
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts')
 const layout = await server.ssrLoadModule('/src/components/ForceGraph/layout.ts')
 const linksLogic = await server.ssrLoadModule('/src/components/ForceGraph/resolveLinks.ts')
+const motion = await server.ssrLoadModule('/src/components/ForceGraph/localMotion.ts')
 const source = await server.ssrLoadModule('/src/data/graph.ts')
 
 const {
@@ -181,6 +182,7 @@ const {
 } = physics
 const { calculateGraphLayout, applyLayout } = layout
 const { resolveLinks } = linksLogic
+const { localCharge, localRadius, nearbyNodes } = motion
 const {
 	CLOUD_MAX_TEXT_WIDTH,
 	CLOUD_PADDING_X,
@@ -256,6 +258,19 @@ check(
 	[15, 40, 90, 270].every(
 		(count) => Math.abs(groupNeighborChargeMultiplier(count) - groupChargeMultiplier(count)) < 0.001,
 	),
+)
+const motionGroup = { id: 'motion-group', type: 'group', chargeMultiplier: 4, x: 0, y: 0 }
+const motionNeighbor = { id: 'motion-neighbor', type: 'node', x: 100, y: 0 }
+const motionFar = { id: 'motion-far', type: 'node', x: 500, y: 0 }
+check('радиус локального движения растёт с множителем группы', localRadius(motionGroup, 1) === 400)
+check(
+	'в локальное движение попадают узлы в увеличенном радиусе',
+	nearbyNodes([motionGroup, motionNeighbor, motionFar], motionGroup, localRadius(motionGroup, 1)).length === 2,
+)
+check(
+	'сила локального движения берётся из множителя фокусной группы',
+	localCharge(motionNeighbor, motionGroup, 400) ===
+		localCharge(motionNeighbor, { ...motionGroup, chargeMultiplier: 1 }, 400) * 4,
 )
 const groupNode = { id: 'group', type: 'group', title: 'Группа', hasWarning: false, children: { nodes: [], links: [] } }
 const outsideNode = { id: 'outside', type: 'node', title: 'Снаружи', hasWarning: false }

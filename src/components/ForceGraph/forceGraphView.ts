@@ -6,7 +6,7 @@ import { createTypeColors } from './forceGraph'
 import { createCloudLayouts, type CloudLayout } from './forceGraphCloud'
 import { createTextMeasurer } from './forceGraphText'
 import { createGroupVisibility } from './groupVisibility'
-import { createLocalMotion, LOCAL_RADIUS_PX } from './localMotion'
+import { createLocalMotion, localRadius } from './localMotion'
 import { resolveLinks } from './resolveLinks'
 
 /** Компоновщик Canvas-сцены; раскладка и обновление графа остаются независимы от отрисовки. */
@@ -91,7 +91,6 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		markVisibilityDirty()
 	}
 
-	let previousScale = 1
 	const panZoomState = attachCanvasPanZoom(
 		renderer.canvas,
 		zoomIndicator,
@@ -99,8 +98,10 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		(scale) => {
 			currentScale = scale
 			renderer.setZoomScale(scale)
-			if (scale === previousScale) return
-			previousScale = scale
+			if (scale < 1) {
+				motion.stop()
+				return
+			}
 			const viewport = renderer.getViewport()
 			if (!viewport) return
 			const centerX = (viewport.left + viewport.right) / 2
@@ -109,11 +110,12 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 			const closest = currentNodes.reduce<GraphNode | null>((best, node) => {
 				if (node.type !== 'group' || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return best
 				const distance = Math.hypot((node.x ?? 0) - centerX, (node.y ?? 0) - centerY)
-				if (distance * pixelsPerUnit > LOCAL_RADIUS_PX) return best
+				if (distance > localRadius(node, pixelsPerUnit)) return best
 				if (!best) return node
 				return distance < Math.hypot((best.x ?? 0) - centerX, (best.y ?? 0) - centerY) ? node : best
 			}, null)
 			if (closest) motion.start(closest, pixelsPerUnit)
+			else motion.stop()
 		},
 		renderer.isNodeAt,
 	)
