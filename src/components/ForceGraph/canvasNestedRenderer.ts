@@ -1,4 +1,4 @@
-import type { GraphNode, GraphNodeType } from '../../types/graph'
+import type { GraphData, GraphNode, GraphNodeType } from '../../types/graph'
 import { tintToWhite } from './forceGraph'
 import {
 	CLOUD_RADIUS,
@@ -83,20 +83,18 @@ function drawNode(
 /** Рисует вложенные узлы локально; они не входят в раскладку внешнего графа. */
 export function drawNestedGraph(
 	context: CanvasRenderingContext2D,
-	group: GraphNode,
+	data: GraphData,
 	colorOf: (type: GraphNodeType) => string,
 	layoutOf: (node: GraphNode) => CloudLayout,
 ): void {
-	if (!group.children) return
-
-	const children: GraphNode[] = group.children.nodes
+	const children: GraphNode[] = data.nodes
 	const byId = new Map(children.map((child) => [child.id, child]))
 	context.save()
 	context.scale(NESTED_GRAPH_SCALE, NESTED_GRAPH_SCALE)
 	context.globalAlpha = 0.6
 	context.strokeStyle = LINK_COLOR
 	context.lineWidth = 5
-	group.children.links.forEach((link) => {
+	data.links.forEach((link) => {
 		const source = byId.get(link.source)
 		const target = byId.get(link.target)
 		if (!source || !target) return
@@ -108,7 +106,12 @@ export function drawNestedGraph(
 	context.globalAlpha = 1
 	children.forEach((node) => {
 		drawNode(context, { node, layout: layoutOf(node), x: node.x ?? 0, y: node.y ?? 0 }, colorOf)
-		if (node.children) drawNestedGraph(context, node, colorOf, layoutOf)
+		if (node.children) {
+			context.save()
+			context.translate(node.x ?? 0, node.y ?? 0)
+			drawNestedGraph(context, node.children, colorOf, layoutOf)
+			context.restore()
+		}
 	})
 	context.restore()
 }

@@ -41,16 +41,18 @@ export function createLocalMotion(nodes: GraphNode[], render: () => void) {
 	let anchors = new Map<GraphNode, { x: number; y: number }>()
 	let radius = 1
 
-	function stop(): void {
+	function stop(restoreAnchors = true): void {
 		simulation?.stop()
 		anchors.forEach((position, node) => {
-			const restoredNode = node
-			restoredNode.x = position.x
-			restoredNode.y = position.y
-			restoredNode.fx = null
-			restoredNode.fy = null
+			const movingNode = node
+			if (restoreAnchors) {
+				movingNode.x = position.x
+				movingNode.y = position.y
+			}
+			movingNode.fx = null
+			movingNode.fy = null
 		})
-		if (anchors.size > 0) {
+		if (restoreAnchors && anchors.size > 0) {
 			render()
 		}
 		simulation = null

@@ -16,44 +16,51 @@ async function post<T>(path: string, body: object): Promise<T> {
 }
 
 function flatNode(node: GraphNodeInput): GraphNodeInput {
-	const { children, ...fields } = node
-	return children ? { ...fields, childrenCount: children.nodes.length } : fields
+	const fields = { ...node }
+	delete fields.children
+	delete fields.childrenLoading
+	return fields
 }
 
 function flatGraph(data: GraphData): GraphData {
 	return { nodes: data.nodes.map(flatNode), links: data.links }
 }
 
-function restoreChildren(source: GraphData, positioned: GraphData): GraphData {
+function restoreLoadedChildren(source: GraphData, positioned: GraphData): GraphData {
 	const originals = new Map(source.nodes.map((node) => [node.id, node]))
 	return {
 		...positioned,
 		nodes: positioned.nodes.map((node) => {
-			const children = originals.get(node.id)?.children
-			return children ? { ...node, children } : node
+			const original = originals.get(node.id)
+			return original?.children ? { ...node, children: original.children } : node
 		}),
 	}
 }
 
 /** Рассчитывает только текущий уровень; вложенный граф передаётся отдельно тем же маршрутом. */
-export async function makeCoordinates(data: GraphData, ignoreCurrentCoordinates = false): Promise<GraphData> {
+export async function makeCoordinates(
+	data: GraphData,
+	ignoreCurrentCoordinates = false,
+	scale = 1,
+): Promise<GraphData> {
 	const positioned = await post<GraphData>('/makeCoordinates', {
 		graph: flatGraph(data),
 		ignoreCurrentCoordinates,
+		scale,
 	})
-	return restoreChildren(data, positioned)
+	return restoreLoadedChildren(data, positioned)
 }
 
 /** Добавляет узел на сервере и возвращает граф с координатами нового узла. */
 export function addNode(data: GraphData, node: GraphNodeInput, links: GraphData['links']): Promise<GraphData> {
 	return post<GraphData>('/add', { graph: flatGraph(data), node: flatNode(node), links }).then((positioned) =>
-		restoreChildren({ ...data, nodes: [...data.nodes, node] }, positioned),
+		restoreLoadedChildren({ ...data, nodes: [...data.nodes, node] }, positioned),
 	)
 }
 
 /** Удаляет узел на сервере; остальные координаты сохраняются без раздвигания. */
 export function removeNode(data: GraphData, nodeId: string): Promise<GraphData> {
 	return post<GraphData>('/remove', { graph: flatGraph(data), nodeId }).then((positioned) =>
-		restoreChildren(data, positioned),
+		restoreLoadedChildren(data, positioned),
 	)
 }

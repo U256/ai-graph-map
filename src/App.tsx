@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import { ForceGraph } from './components/ForceGraph/ForceGraph'
+import { NESTED_GRAPH_SCALE } from './components/ForceGraph/forceGraphCloud'
 import { addNode, makeCoordinates, removeNode } from './components/ForceGraph/graphApi'
 import { NodeForm } from './components/SettingsPanel/NodeForm'
 import {
@@ -27,6 +28,34 @@ type PanelView = { kind: 'settings' } | { kind: 'create' } | { kind: 'edit'; id:
 /** Форма новой ноды может открыться до загрузки данных, а варианты соседей ей нужны. */
 const EMPTY_DATA: GraphData = { nodes: [], links: [] }
 
+const NESTED_GRAPH_SOURCES: Record<string, GraphData> = {
+	'work-5': graphMini1,
+	'work-44': graphMini3,
+	'work-81g': multiplyWithClones(graphMini3, 3),
+	'work-91': graphMini2,
+}
+
+function nestedSource(id: string): GraphData | undefined {
+	return NESTED_GRAPH_SOURCES[id.replace(/^(?:\d+-)+/, '')]
+}
+
+function updateNestedGroup(
+	data: GraphData,
+	id: string,
+	change: (node: GraphData['nodes'][number]) => GraphData['nodes'][number],
+): GraphData {
+	let changed = false
+	const nodes = data.nodes.map((node) => {
+		if (node.id === id) return change(node)
+		if (!node.children) return node
+		const children = updateNestedGroup(node.children, id, change)
+		if (children !== node.children) changed = true
+		return children === node.children ? node : { ...node, children }
+	})
+	if (nodes.some((node, index) => node !== data.nodes[index])) changed = true
+	return changed ? { ...data, nodes } : data
+}
+
 function sourceGraph(nodeClones: GraphSettings['nodeClones']): GraphData {
 	if (nodeClones === 'mini1') return graphMini1
 	if (nodeClones === 'mini2') return graphMini2
@@ -39,13 +68,17 @@ export function App() {
 	const [settings, setSettings] = useState<GraphSettings>(loadGraphSettings)
 
 	const [data, setData] = useState<GraphData | null>(null)
+	const requestedGroups = useRef(new Set<string>())
+	const generation = useRef(0)
 	useEffect(() => {
 		let active = true
+		generation.current += 1
+		requestedGroups.current.clear()
 		const timer = setTimeout(() => {
 			const source = sourceGraph(settings.nodeClones)
 			const prepared =
 				typeof settings.nodeClones === 'number' ? multiplyWithClones(source, settings.nodeClones) : source
-			makeCoordinates(prepared, true).then((positioned) => {
+			makeCoordinates(prepared, true, 1).then((positioned) => {
 				if (active) setData(positioned)
 			})
 		}, LOAD_DELAY_MS)
@@ -70,9 +103,42 @@ export function App() {
 	)
 
 	const handleVisibleGroupsChange = useCallback((ids: string[]) => {
-		// Временный вывод нужен для проверки передачи видимых групп до App.
-		// eslint-disable-next-line no-console
-		console.log('Видимые группы:', ids)
+		ids.forEach((id) => {
+			if (requestedGroups.current.has(id)) return
+			const source = nestedSource(id)
+			if (!source) return
+			const requestGeneration = generation.current
+			requestedGroups.current.add(id)
+			setData((current) =>
+				current && generation.current === requestGeneration
+					? updateNestedGroup(current, id, (node) => ({ ...node, childrenLoading: true }))
+					: current,
+			)
+			setTimeout(() => {
+				if (generation.current !== requestGeneration) return
+				makeCoordinates(source, true, NESTED_GRAPH_SCALE)
+					.then((positioned) => {
+						setData((current) =>
+							current && generation.current === requestGeneration
+								? updateNestedGroup(current, id, (node) => ({
+										...node,
+										children: positioned,
+										childrenLoading: false,
+									}))
+								: current,
+						)
+					})
+					.catch(() => {
+						if (generation.current !== requestGeneration) return
+						requestedGroups.current.delete(id)
+						setData((current) =>
+							current
+								? updateNestedGroup(current, id, (node) => ({ ...node, childrenLoading: false }))
+								: current,
+						)
+					})
+			}, LOAD_DELAY_MS)
+		})
 	}, [])
 
 	const handleCreate = useCallback(

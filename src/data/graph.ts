@@ -1,8 +1,4 @@
 import type { GraphData } from '../types/graph'
-import { multiplyWithClones } from '../utils/graphUtlis'
-import { graphData as graphMini1 } from './graphMini1'
-import { graphData as graphMini2 } from './graphMini2'
-import { graphData as graphMini3 } from './graphMini3'
 
 /**
  * Данные графа для карты цитирований: 100 научных работ и 112 цитирующих их патентов,
@@ -57,7 +53,7 @@ export const graphData: GraphData = {
 				'8-Substituted Pyrido[3,4-d]pyrimidin-4(3H)-one Derivatives As Potent, Cell Permeable, KDM4 (JMJD2) and KDM5 (JARID1) Histone Lysine Demethylase Inhibitors.',
 			hasWarning: false,
 			type: 'group',
-			children: graphMini1,
+			childrenCount: 15,
 		},
 		{
 			id: 'work-6',
@@ -356,7 +352,7 @@ export const graphData: GraphData = {
 				'A novel shogaol analog suppresses cancer cell invasion and inflammation, and displays cytoprotective effects through modulation of NF-κB and Nrf2-Keap1 signaling pathways',
 			hasWarning: false,
 			type: 'group',
-			children: graphMini3,
+			childrenCount: 90,
 		},
 		{
 			id: 'work-45',
@@ -640,7 +636,7 @@ export const graphData: GraphData = {
 				'SCF/β-TrCP promotes glycogen synthase kinase 3-dependent degradation of the Nrf2 transcription factor in a keap1-independent manner',
 			hasWarning: false,
 			type: 'group',
-			children: multiplyWithClones(graphMini3, 3),
+			childrenCount: 270,
 		},
 		{
 			id: 'work-82',
@@ -714,7 +710,7 @@ export const graphData: GraphData = {
 			description: 'Design, synthesis and biological evaluation of 6-pyridylmethylaminopurines as CDK inhibitors',
 			hasWarning: false,
 			type: 'group',
-			children: graphMini2,
+			childrenCount: 40,
 		},
 		{
 			id: 'work-92',

@@ -9,12 +9,10 @@ const APPROXIMATE_TEXT_MEASURE = (text: string, size: number): number => text.le
 
 function groupVisibilityRadius(node: GraphNode): number {
 	const layout = createCloudLayouts([node], APPROXIMATE_TEXT_MEASURE).get(node)
-	if (!layout) return groupFocusSize(node.children?.nodes.length ?? 0) / 2
+	const childrenCount = node.childrenCount ?? node.children?.nodes.length ?? 0
+	if (!layout) return groupFocusSize(childrenCount) / 2
 	const focused = createFocusedGroupLayout(layout)
-	return (
-		Math.max(focused.focusedSize ?? groupFocusSize(node.children?.nodes.length ?? 0), focused.width, focused.height) /
-		2
-	)
+	return Math.max(focused.focusedSize ?? groupFocusSize(childrenCount), focused.width, focused.height) / 2
 }
 
 /** Снимки нужны worker-у, чтобы не передавать ему объекты Canvas-сцены. */

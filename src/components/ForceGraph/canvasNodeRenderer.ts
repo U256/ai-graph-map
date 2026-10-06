@@ -24,6 +24,7 @@ export interface CanvasNodeEntry {
 	x: number
 	y: number
 	selected: boolean
+	loading?: boolean
 }
 
 /** Рисует внешний узел Canvas; дочерние узлы имеют отдельный локальный рендер. */
@@ -73,5 +74,13 @@ export function drawCanvasNode(
 		context.arc(x, y, SUB_NODE_DOT_RADIUS, 0, Math.PI * 2)
 		context.fillStyle = baseColor
 		context.fill()
+	}
+	if (entry.loading) {
+		context.fillStyle = baseColor
+		for (let index = 0; index < 3; index += 1) {
+			context.beginPath()
+			context.arc(x + (index - 1) * 6, y + (layout.focusedSize ?? 0) / 2 - 10, 2, 0, Math.PI * 2)
+			context.fill()
+		}
 	}
 }

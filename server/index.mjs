@@ -64,7 +64,8 @@ function withChargeMultiplier(node) {
 	return { ...node, chargeMultiplier: chargeFactor(node.childrenCount) }
 }
 
-function calculateSimulation(graph, ignoreCurrentCoordinates = false) {
+function calculateSimulation(graph, ignoreCurrentCoordinates = false, scale = 1) {
+	if (!Number.isFinite(scale) || scale <= 0) throw new Error('scale должен быть положительным числом')
 	const nodes = graph.nodes.map((node) => {
 		const copy = withChargeMultiplier(node)
 		if (ignoreCurrentCoordinates || !validPosition(copy)) {
@@ -185,7 +186,7 @@ async function handle(request, response) {
 		if (route === '/makeCoordinates') {
 			const graph = readGraph(body)
 			return json(response, 200, {
-				nodes: calculateSimulation(graph, body.ignoreCurrentCoordinates === true),
+				nodes: calculateSimulation(graph, body.ignoreCurrentCoordinates === true, body.scale ?? 1),
 				links: graph.links,
 			})
 		}

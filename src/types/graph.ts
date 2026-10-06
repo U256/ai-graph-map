@@ -17,6 +17,8 @@ export interface GraphNodeInput {
 	type: GraphNodeType
 	/** Только для групп */
 	children?: GraphData
+	/** Состояние эмуляции загрузки содержимого группы. */
+	childrenLoading?: boolean
 	/** Размер группы для плоского запроса раскладки без передачи children. */
 	childrenCount?: number
 }

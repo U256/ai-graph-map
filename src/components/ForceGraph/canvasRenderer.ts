@@ -1,4 +1,4 @@
-import type { DrawnLink, GraphNode, GraphNodeType } from '../../types/graph'
+import type { DrawnLink, GraphData, GraphNode, GraphNodeType } from '../../types/graph'
 import { drawNestedGraph } from './canvasNestedRenderer'
 import { drawCanvasNode, type CanvasNodeEntry } from './canvasNodeRenderer'
 import { createCanvasPointerHandlers } from './canvasPointerHandlers'
@@ -21,6 +21,7 @@ export interface CanvasRenderer {
 	isNodeAt: (clientX: number, clientY: number) => boolean
 	setZoomTransform: (x: number, y: number, k: number) => void
 	getPixelsPerWorldUnit: () => number
+	setNestedGroup: (id: string, data: GraphData | null, loading: boolean) => void
 	destroy: () => void
 }
 
@@ -46,6 +47,7 @@ export function createCanvasRenderer(
 	if (!context) throw new Error('Браузер не поддерживает Canvas 2D')
 	let nodes: GraphNode[] = []
 	let links: DrawnLink[] = []
+	const nestedGroups = new Map<string, { data: GraphData | null; loading: boolean }>()
 	let selectedId: string | null = null
 	let zoomScale = 1
 	let width = 0
@@ -143,6 +145,7 @@ export function createCanvasRenderer(
 				selected: node.id === selectedId,
 				fx: node.fx,
 				fy: node.fy,
+				loading: nestedGroups.get(node.id)?.loading,
 			}
 		})
 		hitNodes = prepared
@@ -162,7 +165,8 @@ export function createCanvasRenderer(
 			if (zoomScale >= GROUP_DETAIL_SCALE && entry.node.type === 'group' && groupInViewport(entry.node)) {
 				context.save()
 				context.translate(entry.x, entry.y)
-				drawNestedGraph(context, entry.node, colorOf, layoutOf)
+				const nested = nestedGroups.get(entry.node.id)?.data
+				if (nested) drawNestedGraph(context, nested, colorOf, layoutOf)
 				context.restore()
 			}
 		})
@@ -199,6 +203,12 @@ export function createCanvasRenderer(
 		setLinks: (next) => {
 			links = next
 			render()
+		},
+		setNestedGroup: (id, data, loading) => {
+			if (data || loading) nestedGroups.set(id, { data, loading })
+			else nestedGroups.delete(id)
+			render()
+			onSceneChanged()
 		},
 		setSelectedNode: (id) => {
 			selectedId = id

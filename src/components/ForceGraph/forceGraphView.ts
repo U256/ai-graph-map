@@ -1,5 +1,5 @@
 import { zoomIdentity, type ZoomTransform } from 'd3-zoom'
-import type { GraphData, GraphNode } from '../../types/graph'
+import type { GraphData, GraphNode, GraphNodeInput } from '../../types/graph'
 import { attachCanvasPanZoom } from './canvasPanZoom'
 import { createCanvasRenderer } from './canvasRenderer'
 import { createTypeColors } from './forceGraph'
@@ -32,13 +32,32 @@ export interface ForceGraphHandle {
 	destroy: () => void
 }
 
+function rootNode(node: GraphNode): GraphNode {
+	const fields = { ...node }
+	delete fields.children
+	delete fields.childrenLoading
+	return fields
+}
+
+function rootNodeSignature(node: GraphNodeInput): string {
+	const fields = { ...node }
+	delete fields.children
+	delete fields.childrenLoading
+	return JSON.stringify(fields)
+}
+
+function rootDataSignature(graph: GraphData): string {
+	return JSON.stringify({ nodes: graph.nodes.map(rootNodeSignature), links: graph.links })
+}
+
 /** Создаёт сцену отображения; координаты приходят только от сервера. */
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
 	const { onNodeClick, onVisibleGroupsChange } = options
 	const measure = createTextMeasurer()
-	const initialNodes: GraphNode[] = data.nodes.map((node) => ({ ...node }))
+	const initialNodes: GraphNode[] = data.nodes.map(rootNode)
 	let currentNodes = initialNodes
 	let currentScale = 1
+	let currentRootSignature = rootDataSignature(data)
 	const initialLinks = data.links.map((link) => ({ ...link }))
 	const colorOf = createTypeColors(initialNodes)
 	const drawnLinks = resolveLinks(initialNodes, initialLinks) // Отбрасывает связи с отсутствующими концами
@@ -60,6 +79,21 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	}
 	let markVisibilityDirty = () => {}
 	const renderer = createCanvasRenderer(colorOf, layoutOf, handleNodeClick, () => markVisibilityDirty())
+	function syncNestedGroups(graph: GraphData): void {
+		const seen = new Set<string>()
+		function visit(current: GraphData): void {
+			current.nodes.forEach((node) => {
+				if (node.type !== 'group') return
+				seen.add(node.id)
+				renderer.setNestedGroup(node.id, node.children ?? null, node.childrenLoading === true)
+				if (node.children) visit(node.children)
+			})
+		}
+		visit(graph)
+		currentNodes.forEach((node) => {
+			if (node.type === 'group' && !seen.has(node.id)) renderer.setNestedGroup(node.id, null, false)
+		})
+	}
 	const visibility = createGroupVisibility(
 		() => ({ nodes: currentNodes, viewport: renderer.getViewport(), scale: currentScale }),
 		onVisibleGroupsChange,
@@ -71,13 +105,30 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	zoomIndicator.textContent = 'Зум: 1.0'
 	renderer.setNodes(initialNodes)
 	renderer.setLinks(drawnLinks)
+	syncNestedGroups(data)
 	markVisibilityDirty()
 	function setSelectedNode(id: string | null): void {
 		renderer.setSelectedNode(id)
 	}
 	function updateData(nextData: GraphData): void {
-		motion.stop()
-		const nextNodes = nextData.nodes.map((node) => ({ ...node }))
+		const nextRootSignature = rootDataSignature(nextData)
+		if (nextRootSignature === currentRootSignature) {
+			syncNestedGroups(nextData)
+			return
+		}
+		currentRootSignature = nextRootSignature
+		const previousNodes = currentNodes
+		motion.stop(false)
+		const positions = new Map(previousNodes.map((node) => [node.id, { x: node.x, y: node.y }]))
+		const nextNodes = nextData.nodes.map(rootNode)
+		nextNodes.forEach((node) => {
+			const nextNode = node
+			const position = positions.get(node.id)
+			if (position && Number.isFinite(position.x) && Number.isFinite(position.y)) {
+				nextNode.x = position.x
+				nextNode.y = position.y
+			}
+		})
 		currentNodes = nextNodes
 		const nextLinks = resolveLinks(
 			nextNodes,
@@ -87,6 +138,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		motion = createLocalMotion(nextNodes, () => renderMotion())
 		renderer.setNodes(nextNodes)
 		renderer.setLinks(nextLinks)
+		syncNestedGroups(nextData)
 		renderer.render()
 		markVisibilityDirty()
 	}

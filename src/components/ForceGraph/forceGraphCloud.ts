@@ -114,7 +114,7 @@ function createSubNodeLayout(): CloudLayout {
 
 /** Подпись группы показывает размер вложенного графа, а не описание исходной работы. */
 function groupDescription(node: GraphNode): string {
-	return `${node.children?.nodes.length ?? 0} элементов`
+	return `${node.childrenCount ?? node.children?.nodes.length ?? 0} элементов`
 }
 
 /** Раскладка облака `node`: ширина — по самой широкой обрезанной строке, блок строк центрирован по вертикали. */
@@ -142,7 +142,8 @@ function createCloudLayout(node: GraphNode, measure: MeasureText): CloudLayout {
 		warning: node.hasWarning
 			? { x: -width / 2 + CLOUD_PADDING_X / 2, y: -height / 2 + CLOUD_PADDING_Y / 2 }
 			: undefined,
-		focusedSize: node.type === 'group' ? groupFocusSize(node.children?.nodes.length ?? 0) : undefined,
+		focusedSize:
+			node.type === 'group' ? groupFocusSize(node.childrenCount ?? node.children?.nodes.length ?? 0) : undefined,
 	}
 }
 
