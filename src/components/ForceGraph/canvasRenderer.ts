@@ -37,7 +37,7 @@ export function createCanvasRenderer(
 	onDrag: (node: GraphNode) => void,
 	onDragEnd: () => void,
 	onNodeClick?: (id: string) => void,
-	onSceneChanged?: () => void,
+	onSceneChanged: () => void = () => {},
 ): CanvasRenderer {
 	const canvas = document.createElement('canvas')
 	canvas.className = 'force-graph__canvas-element'
@@ -56,7 +56,6 @@ export function createCanvasRenderer(
 	let resizeObserver: ResizeObserver | null = null
 	let hitNodes: HitNode[] = []
 	const nodeClick = onNodeClick
-	const markVisibilityDirty = onSceneChanged ?? (() => {})
 	let render = (): void => {}
 
 	function baseScale(): number {
@@ -87,7 +86,7 @@ export function createCanvasRenderer(
 		canvas.width = Math.max(1, Math.round(width * dpr))
 		canvas.height = Math.max(1, Math.round(height * dpr))
 		render()
-		markVisibilityDirty()
+		onSceneChanged()
 	}
 
 	function worldPoint(clientX: number, clientY: number): { x: number; y: number } {
@@ -180,7 +179,7 @@ export function createCanvasRenderer(
 		render,
 		onDrag,
 		onDragEnd,
-		() => markVisibilityDirty(),
+		() => onSceneChanged(),
 		nodeClick,
 		nodeTooltip,
 	)
@@ -200,7 +199,7 @@ export function createCanvasRenderer(
 			nodes = next
 			Object.assign(canvas, { __graphNodes: next })
 			render()
-			markVisibilityDirty()
+			onSceneChanged()
 		},
 		setLinks: (next) => {
 			links = next
@@ -213,7 +212,7 @@ export function createCanvasRenderer(
 		setZoomScale: (scaleValue) => {
 			zoomScale = scaleValue
 			render()
-			markVisibilityDirty()
+			onSceneChanged()
 		},
 		getViewport: () => {
 			const scale = baseScale()
@@ -232,7 +231,7 @@ export function createCanvasRenderer(
 			transform.y = y
 			transform.k = k
 			canvas.setAttribute('data-transform', `${x},${y},${k}`)
-			markVisibilityDirty()
+			onSceneChanged()
 		},
 		destroy: () => {
 			resizeObserver?.disconnect()

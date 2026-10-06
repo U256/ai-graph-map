@@ -17,6 +17,7 @@ import { graphData as graphMini2 } from './data/graphMini2'
 import { graphData as graphMini3 } from './data/graphMini3'
 import { type GraphData } from './types/graph'
 import type { GraphSettings } from './types/settings'
+import { multiplyWithClones } from './utils/graphUtlis'
 
 /** Данные подключены модулем, поэтому загрузка только эмулируется. */
 const LOAD_DELAY_MS = 400
@@ -42,7 +43,9 @@ export function App() {
 		let active = true
 		const timer = setTimeout(() => {
 			const source = sourceGraph(settings.nodeClones)
-			makeCoordinates(source, true).then((positioned) => {
+			const prepared =
+				typeof settings.nodeClones === 'number' ? multiplyWithClones(source, settings.nodeClones) : source
+			makeCoordinates(prepared, true).then((positioned) => {
 				if (active) setData(positioned)
 			})
 		}, LOAD_DELAY_MS)
@@ -57,9 +60,9 @@ export function App() {
 	// выбранного узла больше нет в данных — его удалили из этой же формы: панель возвращается к настройкам
 	const view: PanelView = panel.kind === 'edit' && !selected ? { kind: 'settings' } : panel
 
-	// клик по копии (`2-…`) ничего не открывает: правка клона смысла не имеет, а id у копии генерный
 	const handleNodeClick = useCallback(
 		(id: string) => {
+			// клик по копии (`2-…`) ничего не открывает: правка клона смысла не имеет
 			if (!data?.nodes.some((node) => node.id === id)) return
 			setPanel({ kind: 'edit', id })
 		},

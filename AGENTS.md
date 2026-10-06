@@ -81,9 +81,8 @@
   порталом в `body` (`menuPortalTarget`), иначе его срежет `overflow-y: auto` панели.
 - `SettingsPanel/NodeForm.css` — текстовые поля, подпись узла, ошибка валидации, красная кнопка
   удаления (`node-form__*`).
-- `ForceGraph/forceGraph.ts` — чистая логика без DOM: константы сцены, `prepareGraph`,
-  `createSimulation`, `createLinkForce`, `createTypeColors`, `tintToWhite`, типы
-  `NodeRenderData`. Сервер рассчитывает заряд по числу непосредственных узлов в `children`;
+- `ForceGraph/forceGraph.ts` — чистая логика без DOM: константы сцены, `createTypeColors`,
+  `tintToWhite`. Сервер рассчитывает заряд по числу непосредственных узлов в `children`;
   ручной настройки заряда у узла нет. Вычисленный `chargeMultiplier` возвращается только узлам с `children`.
 - `ForceGraph/resolveLinks.ts` — разрешение концов связей для Canvas с отбрасыванием отсутствующих узлов.
 - `ForceGraph/forceGraphCloud.ts` — геометрия узлов без DOM: кегли, паддинги, `truncateToWidth`,

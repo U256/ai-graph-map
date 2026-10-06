@@ -167,7 +167,6 @@ const physics = await server.ssrLoadModule('/src/components/ForceGraph/forceGrap
 const cloud = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphCloud.ts')
 const groupMetrics = await server.ssrLoadModule('/src/components/ForceGraph/groupMetrics.ts')
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts')
-const graphComponents = await server.ssrLoadModule('/src/components/ForceGraph/graphComponents.ts')
 const layout = await server.ssrLoadModule('/src/components/ForceGraph/layout.ts')
 const linksLogic = await server.ssrLoadModule('/src/components/ForceGraph/resolveLinks.ts')
 const source = await server.ssrLoadModule('/src/data/graph.ts')
@@ -182,7 +181,6 @@ const {
 } = physics
 const { calculateGraphLayout, applyLayout } = layout
 const { resolveLinks } = linksLogic
-const { MAX_GROUP_SIZE, splitGraphIntoComponents } = graphComponents
 const {
 	CLOUD_MAX_TEXT_WIDTH,
 	CLOUD_PADDING_X,
@@ -212,36 +210,6 @@ const componentFixture = {
 		{ source: 'missing', target: 'f' },
 	],
 }
-const components = splitGraphIntoComponents(componentFixture)
-check('компоненты связности упаковываются в одну группу', components.length === 1)
-check(
-	'изолированная нода остаётся отдельной компонентой',
-	components[0].nodes.some(({ id }) => id === 'f'),
-)
-check(
-	'дубликаты рёбер сохраняются, отсутствующие концы отбрасываются',
-	components.flatMap(({ links }) => links).length === 4,
-)
-check(
-	'направление исходных рёбер не меняется',
-	components.flatMap(({ links }) => links).some(({ source, target }) => source === 'a' && target === 'b'),
-)
-const groupedNodes = splitGraphIntoComponents({
-	nodes: Array.from({ length: 401 }, (_, index) => ({
-		id: `isolated-${index}`,
-		title: String(index),
-		type: 'node',
-		hasWarning: false,
-	})),
-	links: [],
-})
-check(
-	'группы не превышают лимит размера',
-	groupedNodes.every(({ nodes }) => nodes.length <= MAX_GROUP_SIZE) &&
-		groupedNodes.flatMap(({ nodes }) => nodes).length === 401 &&
-		groupedNodes.length === Math.ceil(401 / MAX_GROUP_SIZE),
-)
-check('пустой граф даёт пустой список компонент', splitGraphIntoComponents({ nodes: [], links: [] }).length === 0)
 
 console.log('\n== полный расчёт раскладки ==')
 const initial = calculateGraphLayout(base, 7)

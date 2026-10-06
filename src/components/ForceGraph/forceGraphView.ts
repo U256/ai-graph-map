@@ -35,7 +35,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	let currentNodes = initialNodes
 	const initialLinks = data.links.map((link) => ({ ...link }))
 	const colorOf = createTypeColors(initialNodes)
-	const drawnLinks = resolveLinks(initialNodes, initialLinks)
+	const drawnLinks = resolveLinks(initialNodes, initialLinks) // Отбрасывает связи с отсутствующими концами
 	let layouts = new WeakMap<GraphNode, CloudLayout>()
 	const layoutOf = (node: GraphNode): CloudLayout => {
 		const cached = layouts.get(node)

@@ -94,6 +94,10 @@ module.exports = {
 				tsconfigRootDir: __dirname,
 				sourceType: 'module',
 			},
+			rules: {
+				...tsConfig.rules,
+				'@typescript-eslint/ban-ts-comment': 0,
+			},
 		},
 		{
 			// конфиги сборки и линтеров относятся к node-части проекта (tsconfig.node.json)

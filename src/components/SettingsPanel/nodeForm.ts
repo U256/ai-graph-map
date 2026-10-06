@@ -83,6 +83,7 @@ export function createNodeInData(data: GraphData, draft: NodeCreateDraft, neighb
 	const taken = new Set(data.links.map((link) => linkKey(link.source, link.target)))
 	const links: GraphLinkInput[] = []
 
+	// TODO: это должен делать бекенд?
 	neighbors.forEach((neighborId) => {
 		if (!known.has(neighborId)) return
 		const link: GraphLinkInput =

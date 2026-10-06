@@ -1,29 +1,15 @@
 import { schemeCategory10 } from 'd3-scale-chromatic'
 import type { GraphNode, GraphNodeType } from '../../types/graph'
 
-/** Размер окна сцены; viewBox вокруг нуля — все силы целятся в ноль. */
+/**
+ * Размер окна сцены; viewBox вокруг нуля — все силы целятся в ноль.
+ * логический размер базовой сцены, то есть эталонная область координат графа
+ */
 export const GRAPH_WIDTH = 928
 export const GRAPH_HEIGHT = 680
 
-/** Масштаб раскладки: отталкивание растянуто по площади (`LAYOUT_SCALE ** 2`); притяжение к нулю линейно и масштабируется заодно. */
-export const LINK_FORCE_DEFAULT = 2
-
 /** Тело не прозрачное — под подписями не должны просвечивать связи. */
 export const BODY_FILL_WHITE = 0.85
-
-/** Сравниваются значения, а не идентичность объекта: данные приезжают новым массивом и могли измениться на месте. */
-export interface NodeRenderData {
-	title: string
-	description?: string
-	hasWarning: boolean
-	type: GraphNodeType
-}
-
-/** Точка высадки нового узла. */
-export interface SeedPoint {
-	x: number
-	y: number
-}
 
 /** Оттенки в порядке первого появления типа, поэтому легенда не нужна; тип, приехавший с обновлением, держит свой оттенок. */
 export function createTypeColors(nodes: GraphNode[]): (type: GraphNodeType) => string {
