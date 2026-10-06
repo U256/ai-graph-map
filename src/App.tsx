@@ -69,6 +69,12 @@ export function App() {
 		[data],
 	)
 
+	const handleVisibleGroupsChange = useCallback((ids: string[]) => {
+		// Временный вывод нужен для проверки передачи видимых групп до App.
+		// eslint-disable-next-line no-console
+		console.log('Видимые группы:', ids)
+	}, [])
+
 	const handleCreate = useCallback(
 		async (draft: NodeCreateDraft, neighbors: string[]) => {
 			if (!data) return
@@ -130,6 +136,7 @@ export function App() {
 						data={data}
 						selectedNodeId={view.kind === 'edit' ? view.id : null}
 						onNodeClick={handleNodeClick}
+						onVisibleGroupsChange={handleVisibleGroupsChange}
 					/>
 				</main>
 			</div>

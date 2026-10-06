@@ -34,8 +34,6 @@ interface HitNode extends CanvasNodeEntry {
 export function createCanvasRenderer(
 	colorOf: (type: GraphNodeType) => string,
 	layoutOf: (node: GraphNode) => CloudLayout,
-	onDrag: (node: GraphNode) => void,
-	onDragEnd: () => void,
 	onNodeClick?: (id: string) => void,
 	onSceneChanged: () => void = () => {},
 ): CanvasRenderer {
@@ -55,7 +53,6 @@ export function createCanvasRenderer(
 	const transform = { x: 0, y: 0, k: 1 }
 	let resizeObserver: ResizeObserver | null = null
 	let hitNodes: HitNode[] = []
-	const nodeClick = onNodeClick
 	let render = (): void => {}
 
 	function baseScale(): number {
@@ -177,10 +174,8 @@ export function createCanvasRenderer(
 		(x, y) => worldPoint(x, y),
 		(x, y) => findHit(x, y),
 		render,
-		onDrag,
-		onDragEnd,
 		() => onSceneChanged(),
-		nodeClick,
+		onNodeClick,
 		nodeTooltip,
 	)
 

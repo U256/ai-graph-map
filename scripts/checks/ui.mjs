@@ -268,15 +268,24 @@ try {
 	)
 	await waitVisible([])
 	check('ниже масштаба 1 видимые группы сбрасываются', true)
-	await page.evaluate(() =>
-		window.__visibilityGraph.setZoomTransform(window.__visibilityGraph.getZoomTransform().scale(1 / 0.9)),
-	)
-	await waitVisible(['near'])
-	check('при масштабе 1 видимость снова считается', true)
+	const resultsBeforePan = await page.evaluate(() => window.__visibilityResults.length)
 	await page.evaluate(() =>
 		window.__visibilityGraph.setZoomTransform(window.__visibilityGraph.getZoomTransform().translate(-2000, 0)),
 	)
+	await page.waitForTimeout(1200)
+	check(
+		'ниже масштаба 1 панорама не публикует группы',
+		(await page.evaluate(() => window.__visibilityResults.length)) === resultsBeforePan,
+	)
+	await page.evaluate(() =>
+		window.__visibilityGraph.setZoomTransform(window.__visibilityGraph.getZoomTransform().scale(1 / 0.9)),
+	)
 	await waitVisible(['far'])
+	check('при масштабе 1 видимость снова считается', true)
+	await page.evaluate(() =>
+		window.__visibilityGraph.setZoomTransform(window.__visibilityGraph.getZoomTransform().translate(2000, 0)),
+	)
+	await waitVisible(['near'])
 	check('смена viewport возвращает другую группу', true)
 	await page.evaluate(() => {
 		window.__visibilityGraph.destroy()

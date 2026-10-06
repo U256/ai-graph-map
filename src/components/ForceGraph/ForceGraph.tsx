@@ -9,9 +9,16 @@ type ForceGraphProps = {
 	settings: GraphSettings
 	selectedNodeId?: string | null
 	onNodeClick?: (id: string) => void
+	onVisibleGroupsChange?: (ids: string[]) => void
 }
 
-export function ForceGraph({ data, settings, selectedNodeId = null, onNodeClick }: ForceGraphProps) {
+export function ForceGraph({
+	data,
+	settings,
+	selectedNodeId = null,
+	onNodeClick,
+	onVisibleGroupsChange,
+}: ForceGraphProps) {
 	// @ts-ignore Временно не используется, нужно для дальнейших доработок визуала
 	const { showFullSubNodes } = settings
 
@@ -22,6 +29,9 @@ export function ForceGraph({ data, settings, selectedNodeId = null, onNodeClick 
 	const nodeClickRef = useRef(onNodeClick)
 	nodeClickRef.current = onNodeClick
 	const handleNodeClick = useCallback((id: string) => nodeClickRef.current?.(id), [])
+	const visibleGroupsRef = useRef(onVisibleGroupsChange)
+	visibleGroupsRef.current = onVisibleGroupsChange
+	const handleVisibleGroupsChange = useCallback((ids: string[]) => visibleGroupsRef.current?.(ids), [])
 
 	// React владеет только контейнером, Canvas императивный. Разрушение сцены — отдельный эффект ниже:
 	// в cleanup этого она пересобирала бы Canvas на каждую смену зависимости
@@ -36,11 +46,12 @@ export function ForceGraph({ data, settings, selectedNodeId = null, onNodeClick 
 		} else {
 			const next = createForceGraph(data, {
 				onNodeClick: handleNodeClick,
+				onVisibleGroupsChange: handleVisibleGroupsChange,
 			})
 			graphRef.current = next
 			container.replaceChildren(next.canvas, next.zoomIndicator)
 		}
-	}, [data, handleNodeClick])
+	}, [data, handleNodeClick, handleVisibleGroupsChange])
 
 	useEffect(() => {
 		graphRef.current?.setSelectedNode(selectedNodeId)

@@ -5,7 +5,6 @@ import type { GraphNode } from '../../types/graph'
 export const LOCAL_RADIUS_PX = 200
 const LOCAL_CHARGE = -960
 const ANCHOR_STRENGTH = 0.12
-const DRAG_ALPHA = 0.05
 const ZOOM_ALPHA = 0.14
 
 /** В локальную симуляцию не попадают далёкие узлы и узлы без координат. */
@@ -33,33 +32,30 @@ export function createLocalMotion(nodes: GraphNode[], render: () => void) {
 	let activeNodes: GraphNode[] = []
 	let anchors = new Map<GraphNode, { x: number; y: number }>()
 	let radius = 1
-	let zoomPinned = false
 
 	function stop(): void {
 		simulation?.stop()
-		if (zoomPinned && focus) {
+		if (focus) {
 			focus.fx = null
 			focus.fy = null
 		}
-		zoomPinned = false
 		simulation = null
 		focus = null
 		activeNodes = []
 		anchors.clear()
 	}
 
-	function start(node: GraphNode, pixelsPerWorldUnit: number, dragging: boolean): void {
+	function start(node: GraphNode, pixelsPerWorldUnit: number): void {
 		if (!Number.isFinite(pixelsPerWorldUnit) || pixelsPerWorldUnit <= 0) return
-		if (zoomPinned && focus && (focus !== node || dragging)) {
-			focus.fx = null
-			focus.fy = null
-			zoomPinned = false
-		}
 		radius = LOCAL_RADIUS_PX / pixelsPerWorldUnit
 		const selected = nearbyNodes(nodes, node, radius)
 		if (selected.length < 2) {
 			stop()
 			return
+		}
+		if (focus && focus !== node) {
+			focus.fx = null
+			focus.fy = null
 		}
 		const changed =
 			focus !== node ||
@@ -81,24 +77,14 @@ export function createLocalMotion(nodes: GraphNode[], render: () => void) {
 				.on('tick', render)
 				.on('end', stop)
 		}
-		if (!dragging) {
-			const selectedFocus = node
+		const selectedFocus = focus
+		if (selectedFocus) {
 			selectedFocus.fx = selectedFocus.x
 			selectedFocus.fy = selectedFocus.y
-			zoomPinned = true
 		}
 		simulation?.force<ForceManyBody<GraphNode>>('charge')?.strength((entry) => localCharge(entry, node, radius))
-		if (dragging || changed) {
-			simulation
-				?.alpha(dragging ? DRAG_ALPHA : ZOOM_ALPHA)
-				.alphaTarget(dragging ? DRAG_ALPHA : 0)
-				.restart()
-		}
+		if (changed) simulation?.alpha(ZOOM_ALPHA).restart()
 	}
 
-	function cool(): void {
-		simulation?.alphaTarget(0)
-	}
-
-	return { start, cool, stop }
+	return { start, stop }
 }

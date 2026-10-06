@@ -15,8 +15,6 @@ export function createCanvasPointerHandlers(
 	worldPoint: (clientX: number, clientY: number) => { x: number; y: number },
 	findHit: (clientX: number, clientY: number) => { node: GraphNode } | null,
 	render: () => void,
-	onDrag: (node: GraphNode) => void,
-	onDragEnd: () => void,
 	onSceneChanged: () => void,
 	onNodeClick: ((id: string) => void) | undefined,
 	nodeTooltip: (node: GraphNode) => string,
@@ -66,7 +64,6 @@ export function createCanvasPointerHandlers(
 			node.y = point.y
 			node.fx = point.x
 			node.fy = point.y
-			onDrag(node)
 			onSceneChanged()
 			render()
 			return
@@ -90,7 +87,6 @@ export function createCanvasPointerHandlers(
 		pointerState.dragStart = null
 		pointerState.didDrag = false
 		if (targetCanvas.hasPointerCapture(event.pointerId)) targetCanvas.releasePointerCapture(event.pointerId)
-		onDragEnd()
 	}
 
 	return { pointerDown, pointerMove, pointerUp }
