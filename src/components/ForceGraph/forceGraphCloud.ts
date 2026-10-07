@@ -1,4 +1,4 @@
-import type { GraphNode } from '../../types/graph'
+import type { GraphData, GraphNode } from '../../types/graph'
 import { GROUP_FOCUS_SIZE, groupFocusSize } from './groupMetrics'
 
 export { GROUP_FOCUS_SIZE, GROUP_FOCUS_SIZE_AT_40, GROUP_FOCUS_SIZE_EXPONENT, groupFocusSize } from './groupMetrics'
@@ -27,6 +27,11 @@ export interface CloudLayout {
 	focusedSize?: number
 }
 
+export interface NestedGraphBounds {
+	/** Радиус круга, покрывающего все видимые тела вложенного графа. */
+	radius: number
+}
+
 export const TITLE_FONT_SIZE = 14
 export const DESCRIPTION_FONT_SIZE = 12
 
@@ -43,6 +48,10 @@ export const CLOUD_PADDING_Y = 8
 
 /** Иначе длинное описание растянет облако на всю карту. */
 export const CLOUD_MAX_TEXT_WIDTH = 220
+
+/** Запас от края группы до центра ноды с максимально широкой подписью; подобрано примерно по размеру CLOUD_MAX_TEXT_WIDTH */
+// TODO: избыточен для маленьких групп. Нужно увеличивать относительно радиуса или доработать логику "разлёта" соседей
+export const GROUP_OFFSET_FOR_NODE = CLOUD_MAX_TEXT_WIDTH * 1.4
 
 export const CLOUD_RADIUS = 12
 
@@ -70,6 +79,38 @@ export function createFocusedGroupLayout(layout: CloudLayout): CloudLayout {
 		descriptionY: -radius + layout.descriptionY,
 		focusedGroup: true,
 		focusedSize: size,
+	}
+}
+
+function addNodeBounds(
+	data: GraphData,
+	measure: MeasureText,
+	point: { x: number; y: number },
+	worldScale: number,
+	points: { x: number; y: number; radius: number }[],
+): void {
+	data.nodes.forEach((node) => {
+		const x = point.x + (node.x ?? 0) * worldScale
+		const y = point.y + (node.y ?? 0) * worldScale
+		const layout = createCloudLayouts([node], measure).get(node)!
+		const halfWidth = (layout.width * worldScale) / 2
+		const halfHeight = (layout.height * worldScale) / 2
+		points.push({ x, y, radius: Math.hypot(halfWidth, halfHeight) })
+		if (node.children) {
+			addNodeBounds(node.children, measure, { x, y }, worldScale * NESTED_GRAPH_SCALE, points)
+		}
+	})
+}
+
+/** Считает радиус, достаточный для всего рекурсивного вложенного графа. */
+export function nestedGraphBounds(data: GraphData, measure: MeasureText): NestedGraphBounds {
+	const points: { x: number; y: number; radius: number }[] = []
+	addNodeBounds(data, measure, { x: 0, y: 0 }, NESTED_GRAPH_SCALE, points)
+	return {
+		radius: points.reduce(
+			(max, point) => Math.max(max, Math.hypot(point.x, point.y) + point.radius),
+			GROUP_FOCUS_SIZE / 2,
+		),
 	}
 }
 

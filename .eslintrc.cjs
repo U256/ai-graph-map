@@ -97,6 +97,7 @@ module.exports = {
 			rules: {
 				...tsConfig.rules,
 				'@typescript-eslint/ban-ts-comment': 0,
+				'@typescript-eslint/no-use-before-define': 0,
 			},
 		},
 		{

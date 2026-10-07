@@ -3,7 +3,13 @@ import { drawNestedGraph } from './canvasNestedRenderer'
 import { drawCanvasNode, type CanvasNodeEntry } from './canvasNodeRenderer'
 import { createCanvasPointerHandlers } from './canvasPointerHandlers'
 import { GRAPH_HEIGHT, GRAPH_WIDTH } from './forceGraph'
-import { createFocusedGroupLayout, GROUP_DETAIL_SCALE, GROUP_FOCUS_SIZE, type CloudLayout } from './forceGraphCloud'
+import {
+	createFocusedGroupLayout,
+	GROUP_DETAIL_SCALE,
+	GROUP_FOCUS_SIZE,
+	type CloudLayout,
+	type NestedGraphBounds,
+} from './forceGraphCloud'
 import { nodeTooltip } from './nodePresentation'
 
 const LINK_COLOR = '#999'
@@ -22,6 +28,7 @@ export interface CanvasRenderer {
 	setZoomTransform: (x: number, y: number, k: number) => void
 	getPixelsPerWorldUnit: () => number
 	setNestedGroup: (id: string, data: GraphData | null, loading: boolean) => void
+	setNestedGroupBounds: (id: string, bounds: NestedGraphBounds | null) => void
 	destroy: () => void
 }
 
@@ -48,6 +55,7 @@ export function createCanvasRenderer(
 	let nodes: GraphNode[] = []
 	let links: DrawnLink[] = []
 	const nestedGroups = new Map<string, { data: GraphData | null; loading: boolean }>()
+	const nestedBounds = new Map<string, NestedGraphBounds>()
 	let selectedId: string | null = null
 	let zoomScale = 1
 	let width = 0
@@ -66,7 +74,7 @@ export function createCanvasRenderer(
 		const viewportHeight = height / baseScale() / transform.k
 		const centerX = -transform.x / transform.k
 		const centerY = -transform.y / transform.k
-		const radius = (layoutOf(node).focusedSize ?? GROUP_FOCUS_SIZE) / 2
+		const radius = groupRadius(node)
 		const x = node.x ?? 0
 		const y = node.y ?? 0
 		return (
@@ -75,6 +83,11 @@ export function createCanvasRenderer(
 			y + radius >= centerY - viewportHeight / 2 &&
 			y - radius <= centerY + viewportHeight / 2
 		)
+	}
+
+	function groupRadius(node: GraphNode): number {
+		const state = nestedGroups.get(node.id)
+		return state?.loading ? GROUP_FOCUS_SIZE / 2 : (nestedBounds.get(node.id)?.radius ?? GROUP_FOCUS_SIZE / 2)
 	}
 
 	function resize(): void {
@@ -135,8 +148,12 @@ export function createCanvasRenderer(
 		)
 		const prepared = nodes.map((node) => {
 			const baseLayout = layoutOf(node)
+			const focusedLayout =
+				node.type === 'group' ? { ...baseLayout, focusedSize: groupRadius(node) * 2 } : baseLayout
 			const layout =
-				zoomScale >= GROUP_DETAIL_SCALE && node.type === 'group' ? createFocusedGroupLayout(baseLayout) : baseLayout
+				zoomScale >= GROUP_DETAIL_SCALE && node.type === 'group'
+					? createFocusedGroupLayout(focusedLayout)
+					: baseLayout
 			return {
 				node,
 				layout,
@@ -207,6 +224,12 @@ export function createCanvasRenderer(
 		setNestedGroup: (id, data, loading) => {
 			if (data || loading) nestedGroups.set(id, { data, loading })
 			else nestedGroups.delete(id)
+			render()
+			onSceneChanged()
+		},
+		setNestedGroupBounds: (id, bounds) => {
+			if (bounds) nestedBounds.set(id, bounds)
+			else nestedBounds.delete(id)
 			render()
 			onSceneChanged()
 		},

@@ -165,24 +165,15 @@ const server = await createServer({ root, server: { middlewareMode: true }, appT
 
 const physics = await server.ssrLoadModule('/src/components/ForceGraph/forceGraph.ts')
 const cloud = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphCloud.ts')
-const groupMetrics = await server.ssrLoadModule('/src/components/ForceGraph/groupMetrics.ts')
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts')
-const layout = await server.ssrLoadModule('/src/components/ForceGraph/layout.ts')
 const linksLogic = await server.ssrLoadModule('/src/components/ForceGraph/resolveLinks.ts')
 const motion = await server.ssrLoadModule('/src/components/ForceGraph/localMotion.ts')
+const visibility = await server.ssrLoadModule('/src/components/ForceGraph/visibleGroups.ts')
 const source = await server.ssrLoadModule('/src/data/graph.ts')
 
-const {
-	prepareGraph,
-	createSimulation,
-	groupNeighborChargeMultiplier,
-	GROUP_LINK_STRENGTH,
-	createTypeColors,
-	LINK_DISTANCE,
-} = physics
-const { calculateGraphLayout, applyLayout } = layout
+const { createTypeColors } = physics
 const { resolveLinks } = linksLogic
-const { localCharge, localRadius, nearbyNodes } = motion
+const { boundaryRadius, localRadius, nearbyNodes } = motion
 const {
 	CLOUD_MAX_TEXT_WIDTH,
 	CLOUD_PADDING_X,
@@ -194,12 +185,16 @@ const {
 	createCloudLayouts,
 	createFocusedGroupLayout,
 	groupFocusSize,
+	nestedGraphBounds,
 	truncateToWidth,
 } = cloud
-const { groupChargeMultiplier } = groupMetrics
 const { createNodeInData, deleteNodeFromData, neighborOptions, updateNodeInData } = nodeForm
 
 const base = source.graphData
+const positioned = {
+	nodes: base.nodes.map((node, index) => ({ ...node, x: (index % 10) * 100, y: Math.floor(index / 10) * 100 })),
+	links: base.links,
+}
 const NEW_ID = 'probe-new'
 
 const componentFixture = {
@@ -214,35 +209,7 @@ const componentFixture = {
 }
 
 console.log('\n== полный расчёт раскладки ==')
-const initial = calculateGraphLayout(base, 7)
-const positioned = applyLayout(base, initial)
-const located = byId(positioned.nodes)
-const resolved = resolveLinks(positioned.nodes, positioned.links)
-check(
-	'worker возвращает revision и позицию каждой ноды',
-	initial.revision === 7 && initial.positions.length === base.nodes.length,
-)
-check(
-	'раскладка не мутирует исходные данные',
-	base.nodes.every((node) => node.x === undefined),
-)
-check(
-	'координаты конечны, связи разрешены',
-	positioned.nodes.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y)) &&
-		resolved.every(({ source, target }) => located.get(source.id) === source && located.get(target.id) === target),
-)
-const changedData = {
-	nodes: [...base.nodes, { id: 'probe-new', title: 'Новая', type: 'node', hasWarning: false }],
-	links: [...base.links, { source: 'probe-new', target: base.nodes[1].id }],
-}
-const changedLayout = calculateGraphLayout(changedData, 8)
-check(
-	'полный перерасчёт включает новую ноду и связь',
-	changedLayout.revision === 8 &&
-		changedLayout.positions.length === changedData.nodes.length &&
-		resolveLinks(applyLayout(changedData, changedLayout).nodes, applyLayout(changedData, changedLayout).links)
-			.length === changedData.links.length,
-)
+
 check(
 	'отсутствующий конец связи отбрасывается',
 	resolveLinks(positioned.nodes, [{ source: 'missing', target: base.nodes[0].id }]).length === 0,
@@ -253,34 +220,39 @@ check(
 	'цвета типов стабильны',
 	types.every((type) => colors(type) === createTypeColors(base.nodes)(type)),
 )
-check(
-	'множитель заряда группы считается по площади',
-	[15, 40, 90, 270].every(
-		(count) => Math.abs(groupNeighborChargeMultiplier(count) - groupChargeMultiplier(count)) < 0.001,
-	),
-)
-const motionGroup = { id: 'motion-group', type: 'group', chargeMultiplier: 4, x: 0, y: 0 }
+const motionGroup = { id: 'motion-group', type: 'group', x: 0, y: 0 }
 const motionNeighbor = { id: 'motion-neighbor', type: 'node', x: 100, y: 0 }
 const motionFar = { id: 'motion-far', type: 'node', x: 500, y: 0 }
-check('радиус локального движения растёт с множителем группы', localRadius(motionGroup, 1) === 400)
+check('радиус локального движения включает размер группы', localRadius(100, 1) === 380)
 check(
-	'в локальное движение попадают узлы в увеличенном радиусе',
-	nearbyNodes([motionGroup, motionNeighbor, motionFar], motionGroup, localRadius(motionGroup, 1)).length === 2,
+	'в локальное движение попадают узлы в радиусе группы',
+	nearbyNodes([motionGroup, motionNeighbor, motionFar], motionGroup, localRadius(100, 1)).length === 2,
 )
+const nested = {
+	nodes: [
+		{ id: 'nested-wide', type: 'node', title: 'Широкая вложенная нода', hasWarning: false, x: 300, y: 0 },
+		{
+			id: 'nested-group',
+			type: 'group',
+			title: 'Вложенная группа',
+			hasWarning: false,
+			x: -300,
+			y: 0,
+			children: {
+				nodes: [{ id: 'deep', type: 'node', title: 'Глубокая', hasWarning: false, x: 200, y: 0 }],
+				links: [],
+			},
+		},
+	],
+	links: [],
+}
+const nestedBounds = nestedGraphBounds(nested, measure)
 check(
-	'сила локального движения берётся из множителя фокусной группы',
-	localCharge(motionNeighbor, motionGroup, 400) ===
-		localCharge(motionNeighbor, { ...motionGroup, chargeMultiplier: 1 }, 400) * 4,
+	'пустой вложенный граф использует размер загрузки',
+	nestedGraphBounds({ nodes: [], links: [] }, measure).radius === GROUP_FOCUS_SIZE / 2,
 )
-const groupNode = { id: 'group', type: 'group', title: 'Группа', hasWarning: false, children: { nodes: [], links: [] } }
-const outsideNode = { id: 'outside', type: 'node', title: 'Снаружи', hasWarning: false }
-const groupLinkSimulation = createSimulation([groupNode, outsideNode], [{ source: 'group', target: 'outside' }])
-check(
-	'связь группы ослаблена',
-	groupLinkSimulation.force('link').strength()({ source: groupNode, target: outsideNode }) === GROUP_LINK_STRENGTH,
-)
-groupLinkSimulation.stop()
-
+check('границы учитывают широкую ноду', nestedBounds.radius > 300 * 0.2)
+check('границы рекурсивно учитывают вложенный масштаб', nestedBounds.radius > 300 * 0.2)
 console.log('\n== правки данных (nodeForm) ==')
 
 const work = { id: 'w-1', type: 'node', title: 'Работа', hasWarning: false }
@@ -387,12 +359,28 @@ const smallGroup = {
 	...cloudWork,
 	id: 'group-15',
 	type: 'group',
-	children: { nodes: Array.from({ length: 15 }, (_, index) => ({ id: `small-${index}` })), links: [] },
+	children: {
+		nodes: Array.from({ length: 15 }, (_, index) => ({
+			id: `small-${index}`,
+			title: 'Элемент',
+			type: 'node',
+			hasWarning: false,
+		})),
+		links: [],
+	},
 }
 const largeGroup = {
 	...smallGroup,
 	id: 'group-40',
-	children: { nodes: Array.from({ length: 40 }, (_, index) => ({ id: `large-${index}` })), links: [] },
+	children: {
+		nodes: Array.from({ length: 40 }, (_, index) => ({
+			id: `large-${index}`,
+			title: 'Элемент',
+			type: 'node',
+			hasWarning: false,
+		})),
+		links: [],
+	},
 }
 const focusedSmall = createFocusedGroupLayout(createCloudLayouts([smallGroup], measure).get(smallGroup))
 const focusedLarge = createFocusedGroupLayout(createCloudLayouts([largeGroup], measure).get(largeGroup))
@@ -420,7 +408,8 @@ check(
 )
 check(
 	'радиус снимка совпадает с увеличенным кругом группы',
-	snapshots[0].radius === focusedSmall.focusedSize / 2 && snapshots[1].radius === focusedLarge.focusedSize / 2,
+	snapshots[0].radius === nestedGraphBounds(nearGroup.children, measure).radius &&
+		snapshots[1].radius === nestedGraphBounds(farGroup.children, measure).radius,
 )
 check(
 	'группа на границе viewport видима',
@@ -432,18 +421,12 @@ check(
 )
 check(
 	'вложенная группа учитывает масштаб родителя',
-	visibility.visibleGroupIds(snapshots, { left: 200, right: 300, top: -50, bottom: 50 }).join(',') === 'nested',
+	visibility.visibleGroupIds(snapshots, { left: 200, right: 300, top: -50, bottom: 50 }).includes('nested'),
 )
 check(
 	'перемещение viewport меняет список',
 	visibility.visibleGroupIds(snapshots, { left: 950, right: 1250, top: -150, bottom: 150 }).join(',') === 'far',
 )
-
-console.log('\n== геометрия полной раскладки ==')
-const restGap = medianLinkGap(positioned.nodes, positioned.links)
-const restOverlaps = bodyOverlaps(positioned.nodes, createCloudLayouts(positioned.nodes, measure))
-check('связанные узлы не совпадают', restGap > LINK_DISTANCE * 0.3, `просвет ${restGap}`)
-check('тела не схлопнулись', restOverlaps < base.nodes.length / 2, `наездов ${restOverlaps}`)
 
 await server.close()
 

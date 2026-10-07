@@ -4,7 +4,6 @@ const LAYOUT_SCALE = 7
 const LINK_DISTANCE = 100
 const LINK_STRENGTH = 0.5
 const CHARGE_STRENGTH = -30
-const MAX_CHARGE_FACTOR = 10
 const VELOCITY_DECAY = 0.6
 const ADD_RADIUS = 100
 
@@ -14,8 +13,6 @@ const ADD_RADIUS = 100
 /** @property {number} [y] Координата по вертикали. */
 /** @property {number} [vx] Скорость по горизонтали во время симуляции. */
 /** @property {number} [vy] Скорость по вертикали во время симуляции. */
-/** @property {number} [childrenCount] Число непосредственных дочерних узлов. */
-/** @property {number} [chargeMultiplier] Вычисленный множитель заряда группы. */
 
 /** @typedef {Object} GraphLink Связь между узлами графа. */
 /** @property {string} source Исходный конец связи. */
@@ -74,34 +71,17 @@ function validPosition(node) {
 }
 
 /**
- * Рассчитывает множитель отталкивания группы по числу её непосредственных детей.
- * @param {number} elementCount Число непосредственных детей.
- * @returns {number} Множитель заряда.
- */
-function chargeFactor(elementCount) {
-	const count = Math.max(0, elementCount)
-	const progress = Math.max(0, (count - 15) / 75)
-	return Math.min(MAX_CHARGE_FACTOR, Math.max(1, 1 + 4 * progress ** 0.8))
-}
-
-/**
- * Добавляет вычисленный заряд группе и удаляет устаревший заряд у обычного узла.
- * @param {GraphNode} node Исходные данные узла.
- * @returns {GraphNode} Копия узла с актуальным зарядом.
- */
-function withChargeMultiplier(node) {
-	if (node.childrenCount === undefined) {
-		const { chargeMultiplier: _chargeMultiplier, ...plainNode } = node
-		return plainNode
-	}
-	if (!Number.isInteger(node.childrenCount) || node.childrenCount < 0) {
-		throw new Error('childrenCount должен быть неотрицательным целым числом')
-	}
-	return { ...node, chargeMultiplier: chargeFactor(node.childrenCount) }
-}
-
-/**
  * Рассчитывает координаты графа остановленной d3-симуляцией.
+ * @example
+ * {
+ * 	"graph": {
+ * 		"nodes": [{ "id": "id1", }, { "id": "id2", }],
+ * 		"links": [{ "source": "id1", "target": "id2" }]
+ * 	},
+ * 	"ignoreCurrentCoordinates": false,
+ * 	"scale": 1
+ * }
+ *
  * @param {GraphData} graph Плоский граф для раскладки.
  * @param {boolean} [ignoreCurrentCoordinates=false] Нужно ли игнорировать начальные координаты.
  * @param {number} [scale=1] Масштаб уровня графа.
@@ -110,14 +90,13 @@ function withChargeMultiplier(node) {
 export function calculateSimulation(graph, ignoreCurrentCoordinates = false, scale = 1) {
 	if (!Number.isFinite(scale) || scale <= 0) throw new Error('scale должен быть положительным числом')
 	const nodes = graph.nodes.map((node) => {
-		const copy = withChargeMultiplier(node)
-		if (ignoreCurrentCoordinates || !validPosition(copy)) {
-			delete copy.x
-			delete copy.y
-			delete copy.vx
-			delete copy.vy
+		if (ignoreCurrentCoordinates || !validPosition(node)) {
+			delete node.x
+			delete node.y
+			delete node.vx
+			delete node.vy
 		}
-		return copy
+		return node
 	})
 	const links = structuredClone(graph.links)
 	const simulation = forceSimulation(/** @type {Array<GraphNode & import('d3-force').SimulationNodeDatum>} */ (nodes))
@@ -130,10 +109,7 @@ export function calculateSimulation(graph, ignoreCurrentCoordinates = false, sca
 		)
 		.force(
 			'charge',
-			forceManyBody().strength((node) => {
-				const typedNode = /** @type {GraphNode} */ (node)
-				return CHARGE_STRENGTH * LAYOUT_SCALE ** 2 * (typedNode.chargeMultiplier ?? 1)
-			}),
+			forceManyBody().strength(() => CHARGE_STRENGTH * LAYOUT_SCALE ** 2),
 		)
 		.force('x', forceX())
 		.force('y', forceY())

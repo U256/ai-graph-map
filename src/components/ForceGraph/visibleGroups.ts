@@ -1,5 +1,11 @@
 import type { GraphNode } from '../../types/graph'
-import { createCloudLayouts, createFocusedGroupLayout, groupFocusSize, NESTED_GRAPH_SCALE } from './forceGraphCloud'
+import {
+	createCloudLayouts,
+	createFocusedGroupLayout,
+	groupFocusSize,
+	NESTED_GRAPH_SCALE,
+	nestedGraphBounds,
+} from './forceGraphCloud'
 
 /** Снимок координат групп без ссылок на объекты симуляции. */
 export type VisibilityGroup = { id: string; x: number; y: number; radius: number; children: VisibilityGroup[] }
@@ -10,6 +16,8 @@ const APPROXIMATE_TEXT_MEASURE = (text: string, size: number): number => text.le
 function groupVisibilityRadius(node: GraphNode): number {
 	const layout = createCloudLayouts([node], APPROXIMATE_TEXT_MEASURE).get(node)
 	const childrenCount = node.childrenCount ?? node.children?.nodes.length ?? 0
+	if (node.children && node.childrenLoading !== true)
+		return nestedGraphBounds(node.children, APPROXIMATE_TEXT_MEASURE).radius
 	if (!layout) return groupFocusSize(childrenCount) / 2
 	const focused = createFocusedGroupLayout(layout)
 	return Math.max(focused.focusedSize ?? groupFocusSize(childrenCount), focused.width, focused.height) / 2

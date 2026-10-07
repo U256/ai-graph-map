@@ -41,6 +41,15 @@ export function drawCanvasNode(
 	const top = y - layout.height / 2 + offsetY
 	const radius = Math.min(isCloud ? CLOUD_RADIUS : SUB_NODE_CORNER, layout.width / 2, layout.height / 2)
 
+	if (layout.focusedGroup) {
+		context.beginPath()
+		context.arc(x, y, (layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2, 0, Math.PI * 2)
+		context.fillStyle = '#fff'
+		context.fill()
+		context.strokeStyle = baseColor
+		context.lineWidth = 2
+		context.stroke()
+	}
 	context.fillStyle = tintToWhite(baseColor)
 	context.strokeStyle = baseColor
 	context.lineWidth = BODY_STROKE_WIDTH
@@ -48,13 +57,6 @@ export function drawCanvasNode(
 	context.roundRect(left, top, layout.width, layout.height, radius)
 	context.fill()
 	context.stroke()
-	if (layout.focusedGroup) {
-		context.beginPath()
-		context.arc(x, y, (layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2, 0, Math.PI * 2)
-		context.strokeStyle = baseColor
-		context.lineWidth = 2
-		context.stroke()
-	}
 	context.textBaseline = 'middle'
 	context.textAlign = 'left'
 	context.font = `${TITLE_FONT_SIZE}px ${FONT_FAMILY}`
@@ -79,7 +81,7 @@ export function drawCanvasNode(
 		context.fillStyle = baseColor
 		for (let index = 0; index < 3; index += 1) {
 			context.beginPath()
-			context.arc(x + (index - 1) * 6, y + (layout.focusedSize ?? 0) / 2 - 10, 2, 0, Math.PI * 2)
+			context.arc(x + (index - 1) * 6, y, 2, 0, Math.PI * 2)
 			context.fill()
 		}
 	}

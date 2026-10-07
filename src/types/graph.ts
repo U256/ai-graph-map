@@ -42,8 +42,6 @@ export type GraphNode = GraphNodeInput & {
 	y?: number
 	fx?: number | null
 	fy?: number | null
-	/** Вычисленное поле ответа сервера: есть только у узлов с `childrenCount`. */
-	chargeMultiplier?: number
 }
 
 /** Связь после инициализации: у обоих концов можно читать координаты. */

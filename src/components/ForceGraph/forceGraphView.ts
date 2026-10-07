@@ -1,9 +1,15 @@
 import { zoomIdentity, type ZoomTransform } from 'd3-zoom'
 import type { GraphData, GraphNode, GraphNodeInput } from '../../types/graph'
 import { attachCanvasPanZoom } from './canvasPanZoom'
-import { createCanvasRenderer } from './canvasRenderer'
+import { createCanvasRenderer, type CanvasRenderer } from './canvasRenderer'
 import { createTypeColors } from './forceGraph'
-import { createCloudLayouts, type CloudLayout } from './forceGraphCloud'
+import {
+	createCloudLayouts,
+	GROUP_DETAIL_SCALE,
+	GROUP_FOCUS_SIZE,
+	nestedGraphBounds,
+	type CloudLayout,
+} from './forceGraphCloud'
 import { createTextMeasurer } from './forceGraphText'
 import { createGroupVisibility } from './groupVisibility'
 import { createLocalMotion, localRadius } from './localMotion'
@@ -50,6 +56,36 @@ function rootDataSignature(graph: GraphData): string {
 	return JSON.stringify({ nodes: graph.nodes.map(rootNodeSignature), links: graph.links })
 }
 
+function syncNestedGroups(
+	graph: GraphData,
+	currentNodes: GraphNode[],
+	renderer: CanvasRenderer,
+	boundsByGroup: Map<string, ReturnType<typeof nestedGraphBounds>>,
+	measure: ReturnType<typeof createTextMeasurer>,
+): void {
+	const seen = new Set<string>()
+	function visit(current: GraphData): void {
+		current.nodes.forEach((node) => {
+			if (node.type !== 'group') return
+			seen.add(node.id)
+			renderer.setNestedGroup(node.id, node.children ?? null, node.childrenLoading === true)
+			if (node.children && node.childrenLoading !== true) {
+				const bounds = nestedGraphBounds(node.children, measure)
+				boundsByGroup.set(node.id, bounds)
+				renderer.setNestedGroupBounds(node.id, bounds)
+			} else {
+				boundsByGroup.delete(node.id)
+				renderer.setNestedGroupBounds(node.id, null)
+			}
+			if (node.children) visit(node.children)
+		})
+	}
+	visit(graph)
+	currentNodes.forEach((node) => {
+		if (node.type === 'group' && !seen.has(node.id)) renderer.setNestedGroup(node.id, null, false)
+	})
+}
+
 /** Создаёт сцену отображения; координаты приходят только от сервера. */
 export function createForceGraph(data: GraphData, options: ForceGraphOptions = {}): ForceGraphHandle {
 	const { onNodeClick, onVisibleGroupsChange } = options
@@ -62,6 +98,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	const colorOf = createTypeColors(initialNodes)
 	const drawnLinks = resolveLinks(initialNodes, initialLinks) // Отбрасывает связи с отсутствующими концами
 	let layouts = new WeakMap<GraphNode, CloudLayout>()
+	const boundsByGroup = new Map<string, ReturnType<typeof nestedGraphBounds>>()
 	const layoutOf = (node: GraphNode): CloudLayout => {
 		const cached = layouts.get(node)
 		if (cached) return cached
@@ -71,7 +108,9 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	}
 
 	let renderMotion = () => {}
-	let motion = createLocalMotion(initialNodes, () => renderMotion())
+	const groupRadius = (node: GraphNode): number => boundsByGroup.get(node.id)?.radius ?? GROUP_FOCUS_SIZE / 2
+	let motion = createLocalMotion(initialNodes, () => renderMotion(), groupRadius)
+	let pendingMotionGroupId: string | null = null
 	let focusGroup = (_id: string): void => {}
 	const handleNodeClick = (id: string): void => {
 		onNodeClick?.(id)
@@ -79,21 +118,6 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	}
 	let markVisibilityDirty = () => {}
 	const renderer = createCanvasRenderer(colorOf, layoutOf, handleNodeClick, () => markVisibilityDirty())
-	function syncNestedGroups(graph: GraphData): void {
-		const seen = new Set<string>()
-		function visit(current: GraphData): void {
-			current.nodes.forEach((node) => {
-				if (node.type !== 'group') return
-				seen.add(node.id)
-				renderer.setNestedGroup(node.id, node.children ?? null, node.childrenLoading === true)
-				if (node.children) visit(node.children)
-			})
-		}
-		visit(graph)
-		currentNodes.forEach((node) => {
-			if (node.type === 'group' && !seen.has(node.id)) renderer.setNestedGroup(node.id, null, false)
-		})
-	}
 	const visibility = createGroupVisibility(
 		() => ({ nodes: currentNodes, viewport: renderer.getViewport(), scale: currentScale }),
 		onVisibleGroupsChange,
@@ -105,15 +129,19 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 	zoomIndicator.textContent = 'Зум: 1.0'
 	renderer.setNodes(initialNodes)
 	renderer.setLinks(drawnLinks)
-	syncNestedGroups(data)
+	syncNestedGroups(data, currentNodes, renderer, boundsByGroup, measure)
 	markVisibilityDirty()
-	function setSelectedNode(id: string | null): void {
-		renderer.setSelectedNode(id)
-	}
 	function updateData(nextData: GraphData): void {
 		const nextRootSignature = rootDataSignature(nextData)
 		if (nextRootSignature === currentRootSignature) {
-			syncNestedGroups(nextData)
+			syncNestedGroups(nextData, currentNodes, renderer, boundsByGroup, measure)
+			const pendingGroup = pendingMotionGroupId
+			const readyGroup = pendingGroup ? currentNodes.find((node) => node.id === pendingGroup) : undefined
+			if (readyGroup && boundsByGroup.has(readyGroup.id) && currentScale >= GROUP_DETAIL_SCALE) {
+				motion.start(readyGroup, renderer.getPixelsPerWorldUnit())
+			} else {
+				motion.stop()
+			}
 			return
 		}
 		currentRootSignature = nextRootSignature
@@ -135,10 +163,15 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 			nextData.links.map((link) => ({ ...link })),
 		)
 		layouts = new WeakMap<GraphNode, CloudLayout>()
-		motion = createLocalMotion(nextNodes, () => renderMotion())
+		boundsByGroup.clear()
+		motion = createLocalMotion(nextNodes, () => renderMotion(), groupRadius)
 		renderer.setNodes(nextNodes)
 		renderer.setLinks(nextLinks)
-		syncNestedGroups(nextData)
+		syncNestedGroups(nextData, currentNodes, renderer, boundsByGroup, measure)
+		const readyGroup = pendingMotionGroupId ? nextNodes.find((node) => node.id === pendingMotionGroupId) : undefined
+		if (readyGroup && boundsByGroup.has(readyGroup.id) && currentScale >= GROUP_DETAIL_SCALE) {
+			motion.start(readyGroup, renderer.getPixelsPerWorldUnit())
+		}
 		renderer.render()
 		markVisibilityDirty()
 	}
@@ -152,6 +185,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 			renderer.setZoomScale(scale)
 			if (scale < 1) {
 				motion.stop()
+				pendingMotionGroupId = null
 				return
 			}
 			const viewport = renderer.getViewport()
@@ -162,11 +196,12 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 			const closest = currentNodes.reduce<GraphNode | null>((best, node) => {
 				if (node.type !== 'group' || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return best
 				const distance = Math.hypot((node.x ?? 0) - centerX, (node.y ?? 0) - centerY)
-				if (distance > localRadius(node, pixelsPerUnit)) return best
+				if (distance > localRadius(groupRadius(node), pixelsPerUnit)) return best
 				if (!best) return node
 				return distance < Math.hypot((best.x ?? 0) - centerX, (best.y ?? 0) - centerY) ? node : best
 			}, null)
-			if (closest) motion.start(closest, pixelsPerUnit)
+			pendingMotionGroupId = closest?.id ?? null
+			if (closest && boundsByGroup.has(closest.id)) motion.start(closest, pixelsPerUnit)
 			else motion.stop()
 		},
 		renderer.isNodeAt,
@@ -183,7 +218,7 @@ export function createForceGraph(data: GraphData, options: ForceGraphOptions = {
 		zoomControls: panZoomState.controls,
 		getZoomTransform: panZoomState.getTransform,
 		setZoomTransform: panZoomState.setTransform,
-		setSelectedNode,
+		setSelectedNode: (id) => renderer.setSelectedNode(id),
 		updateData,
 		destroy: () => {
 			motion.stop()
