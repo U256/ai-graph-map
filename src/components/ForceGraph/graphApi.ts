@@ -1,4 +1,5 @@
 import type { GraphData, GraphNodeInput } from '../../types/graph'
+import { calculateSimulation } from './tmpLocalSimulation'
 
 const API_URL = import.meta.env.VITE_GRAPH_API_URL ?? 'http://127.0.0.1:5197'
 
@@ -41,13 +42,13 @@ function restoreLoadedChildren(source: GraphData, positioned: GraphData): GraphD
 export async function makeCoordinates(
 	data: GraphData,
 	ignoreCurrentCoordinates = false,
-	scale = 1,
+	_scale = 1,
 ): Promise<GraphData> {
-	const positioned = await post<GraphData>('/makeCoordinates', {
-		graph: flatGraph(data),
-		ignoreCurrentCoordinates,
-		scale,
-	})
+	const scale = !Number.isNaN(Number(_scale)) ? Number(_scale) : 1
+	const positioned = {
+		nodes: calculateSimulation(data, ignoreCurrentCoordinates === true, scale),
+		links: data?.links || [],
+	}
 	return restoreLoadedChildren(data, positioned)
 }
 
