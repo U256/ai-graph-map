@@ -30,6 +30,7 @@
 		"d3-selection": "^3.0.0",
 		"d3-zoom": "^3.0.0",
 		"normalize.css": "^8.0.1",
+		"ol": "^10.11.0",
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8",
 		"react-hook-form": "^7.88.0",

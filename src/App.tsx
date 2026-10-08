@@ -3,6 +3,7 @@ import './App.css'
 import { ForceGraph } from './components/ForceGraph/ForceGraph'
 import { NESTED_GRAPH_SCALE } from './components/ForceGraph/forceGraphCloud'
 import { addNode, makeCoordinates, removeNode } from './components/ForceGraph/graphApi'
+import { OpenLayerGraph } from './components/OpenLayerGraph/OpenLayerGraph'
 import { NodeForm } from './components/SettingsPanel/NodeForm'
 import {
 	type NodeCreateDraft,
@@ -63,7 +64,7 @@ function sourceGraph(nodeClones: GraphSettings['nodeClones']): GraphData {
 	return graphData
 }
 
-function CanvasPage() {
+function GraphPage({ renderer }: { renderer: 'canvas' | 'ol' }) {
 	// ленивая инициализация: localStorage читается один раз при монтировании
 	const [settings, setSettings] = useState<GraphSettings>(loadGraphSettings)
 
@@ -193,19 +194,28 @@ function CanvasPage() {
 				)}
 			</aside>
 			<main className="app__main">
-				<ForceGraph
-					settings={settings}
-					data={data}
-					selectedNodeId={view.kind === 'edit' ? view.id : null}
-					onNodeClick={handleNodeClick}
-					onVisibleGroupsChange={handleVisibleGroupsChange}
-				/>
+				{renderer === 'canvas' ? (
+					<ForceGraph
+						settings={settings}
+						data={data}
+						selectedNodeId={view.kind === 'edit' ? view.id : null}
+						onNodeClick={handleNodeClick}
+						onVisibleGroupsChange={handleVisibleGroupsChange}
+					/>
+				) : (
+					<OpenLayerGraph
+						data={data}
+						selectedNodeId={view.kind === 'edit' ? view.id : null}
+						onNodeClick={handleNodeClick}
+						onVisibleGroupsChange={handleVisibleGroupsChange}
+					/>
+				)}
 			</main>
 		</>
 	)
 }
 
-/** На пустом маршруте не монтируем граф и не запрашиваем координаты. */
+/** Обе вкладки используют одни данные и панель, но разные сцены. */
 export function App() {
 	const base = import.meta.env.BASE_URL
 	const openLayerPath = `${base}ol`
@@ -223,7 +233,9 @@ export function App() {
 					</a>
 				</nav>
 			</header>
-			<div className="app__body">{isOpenLayer ? <main className="app__main" /> : <CanvasPage />}</div>
+			<div className="app__body">
+				<GraphPage renderer={isOpenLayer ? 'ol' : 'canvas'} />
+			</div>
 			<footer className="app__footer" />
 		</div>
 	)
