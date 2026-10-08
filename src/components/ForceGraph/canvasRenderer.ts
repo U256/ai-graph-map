@@ -2,7 +2,6 @@ import type { DrawnLink, GraphData, GraphNode, GraphNodeType } from '../../types
 import { drawNestedGraph } from './canvasNestedRenderer'
 import { drawCanvasNode, type CanvasNodeEntry } from './canvasNodeRenderer'
 import { createCanvasPointerHandlers } from './canvasPointerHandlers'
-import { GRAPH_HEIGHT, GRAPH_WIDTH } from './forceGraph'
 import {
 	createFocusedGroupLayout,
 	GROUP_DETAIL_SCALE,
@@ -11,6 +10,13 @@ import {
 	type NestedGraphBounds,
 } from './forceGraphCloud'
 import { nodeTooltip } from './nodePresentation'
+
+/**
+ * Размер окна сцены; viewBox вокруг нуля — все силы целятся в ноль.
+ * логический размер базовой сцены, то есть эталонная область координат графа
+ */
+export const GRAPH_WIDTH = 928
+export const GRAPH_HEIGHT = 680
 
 const LINK_COLOR = '#999'
 const LINK_FORCE_DEFAULT = 2

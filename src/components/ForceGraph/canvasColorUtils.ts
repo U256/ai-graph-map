@@ -1,13 +1,6 @@
 import { schemeCategory10 } from 'd3-scale-chromatic'
 import type { GraphNode, GraphNodeType } from '../../types/graph'
 
-/**
- * Размер окна сцены; viewBox вокруг нуля — все силы целятся в ноль.
- * логический размер базовой сцены, то есть эталонная область координат графа
- */
-export const GRAPH_WIDTH = 928
-export const GRAPH_HEIGHT = 680
-
 /** Тело не прозрачное — под подписями не должны просвечивать связи. */
 export const BODY_FILL_WHITE = 0.85
 

@@ -1,5 +1,5 @@
 import type { GraphData, GraphNode, GraphNodeType } from '../../types/graph'
-import { tintToWhite } from './forceGraph'
+import { tintToWhite } from './canvasColorUtils'
 import {
 	CLOUD_RADIUS,
 	DESCRIPTION_FONT_SIZE,
