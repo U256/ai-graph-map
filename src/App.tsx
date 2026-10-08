@@ -20,6 +20,7 @@ import { graphData as graphMini3 } from './data/graphMini3'
 import { type GraphData } from './types/graph'
 import type { GraphSettings } from './types/settings'
 import { multiplyWithClones } from './utils/graphUtlis'
+import { useUrlQuery } from './useUrlQuery'
 
 /** Данные подключены модулем, поэтому загрузка только эмулируется. */
 const LOAD_DELAY_MS = 400
@@ -217,20 +218,30 @@ function GraphPage({ renderer }: { renderer: 'canvas' | 'ol' }) {
 
 /** Обе вкладки используют одни данные и панель, но разные сцены. */
 export function App() {
-	const base = import.meta.env.BASE_URL
-	const openLayerPath = `${base}ol`
-	const isOpenLayer = window.location.pathname.replace(/\/$/, '') === openLayerPath
+
+	const [renderer, setRenderer] = useUrlQuery('renderer')
+	const isOpenLayer = renderer === 'ol'
 
 	return (
 		<div className="app">
 			<header className="app__header">
 				<nav className="app__tabs" aria-label="Страницы">
-					<a className="app__tab" href={base} aria-current={isOpenLayer ? undefined : 'page'}>
+					<button
+						type="button"
+						className="app__tab"
+						onClick={() => setRenderer('canvas')}
+						aria-current={isOpenLayer ? undefined : 'page'}
+					>
 						Canvas
-					</a>
-					<a className="app__tab" href={openLayerPath} aria-current={isOpenLayer ? 'page' : undefined}>
+					</button>
+					<button
+						type="button"
+						className="app__tab"
+						onClick={() => setRenderer('ol')}
+						aria-current={isOpenLayer ? 'page' : undefined}
+					>
 						OpenLayer
-					</a>
+					</button>
 				</nav>
 			</header>
 			<div className="app__body">
