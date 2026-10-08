@@ -97,7 +97,7 @@
   порталом в `body` (`menuPortalTarget`), иначе его срежет `overflow-y: auto` панели.
 - `SettingsPanel/NodeForm.css` — текстовые поля, подпись узла, ошибка валидации, красная кнопка
   удаления (`node-form__*`).
-- `ForceGraph/forceGraph.ts` — чистая логика без DOM: константы сцены, `createTypeColors`,
+- `ForceGraph/canvasColorUtils.ts` — чистая логика без DOM: константы сцены, `createTypeColors`,
   `tintToWhite`. Сервер рассчитывает заряд по числу непосредственных узлов в `children`;
   ручной настройки заряда у узла нет. Размер группы и локальное движение используют ответ с числом
   непосредственных дочерних узлов.
@@ -175,11 +175,11 @@
 
 Быстрый выбор файлов по формулировке задачи (полный список экспортов — `npm run check:map`):
 
-- физика и типовые данные сцены — `ForceGraph/forceGraph.ts`; серверная раскладка и её HTTP-контракт —
+- физика и типовые данные сцены — `ForceGraph/canvasColorUtils.ts`; серверная раскладка и её HTTP-контракт —
   `server/index.mjs` и `ForceGraph/graphApi.ts`; локальное движение при жестах — `ForceGraph/localMotion.ts`.
 - вид узла, облака, текст, цвет — `ForceGraph/canvasNodeRenderer.ts` (что нарисовать),
   `ForceGraph/forceGraphCloud.ts` (геометрия и переносы), `ForceGraph/forceGraphText.ts` (мерка),
-  `ForceGraph/forceGraph.ts` (`createTypeColors`, `tintToWhite`).
+  `ForceGraph/canvasColorUtils.ts` (`createTypeColors`, `tintToWhite`).
 - состояние Canvas-сцены, hit-test и перерисовка — `ForceGraph/canvasRenderer.ts`.
 - добавление/правка/удаление узла — данные: `SettingsPanel/nodeForm.ts`; форма: `SettingsPanel/NodeForm.tsx`;
   серверные операции координат — `ForceGraph/graphApi.ts` и `server/index.mjs`.

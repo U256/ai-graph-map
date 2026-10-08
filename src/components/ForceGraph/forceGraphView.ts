@@ -1,8 +1,8 @@
 import { zoomIdentity, type ZoomTransform } from 'd3-zoom'
 import type { GraphData, GraphNode, GraphNodeInput } from '../../types/graph'
+import { createTypeColors } from './canvasColorUtils'
 import { attachCanvasPanZoom } from './canvasPanZoom'
 import { createCanvasRenderer, type CanvasRenderer } from './canvasRenderer'
-import { createTypeColors } from './canvasColorUtils'
 import {
 	createCloudLayouts,
 	GROUP_DETAIL_SCALE,

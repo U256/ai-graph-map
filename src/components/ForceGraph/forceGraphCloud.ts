@@ -60,9 +60,8 @@ export const WARNING_GUTTER = 8
 export const WARNING_DOT_RADIUS = 3
 export const WARNING_COLOR = '#d92b2b'
 
-export const SUB_NODE_SIZE = 16
-export const SUB_NODE_CORNER = 7
-export const SUB_NODE_DOT_RADIUS = 4
+export const SUB_NODE_SIZE = 2 * CLOUD_PADDING_Y + TITLE_LINE_HEIGHT + LINE_GAP + DESCRIPTION_LINE_HEIGHT
+export const SUB_NODE_CORNER = SUB_NODE_SIZE / 2
 /** Масштаб, начиная с которого Canvas раскрывает вложенные группы. */
 export const GROUP_DETAIL_SCALE = 1
 

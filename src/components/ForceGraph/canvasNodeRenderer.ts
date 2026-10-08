@@ -1,12 +1,12 @@
 import type { GraphNode, GraphNodeType } from '../../types/graph'
 import { tintToWhite } from './canvasColorUtils'
+import { drawSubNodeIcon } from './canvasSubNodeIcon'
 import {
 	CLOUD_RADIUS,
 	DESCRIPTION_FONT_SIZE,
 	FONT_FAMILY,
 	GROUP_FOCUS_SIZE,
 	SUB_NODE_CORNER,
-	SUB_NODE_DOT_RADIUS,
 	TITLE_FONT_SIZE,
 	WARNING_COLOR,
 	WARNING_DOT_RADIUS,
@@ -72,10 +72,7 @@ export function drawCanvasNode(
 		context.fill()
 	}
 	if (!isCloud) {
-		context.beginPath()
-		context.arc(x, y, SUB_NODE_DOT_RADIUS, 0, Math.PI * 2)
-		context.fillStyle = baseColor
-		context.fill()
+		drawSubNodeIcon(context, x, y, baseColor)
 	}
 	if (entry.loading) {
 		context.fillStyle = baseColor
