@@ -63,7 +63,7 @@ function sourceGraph(nodeClones: GraphSettings['nodeClones']): GraphData {
 	return graphData
 }
 
-export function App() {
+function CanvasPage() {
 	// ленивая инициализация: localStorage читается один раз при монтировании
 	const [settings, setSettings] = useState<GraphSettings>(loadGraphSettings)
 
@@ -175,37 +175,55 @@ export function App() {
 	const backToSettings = useCallback(() => setPanel({ kind: 'settings' }), [])
 
 	return (
+		<>
+			<aside className="app__aside">
+				{view.kind === 'settings' ? (
+					<SettingsPanel initialSettings={settings} onApply={setSettings} onStartCreate={startCreate} />
+				) : (
+					// значения узла форма читает при монтировании: без перемонтирования переход к другой ноде показал бы поля прежней
+					<NodeForm
+						key={view.kind === 'edit' ? view.id : 'create'}
+						node={selected ?? null}
+						data={data ?? EMPTY_DATA}
+						onCreate={handleCreate}
+						onUpdate={handleUpdate}
+						onDelete={handleDelete}
+						onCancel={backToSettings}
+					/>
+				)}
+			</aside>
+			<main className="app__main">
+				<ForceGraph
+					settings={settings}
+					data={data}
+					selectedNodeId={view.kind === 'edit' ? view.id : null}
+					onNodeClick={handleNodeClick}
+					onVisibleGroupsChange={handleVisibleGroupsChange}
+				/>
+			</main>
+		</>
+	)
+}
+
+/** На пустом маршруте не монтируем граф и не запрашиваем координаты. */
+export function App() {
+	const base = import.meta.env.BASE_URL
+	const openLayerPath = `${base}ol`
+	const isOpenLayer = window.location.pathname.replace(/\/$/, '') === openLayerPath
+
+	return (
 		<div className="app">
 			<header className="app__header">
-				<h1 className="app__title">Карта</h1>
+				<nav className="app__tabs" aria-label="Страницы">
+					<a className="app__tab" href={base} aria-current={isOpenLayer ? undefined : 'page'}>
+						Canvas
+					</a>
+					<a className="app__tab" href={openLayerPath} aria-current={isOpenLayer ? 'page' : undefined}>
+						OpenLayer
+					</a>
+				</nav>
 			</header>
-			<div className="app__body">
-				<aside className="app__aside">
-					{view.kind === 'settings' ? (
-						<SettingsPanel initialSettings={settings} onApply={setSettings} onStartCreate={startCreate} />
-					) : (
-						// значения узла форма читает при монтировании: без перемонтирования переход к другой ноде показал бы поля прежней
-						<NodeForm
-							key={view.kind === 'edit' ? view.id : 'create'}
-							node={selected ?? null}
-							data={data ?? EMPTY_DATA}
-							onCreate={handleCreate}
-							onUpdate={handleUpdate}
-							onDelete={handleDelete}
-							onCancel={backToSettings}
-						/>
-					)}
-				</aside>
-				<main className="app__main">
-					<ForceGraph
-						settings={settings}
-						data={data}
-						selectedNodeId={view.kind === 'edit' ? view.id : null}
-						onNodeClick={handleNodeClick}
-						onVisibleGroupsChange={handleVisibleGroupsChange}
-					/>
-				</main>
-			</div>
+			<div className="app__body">{isOpenLayer ? <main className="app__main" /> : <CanvasPage />}</div>
 			<footer className="app__footer" />
 		</div>
 	)

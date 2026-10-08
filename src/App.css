@@ -27,10 +27,25 @@
 	border-top: 1px solid rgb(0 0 0 / 12%);
 }
 
-.app__title {
-	margin: 0;
-	font-size: 1.25rem;
-	line-height: 1.2;
+.app__tabs {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.app__tab {
+	padding: 0.4rem 0.85rem;
+	border-radius: 0.5rem;
+	color: #243449;
+	text-decoration: none;
+}
+
+.app__tab:hover,
+.app__tab[aria-current='page'] {
+	background: #fff;
+}
+
+.app__tab[aria-current='page'] {
+	font-weight: 600;
 }
 
 /* min-height: 0 разрешает ему ужиматься */
