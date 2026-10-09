@@ -68,14 +68,18 @@ export const GROUP_DETAIL_SCALE = 1;
 /** Вложенный граф рисуется в локальной системе координат группы. */
 export const NESTED_GRAPH_SCALE = 0.2;
 
-/** Увеличенный круг группы; диаметр и вертикальный вынос заголовка зависят от одной величины. */
+/** Уменьшает тело группы при раскрытии, оставляя центр группы на прежнем месте. */
 export function createFocusedGroupLayout(layout: CloudLayout): CloudLayout {
     const size = layout.focusedSize ?? GROUP_FOCUS_SIZE;
-    const radius = size / 2;
+    const scale = NESTED_GRAPH_SCALE;
     return {
         ...layout,
-        titleY: -radius + layout.titleY,
-        descriptionY: -radius + layout.descriptionY,
+        width: layout.width * scale,
+        height: layout.height * scale,
+        textX: layout.textX * scale,
+        titleY: layout.titleY * scale,
+        descriptionY: layout.descriptionY * scale,
+        warning: layout.warning ? { x: layout.warning.x * scale, y: layout.warning.y * scale } : undefined,
         focusedGroup: true,
         focusedSize: size,
     };

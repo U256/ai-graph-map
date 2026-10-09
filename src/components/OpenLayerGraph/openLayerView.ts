@@ -22,6 +22,7 @@ import {
     createLinkFeatures,
     createNestedFeatures,
     createNodeFeatures,
+    setNodeFeaturesExpanded,
 } from './openLayerFeatures';
 import { hitOpenLayerNode } from './openLayerHitTest';
 
@@ -80,6 +81,7 @@ export function createOpenLayerView(
 
     function updateNestedFeatures(): void {
         const expanded = scale() >= GROUP_DETAIL_SCALE;
+        setNodeFeaturesExpanded(nodes.getFeatures(), expanded);
         groupBackgroundLayer.setVisible(expanded);
         nestedLinks.clear();
         nestedNodes.clear();
@@ -94,7 +96,7 @@ export function createOpenLayerView(
 
     map.on('moveend', updateNestedFeatures);
     map.on('singleclick', (event) => {
-        const feature = hitOpenLayerNode(nodes.getFeatures(), event.pixel as [number, number], map, view);
+        const feature = hitOpenLayerNode(nodes.getFeatures(), event.pixel as [number, number], map);
         const id = feature?.getId();
         if (typeof id === 'string') onNodeClick(id);
     });

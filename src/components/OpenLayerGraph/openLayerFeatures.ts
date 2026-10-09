@@ -3,6 +3,7 @@ import Circle from 'ol/geom/Circle';
 import LineString from 'ol/geom/LineString';
 import Point from 'ol/geom/Point';
 import Style, { type RenderFunction } from 'ol/style/Style';
+import { nestedGroupLinkChildren } from '../../graph/nestedLinks';
 import { createTypeColors } from '../../graph/nodeColors';
 import {
     createCloudLayouts,
@@ -17,26 +18,16 @@ import type { GraphData, GraphNode } from '../../types/graph';
 import { graphCoordinate, nestedCoordinate } from './openLayerCoordinates';
 import { drawOpenLayerNode } from './openLayerNodeDrawing';
 
-function nodeRenderer(
-    node: GraphNode,
-    baseLayout: CloudLayout,
-    groupLayout: CloudLayout,
-    color: string,
-): RenderFunction {
+function nodeRenderer(node: GraphNode, groupLayout: CloudLayout, color: string): RenderFunction {
     return (pixelCoordinates, state) => {
         if (!Array.isArray(pixelCoordinates) || typeof pixelCoordinates[0] !== 'number') return;
         const [x, y] = pixelCoordinates as [number, number];
         const { context } = state;
-        if (node.type === 'group' && groupLayout.focusedGroup) {
-            const radius = (groupLayout.focusedSize ?? GROUP_FOCUS_SIZE) / (2 * state.resolution);
-            drawOpenLayerNode(
-                context,
-                { node, layout: baseLayout, x, y: y - radius, selected: false, loading: node.childrenLoading },
-                () => color,
-            );
-        } else {
-            drawOpenLayerNode(context, { node, layout: baseLayout, x, y, selected: false }, () => color);
-        }
+        drawOpenLayerNode(
+            context,
+            { node, layout: groupLayout, x, y, selected: false, loading: node.childrenLoading },
+            () => color,
+        );
     };
 }
 
@@ -96,8 +87,20 @@ export function createNodeFeatures(
         feature.setId(node.id);
         feature.set('baseLayout', baseLayout);
         feature.set('groupLayout', groupLayout);
-        feature.setStyle(new Style({ renderer: nodeRenderer(node, baseLayout, groupLayout, color) }));
+        feature.set('baseStyle', new Style({ renderer: nodeRenderer(node, baseLayout, color) }));
+        feature.set('groupStyle', new Style({ renderer: nodeRenderer(node, groupLayout, color) }));
+        feature.set('activeLayout', baseLayout);
+        feature.setStyle(feature.get('baseStyle'));
         return feature;
+    });
+}
+
+/** Переключает размер внешних групп вместе с порогом раскрытия вложенного графа. */
+export function setNodeFeaturesExpanded(features: Feature<Point>[], expanded: boolean): void {
+    features.forEach((feature) => {
+        const layout = (expanded ? feature.get('groupLayout') : feature.get('baseLayout')) as CloudLayout;
+        feature.set('activeLayout', layout);
+        feature.setStyle(feature.get(expanded ? 'groupStyle' : 'baseStyle'));
     });
 }
 
@@ -137,7 +140,7 @@ export function createNestedFeatures(
         const layout = createCloudLayouts([entry.node], measure).get(entry.node)!;
         const feature = new Feature(new Point(nestedCoordinate(entry.x, entry.y)));
         feature.set('nested', true);
-        feature.setStyle(new Style({ renderer: nodeRenderer(entry.node, layout, layout, colorOf(entry.node.type)) }));
+        feature.setStyle(new Style({ renderer: nodeRenderer(entry.node, layout, colorOf(entry.node.type)) }));
         return feature;
     });
     entries.forEach((entry) => {
@@ -145,19 +148,38 @@ export function createNestedFeatures(
             nestedGraphs.push({ data: entry.node.children, x: entry.x, y: entry.y, scale: NESTED_GRAPH_SCALE });
         }
     });
-    const links = nestedGraphs
-        .flatMap((graph) =>
-            resolveLinks(graph.data.nodes, graph.data.links).map((link) => {
-                const source = nodeById.get(link.source);
-                const target = nodeById.get(link.target);
-                return source && target
-                    ? new Feature(
-                          new LineString([nestedCoordinate(source.x, source.y), nestedCoordinate(target.x, target.y)]),
-                      )
-                    : null;
-            }),
-        )
-        .filter((feature): feature is Feature<LineString> => feature !== null);
+    const parentLinks = nestedGraphs.flatMap((graph) =>
+        nestedGroupLinkChildren(graph.data.nodes).map(
+            (child) =>
+                new Feature(
+                    new LineString([
+                        nestedCoordinate(graph.x, graph.y),
+                        nestedCoordinate(
+                            graph.x + (child.x ?? 0) * graph.scale,
+                            graph.y + (child.y ?? 0) * graph.scale,
+                        ),
+                    ]),
+                ),
+        ),
+    );
+    const links = parentLinks.concat(
+        nestedGraphs
+            .flatMap((graph) =>
+                resolveLinks(graph.data.nodes, graph.data.links).map((link) => {
+                    const source = nodeById.get(link.source);
+                    const target = nodeById.get(link.target);
+                    return source && target
+                        ? new Feature(
+                              new LineString([
+                                  nestedCoordinate(source.x, source.y),
+                                  nestedCoordinate(target.x, target.y),
+                              ]),
+                          )
+                        : null;
+                }),
+            )
+            .filter((feature): feature is Feature<LineString> => feature !== null),
+    );
     return { nodes, links };
 }
 

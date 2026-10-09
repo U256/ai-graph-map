@@ -1,9 +1,9 @@
+import { nestedGroupLinkChildren } from '../../graph/nestedLinks';
 import { tintToWhite } from '../../graph/nodeColors';
 import {
     CLOUD_RADIUS,
     DESCRIPTION_FONT_SIZE,
     FONT_FAMILY,
-    GROUP_FOCUS_SIZE,
     NESTED_GRAPH_SCALE,
     SUB_NODE_CORNER,
     TITLE_FONT_SIZE,
@@ -34,9 +34,8 @@ function drawNode(
     const { node, layout, x, y } = entry;
     const color = colorOf(node.type);
     const isCloud = node.type !== 'subNode';
-    const offsetY = layout.focusedGroup ? -(layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2 : 0;
     const left = x - layout.width / 2;
-    const top = y - layout.height / 2 + offsetY;
+    const top = y - layout.height / 2;
     const radius = Math.min(isCloud ? CLOUD_RADIUS : SUB_NODE_CORNER, layout.width / 2, layout.height / 2);
 
     context.fillStyle = tintToWhite(color);
@@ -52,12 +51,6 @@ function drawNode(
     context.fill();
     context.stroke();
 
-    if (layout.focusedGroup) {
-        context.beginPath();
-        context.arc(x, y, (layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2, 0, Math.PI * 2);
-        context.lineWidth = 2;
-        context.stroke();
-    }
     context.textBaseline = 'middle';
     context.textAlign = 'left';
     context.font = `${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
@@ -91,6 +84,12 @@ export function drawNestedGraph(
     context.globalAlpha = 0.6;
     context.strokeStyle = LINK_COLOR;
     context.lineWidth = 5;
+    nestedGroupLinkChildren(children).forEach((node) => {
+        context.beginPath();
+        context.moveTo(0, 0);
+        context.lineTo(node.x ?? 0, node.y ?? 0);
+        context.stroke();
+    });
     data.links.forEach((link) => {
         const source = byId.get(link.source);
         const target = byId.get(link.target);

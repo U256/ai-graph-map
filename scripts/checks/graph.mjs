@@ -167,12 +167,14 @@ const colorUtils = await server.ssrLoadModule('/src/graph/nodeColors.ts');
 const cloud = await server.ssrLoadModule('/src/graph/nodeGeometry.ts');
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts');
 const linksLogic = await server.ssrLoadModule('/src/graph/resolveLinks.ts');
+const nestedLinks = await server.ssrLoadModule('/src/graph/nestedLinks.ts');
 const motion = await server.ssrLoadModule('/src/components/ForceGraph/localMotion.ts');
 const visibility = await server.ssrLoadModule('/src/graph/visibleGroups.ts');
 const source = await server.ssrLoadModule('/src/data/graph.ts');
 
 const { createTypeColors } = colorUtils;
 const { resolveLinks } = linksLogic;
+const { nestedGroupLinkChildren } = nestedLinks;
 const { boundaryRadius, localRadius, nearbyNodes } = motion;
 const {
     CLOUD_MAX_TEXT_WIDTH,
@@ -394,6 +396,16 @@ check(
 check(
     'приближённый layout сохраняет вычисленный диаметр круга',
     focusedSmall.focusedSize === 200 && focusedLarge.focusedSize === 370,
+);
+check(
+    'при раскрытии тело группы уменьшается в масштабе вложенного графа и остаётся по центру',
+    focusedSmall.width === plain.width * 0.2 &&
+        focusedSmall.height === plain.height * 0.2 &&
+        focusedSmall.titleY === plain.titleY * 0.2,
+);
+check(
+    'к группе подключаются не более пяти первых вложенных узлов',
+    nestedGroupLinkChildren(Array.from({ length: 8 }, (_, index) => ({ id: `${index}` }))).length === 5,
 );
 
 console.log('\n== видимые группы ==');

@@ -114,12 +114,11 @@ export function createCanvasRenderer(
         for (let index = hitNodes.length - 1; index >= 0; index -= 1) {
             const entry = hitNodes[index];
             const { width: nodeWidth, height: nodeHeight } = entry.layout;
-            const offsetY = entry.layout.focusedGroup ? -(entry.layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2 : 0;
             if (
                 point.x >= entry.x - nodeWidth / 2 &&
                 point.x <= entry.x + nodeWidth / 2 &&
-                point.y >= entry.y - nodeHeight / 2 + offsetY &&
-                point.y <= entry.y + nodeHeight / 2 + offsetY
+                point.y >= entry.y - nodeHeight / 2 &&
+                point.y <= entry.y + nodeHeight / 2
             )
                 return entry;
         }

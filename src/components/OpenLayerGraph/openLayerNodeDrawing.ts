@@ -3,7 +3,6 @@ import {
     CLOUD_RADIUS,
     DESCRIPTION_FONT_SIZE,
     FONT_FAMILY,
-    GROUP_FOCUS_SIZE,
     SUB_NODE_CORNER,
     TITLE_FONT_SIZE,
     WARNING_COLOR,
@@ -36,20 +35,10 @@ export function drawOpenLayerNode(
     const { node, layout, x, y, selected } = entry;
     const baseColor = selected ? SELECTED_COLOR : colorOf(node.type);
     const isCloud = node.type !== 'subNode';
-    const offsetY = layout.focusedGroup ? -(layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2 : 0;
     const left = x - layout.width / 2;
-    const top = y - layout.height / 2 + offsetY;
+    const top = y - layout.height / 2;
     const radius = Math.min(isCloud ? CLOUD_RADIUS : SUB_NODE_CORNER, layout.width / 2, layout.height / 2);
 
-    if (layout.focusedGroup) {
-        context.beginPath();
-        context.arc(x, y, (layout.focusedSize ?? GROUP_FOCUS_SIZE) / 2, 0, Math.PI * 2);
-        context.fillStyle = '#fff';
-        context.fill();
-        context.strokeStyle = baseColor;
-        context.lineWidth = 2;
-        context.stroke();
-    }
     context.fillStyle = tintToWhite(baseColor);
     context.strokeStyle = baseColor;
     context.lineWidth = BODY_STROKE_WIDTH;
