@@ -158,6 +158,9 @@ Canvas и OpenLayers — самостоятельные адаптеры одн�
 - `ForceGraph/ForceGraph.css` — фигура растягивается на `main`, Canvas заполняет фигуру.
 - `OpenLayerGraph/` — плоская карта OpenLayers без подложки: внешние узлы и связи по тем же
   координатам, клики по внешним узлам и pan/zoom. Y инвертируется при построении геометрии.
+  `openLayerView.ts` собирает карту и жизненный цикл слоёв, `openLayerCoordinates.ts` изолирует
+  перевод систем координат, `openLayerFeatures.ts` строит OL features, а `openLayerHitTest.ts`
+  проверяет экранные границы внешних узлов.
   Стиль узлов использует общие с Canvas мерку текста и геометрию облаков; временная отрисовка
   custom renderer изолирована в `openLayerNodeDrawing.ts` и `openLayerSubNodeIcon.ts`.
   Клик по облаку проверяется по его экранным границам, потому что
