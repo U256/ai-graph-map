@@ -1,5 +1,5 @@
-import type { GraphNode } from '../../types/graph';
-import { GROUP_DETAIL_SCALE } from './forceGraphCloud';
+import type { GraphNode } from '../types/graph';
+import { GROUP_DETAIL_SCALE } from './nodeGeometry';
 import { snapshotGroups, type VisibilityViewport } from './visibleGroups';
 import type { VisibilityRequest, VisibilityResponse } from './visibleGroupsProtocol';
 

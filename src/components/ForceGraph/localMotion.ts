@@ -1,7 +1,7 @@
 import { forceManyBody, forceRadial, forceSimulation, forceX, forceY, type Simulation } from 'd3-force';
+import { GROUP_FOCUS_SIZE } from '../../graph/groupMetrics';
+import { GROUP_OFFSET_FOR_NODE } from '../../graph/nodeGeometry';
 import type { GraphNode } from '../../types/graph';
-import { GROUP_OFFSET_FOR_NODE } from './forceGraphCloud';
-import { GROUP_FOCUS_SIZE } from './groupMetrics';
 
 /** Радиус воздействия задан в экранных пикселях, поэтому при зуме пересчитывается в единицы сцены. */
 export const LOCAL_RADIUS_PX = 280;

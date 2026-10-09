@@ -10,10 +10,8 @@ import VectorSource from 'ol/source/Vector';
 import Fill from 'ol/style/Fill';
 import Stroke from 'ol/style/Stroke';
 import Style, { type RenderFunction } from 'ol/style/Style';
-import type { GraphData, GraphNode } from '../../types/graph';
-import { createTypeColors } from '../ForceGraph/canvasColorUtils';
-import { drawCanvasNode } from '../ForceGraph/canvasNodeRenderer';
-import { GRAPH_HEIGHT, GRAPH_WIDTH } from '../ForceGraph/canvasRenderer';
+import { createGroupVisibility } from '../../graph/groupVisibility';
+import { createTypeColors } from '../../graph/nodeColors';
 import {
     createCloudLayouts,
     createFocusedGroupLayout,
@@ -21,10 +19,12 @@ import {
     GROUP_FOCUS_SIZE,
     NESTED_GRAPH_SCALE,
     type CloudLayout,
-} from '../ForceGraph/forceGraphCloud';
-import { createTextMeasurer } from '../ForceGraph/forceGraphText';
-import { createGroupVisibility } from '../ForceGraph/groupVisibility';
-import { resolveLinks } from '../ForceGraph/resolveLinks';
+} from '../../graph/nodeGeometry';
+import { resolveLinks } from '../../graph/resolveLinks';
+import { GRAPH_HEIGHT, GRAPH_WIDTH } from '../../graph/sceneSize';
+import { createTextMeasurer } from '../../graph/textMeasure';
+import type { GraphData, GraphNode } from '../../types/graph';
+import { drawOpenLayerNode } from './openLayerNodeDrawing';
 
 const projection = new Projection({ code: 'GRAPH', units: 'pixels' });
 const linkStyle = new Style({ stroke: new Stroke({ color: '#9999', width: 1.5 }) });
@@ -48,13 +48,13 @@ function nodeRenderer(
         const { context } = state;
         if (node.type === 'group' && groupLayout.focusedGroup) {
             const radius = (groupLayout.focusedSize ?? GROUP_FOCUS_SIZE) / (2 * state.resolution);
-            drawCanvasNode(
+            drawOpenLayerNode(
                 context,
                 { node, layout: baseLayout, x, y: y - radius, selected: false, loading: node.childrenLoading },
                 () => color,
             );
         } else {
-            drawCanvasNode(context, { node, layout: baseLayout, x, y, selected: false }, () => color);
+            drawOpenLayerNode(context, { node, layout: baseLayout, x, y, selected: false }, () => color);
         }
     };
 }
@@ -182,7 +182,7 @@ function nestedFeatures(
     return { nodes, links };
 }
 
-/** Проекция плоская; масштаб при старте соответствует базовой области Canvas. */
+/** Проекция плоская; масштаб при старте соответствует базовой области графа. */
 export function createOpenLayerView(
     target: HTMLElement,
     onNodeClick: (id: string) => void,

@@ -1,11 +1,11 @@
-import type { GraphNode } from '../../types/graph';
+import type { GraphNode } from '../types/graph';
 import {
     createCloudLayouts,
     createFocusedGroupLayout,
     groupFocusSize,
     NESTED_GRAPH_SCALE,
     nestedGraphBounds,
-} from './forceGraphCloud';
+} from './nodeGeometry';
 
 /** Снимок координат групп без ссылок на объекты симуляции. */
 export type VisibilityGroup = { id: string; x: number; y: number; radius: number; children: VisibilityGroup[] };
@@ -23,7 +23,7 @@ function groupVisibilityRadius(node: GraphNode): number {
     return Math.max(focused.focusedSize ?? groupFocusSize(childrenCount), focused.width, focused.height) / 2;
 }
 
-/** Снимки нужны worker-у, чтобы не передавать ему объекты Canvas-сцены. */
+/** Снимки нужны worker-у, чтобы не передавать ему объекты сцены. */
 export function snapshotGroups(nodes: GraphNode[]): VisibilityGroup[] {
     return nodes.flatMap((node) => {
         if (node.type !== 'group' || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return [];

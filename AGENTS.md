@@ -69,6 +69,12 @@
 
 Пути `ForceGraph/...` и `SettingsPanel/...` указаны относительно `src/components`.
 
+Canvas и OpenLayers — самостоятельные адаптеры одной модели графа. Общие расчёты цветов,
+геометрии, координат, связей и видимости живут в `src/graph/`, а не в Canvas-адаптере;
+новую логику сцены развиваем прежде всего для OpenLayers. Отрисовка и hit-test остаются
+в своих адаптерах; текущий OL custom renderer временно рисует в Canvas-контекст OL,
+но не импортирует `ForceGraph`. Внешний вид нод при таком разделении не меняется.
+
 - `src/App.tsx` — общий каркас с вкладками-ссылками на Canvas и OpenLayer; режим OpenLayer задаётся
   query-параметром `?renderer=ol`, чтобы прямой переход работал на GitHub Pages без серверного fallback для `/ol`.
   Переходы обычные, с перезагрузкой страницы; ссылки учитывают базовый путь Vite.
@@ -100,30 +106,30 @@
   порталом в `body` (`menuPortalTarget`), иначе его срежет `overflow-y: auto` панели.
 - `SettingsPanel/NodeForm.css` — текстовые поля, подпись узла, ошибка валидации, красная кнопка
   удаления (`node-form__*`).
-- `ForceGraph/canvasColorUtils.ts` — чистая логика без DOM: константы сцены, `createTypeColors`,
-  `tintToWhite`. Сервер рассчитывает заряд по числу непосредственных узлов в `children`;
+- `src/graph/nodeColors.ts` — цвета типов и `tintToWhite`; `src/graph/sceneSize.ts` — базовые
+  размеры сцены. Сервер рассчитывает заряд по числу непосредственных узлов в `children`;
   ручной настройки заряда у узла нет. Размер группы и локальное движение используют ответ с числом
   непосредственных дочерних узлов.
-- `ForceGraph/resolveLinks.ts` — разрешение концов связей для Canvas с отбрасыванием отсутствующих узлов.
-- `ForceGraph/forceGraphCloud.ts` — геометрия узлов без DOM: кегли, паддинги, `truncateToWidth`,
+- `src/graph/resolveLinks.ts` — разрешение концов связей с отбрасыванием отсутствующих узлов.
+- `src/graph/nodeGeometry.ts` — геометрия узлов без DOM: кегли, паддинги, `truncateToWidth`,
   `createCloudLayouts(nodes, measure)`. Мерка приходит аргументом, поэтому проверяется в Node.
   Порог раскрытия групп и масштаб вложенных графов общие для Canvas и расчёта видимости.
-- `ForceGraph/forceGraphText.ts` — `createTextMeasurer()`: offscreen-канва, единственное место, где
+- `src/graph/textMeasure.ts` — `createTextMeasurer()`: offscreen-канва, единственное место, где
   ширина строки берётся у браузера.
 - `ForceGraph/canvasNodeRenderer.ts` и `ForceGraph/canvasNestedRenderer.ts` — Canvas-отрисовка внешних и
-  вложенных узлов; геометрия облаков остаётся в `ForceGraph/forceGraphCloud.ts`.
+  вложенных узлов; геометрия облаков остаётся в `src/graph/nodeGeometry.ts`.
 - `ForceGraph/canvasRenderer.ts` — состояние Canvas-сцены, hit-test и перерисовка; изменения сцены
   передаются visibility-контроллеру через callback, чтобы pan, zoom и drag не теряли новые группы.
 - `ForceGraph/canvasPointerHandlers.ts` — pointer-жесты Canvas: pan, drag, click и tooltip.
 - `ForceGraph/canvasPanZoom.ts` — d3 zoom для Canvas и кнопки управления масштабом.
 - `ForceGraph/forceGraphView.ts` — компоновщик Canvas-сцены и обновления данных; передаёт изменения
   visibility-контроллеру и возвращает API `ForceGraphHandle`.
-- `ForceGraph/visibleGroups.ts` — чистая проверка пересечения внешних и вложенных групп с viewport;
+- `src/graph/visibleGroups.ts` — чистая проверка пересечения внешних и вложенных групп с viewport;
   расчёт запускается только при раскрытых группах (`GROUP_DETAIL_SCALE`), при меньшем зуме список
   сбрасывается, а новые задачи worker-у не отправляются.
-  `groupVisibility.ts` собирает снимок сцены по изменениям и передаёт его через
+  `src/graph/groupVisibility.ts` собирает снимок сцены по изменениям и передаёт его через
   `visibleGroupsProtocol.ts` в `visibleGroups.worker.ts` с прежним периодическим debounce; ответы
-  устаревшей ревизии отбрасываются, worker и таймер останавливаются при уничтожении Canvas.
+  устаревшей ревизии отбрасываются, worker и таймер останавливаются при уничтожении адаптера.
 - `ForceGraph/localMotion.ts` — одноразовый локальный d3-разлёт при зуме к группе: в него попадают только
   узлы в радиусе экранных пикселей, а заряд сходит на нет к границе радиуса; узлы за
   пределом радиуса не двигаются. Серверные координаты не пересчитываются; повторный запуск той же группы
@@ -152,8 +158,9 @@
 - `ForceGraph/ForceGraph.css` — фигура растягивается на `main`, Canvas заполняет фигуру.
 - `OpenLayerGraph/` — плоская карта OpenLayers без подложки: внешние узлы и связи по тем же
   координатам, клики по внешним узлам и pan/zoom. Y инвертируется при построении геометрии.
-  Стиль узлов использует общие с Canvas мерку текста, геометрию облаков и отрисовку через
-  OpenLayers custom renderer; клик по облаку проверяется по его экранным границам, потому что
+  Стиль узлов использует общие с Canvas мерку текста и геометрию облаков; временная отрисовка
+  custom renderer изолирована в `openLayerNodeDrawing.ts` и `openLayerSubNodeIcon.ts`.
+  Клик по облаку проверяется по его экранным границам, потому что
   штатный hit-test точечной feature видит только окрестность её центра.
   Видимость групп передаётся общему контроллеру с переводом viewport из координат OL (Y вверх) в
   координаты графа (Y вниз); раскрытие зависит от зума относительно стартового масштаба. Вложенный
@@ -191,14 +198,15 @@
 
 Быстрый выбор файлов по формулировке задачи (полный список экспортов — `npm run check:map`):
 
-- физика и типовые данные сцены — `ForceGraph/canvasColorUtils.ts`; серверная раскладка и её HTTP-контракт —
-  `server/index.mjs` и `ForceGraph/graphApi.ts`; локальное движение при жестах — `ForceGraph/localMotion.ts`.
-- вид узла, облака, текст, цвет — `ForceGraph/canvasNodeRenderer.ts` (что нарисовать),
-  `ForceGraph/forceGraphCloud.ts` (геометрия и переносы), `ForceGraph/forceGraphText.ts` (мерка),
-  `ForceGraph/canvasColorUtils.ts` (`createTypeColors`, `tintToWhite`).
+- физика и типовые данные сцены — `src/graph/nodeColors.ts`, `src/graph/nodeGeometry.ts`;
+  расчёт координат — `src/graph/graphApi.ts` и `src/graph/localSimulation.ts`, HTTP-операции —
+  `server/index.mjs`; локальное движение Canvas — `ForceGraph/localMotion.ts`.
+- вид узла — `OpenLayerGraph/openLayerNodeDrawing.ts` (OL), `ForceGraph/canvasNodeRenderer.ts` (Canvas);
+  геометрия и переносы — `src/graph/nodeGeometry.ts`, мерка — `src/graph/textMeasure.ts`,
+  цвет — `src/graph/nodeColors.ts`.
 - состояние Canvas-сцены, hit-test и перерисовка — `ForceGraph/canvasRenderer.ts`.
 - добавление/правка/удаление узла — данные: `SettingsPanel/nodeForm.ts`; форма: `SettingsPanel/NodeForm.tsx`;
-  серверные операции координат — `ForceGraph/graphApi.ts` и `server/index.mjs`.
+  серверные операции координат — `src/graph/graphApi.ts` и `server/index.mjs`.
 - жесты и клик по узлу — `ForceGraph/canvasPointerHandlers.ts`, панорама/зум —
   `ForceGraph/canvasPanZoom.ts`; композиция сцены и синхронизация — `ForceGraph/forceGraphView.ts`;
   жизненный цикл сцены в React и клонирование графа — `ForceGraph/ForceGraph.tsx`.
@@ -262,7 +270,7 @@
   `transform: translate(x,y)`, поэтому внутри всё считается от нуля. Заливка — светлый оттенок цвета
   типа (`tintToWhite`), а не прозрачная: связи под облаком не просвечивают, оттенок типа остаётся.
   `node` — «облако» по размеру текста, `subNode` — почти круг с яркой точкой. Кегли, паддинги,
-  скругления и потолок ширины — в `ForceGraph/forceGraphCloud.ts`.
+  скругления и потолок ширины — в `src/graph/nodeGeometry.ts`.
 - Текст мерит offscreen-канва той же гарнитурой (`FONT_FAMILY`), которой он рисуется: иначе
   `measureText` расходится с отрисовкой. Семейство задаётся и на группе узла — атрибут не наследуется
   в канву.

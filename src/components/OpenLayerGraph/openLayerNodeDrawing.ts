@@ -11,14 +11,14 @@ import {
     type CloudLayout,
 } from '../../graph/nodeGeometry';
 import type { GraphNode, GraphNodeType } from '../../types/graph';
-import { drawSubNodeIcon } from './canvasSubNodeIcon';
+import { drawSubNodeIcon } from './openLayerSubNodeIcon';
 
 const TITLE_COLOR = '#1a1a1a';
 const DESCRIPTION_COLOR = '#555';
 const SELECTED_COLOR = '#e4572e';
 const BODY_STROKE_WIDTH = 1.5;
 
-export interface CanvasNodeEntry {
+export interface OpenLayerNodeEntry {
     node: GraphNode;
     layout: CloudLayout;
     x: number;
@@ -27,10 +27,10 @@ export interface CanvasNodeEntry {
     loading?: boolean;
 }
 
-/** Рисует внешний узел Canvas; дочерние узлы имеют отдельный локальный рендер. */
-export function drawCanvasNode(
+/** Временная отрисовка узлов OL без зависимости от Canvas-адаптера. */
+export function drawOpenLayerNode(
     context: CanvasRenderingContext2D,
-    entry: CanvasNodeEntry,
+    entry: OpenLayerNodeEntry,
     colorOf: (type: GraphNodeType) => string,
 ): void {
     const { node, layout, x, y, selected } = entry;

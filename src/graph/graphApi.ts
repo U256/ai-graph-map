@@ -1,5 +1,5 @@
-import type { GraphData, GraphNodeInput } from '../../types/graph';
-import { calculateSimulation } from './tmpLocalSimulation';
+import type { GraphData, GraphNodeInput } from '../types/graph';
+import { calculateSimulation } from './localSimulation';
 
 const API_URL = import.meta.env.VITE_GRAPH_API_URL ?? 'http://127.0.0.1:5197';
 

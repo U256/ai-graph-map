@@ -1,11 +1,11 @@
-import { FONT_FAMILY, type MeasureText } from './forceGraphCloud';
+import { FONT_FAMILY, type MeasureText } from './nodeGeometry';
 
 /** Нет контекста канвы (тестовое окружение, старый браузер) — грубая оценка по числу символов. */
 const FALLBACK_CHAR_WIDTH = 0.55;
 
 /**
  * Ширину строки считает сам браузер, той же гарнитурой, которой текст потом рисуется. Единственное
- * место, где ширина строки берётся у браузера: `forceGraphCloud.ts` получает мерку аргументом и
+ * место, где ширина строки берётся у браузера: `nodeGeometry.ts` получает мерку аргументом и
  * остаётся проверяемым в Node.
  */
 export function createTextMeasurer(): MeasureText {

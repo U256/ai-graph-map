@@ -163,12 +163,12 @@ function hopsFrom(startId, links) {
 const root = process.cwd();
 const server = await createServer({ root, server: { middlewareMode: true }, appType: 'custom', logLevel: 'warn' });
 
-const colorUtils = await server.ssrLoadModule('/src/components/ForceGraph/canvasColorUtils.ts');
-const cloud = await server.ssrLoadModule('/src/components/ForceGraph/forceGraphCloud.ts');
+const colorUtils = await server.ssrLoadModule('/src/graph/nodeColors.ts');
+const cloud = await server.ssrLoadModule('/src/graph/nodeGeometry.ts');
 const nodeForm = await server.ssrLoadModule('/src/components/SettingsPanel/nodeForm.ts');
-const linksLogic = await server.ssrLoadModule('/src/components/ForceGraph/resolveLinks.ts');
+const linksLogic = await server.ssrLoadModule('/src/graph/resolveLinks.ts');
 const motion = await server.ssrLoadModule('/src/components/ForceGraph/localMotion.ts');
-const visibility = await server.ssrLoadModule('/src/components/ForceGraph/visibleGroups.ts');
+const visibility = await server.ssrLoadModule('/src/graph/visibleGroups.ts');
 const source = await server.ssrLoadModule('/src/data/graph.ts');
 
 const { createTypeColors } = colorUtils;

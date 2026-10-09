@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { ForceGraph } from './components/ForceGraph/ForceGraph';
-import { NESTED_GRAPH_SCALE } from './components/ForceGraph/forceGraphCloud';
-import { addNode, makeCoordinates, removeNode } from './components/ForceGraph/graphApi';
 import { OpenLayerGraph } from './components/OpenLayerGraph/OpenLayerGraph';
 import { NodeForm } from './components/SettingsPanel/NodeForm';
 import {
@@ -17,6 +15,8 @@ import { graphData } from './data/graph';
 import { graphData as graphMini1 } from './data/graphMini1';
 import { graphData as graphMini2 } from './data/graphMini2';
 import { graphData as graphMini3 } from './data/graphMini3';
+import { addNode, makeCoordinates, removeNode } from './graph/graphApi';
+import { NESTED_GRAPH_SCALE } from './graph/nodeGeometry';
 import { type GraphData } from './types/graph';
 import type { GraphSettings } from './types/settings';
 import { useUrlQuery } from './useUrlQuery';

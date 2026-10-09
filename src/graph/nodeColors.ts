@@ -1,5 +1,5 @@
 import { schemeCategory10 } from 'd3-scale-chromatic';
-import type { GraphNode, GraphNodeType } from '../../types/graph';
+import type { GraphNode, GraphNodeType } from '../types/graph';
 
 /** Тело не прозрачное — под подписями не должны просвечивать связи. */
 export const BODY_FILL_WHITE = 0.85;

@@ -1,19 +1,19 @@
 import { zoomIdentity, type ZoomTransform } from 'd3-zoom';
-import type { GraphData, GraphNode, GraphNodeInput } from '../../types/graph';
-import { createTypeColors } from './canvasColorUtils';
-import { attachCanvasPanZoom } from './canvasPanZoom';
-import { createCanvasRenderer, type CanvasRenderer } from './canvasRenderer';
+import { createGroupVisibility } from '../../graph/groupVisibility';
+import { createTypeColors } from '../../graph/nodeColors';
 import {
     createCloudLayouts,
     GROUP_DETAIL_SCALE,
     GROUP_FOCUS_SIZE,
     nestedGraphBounds,
     type CloudLayout,
-} from './forceGraphCloud';
-import { createTextMeasurer } from './forceGraphText';
-import { createGroupVisibility } from './groupVisibility';
+} from '../../graph/nodeGeometry';
+import { resolveLinks } from '../../graph/resolveLinks';
+import { createTextMeasurer } from '../../graph/textMeasure';
+import type { GraphData, GraphNode, GraphNodeInput } from '../../types/graph';
+import { attachCanvasPanZoom } from './canvasPanZoom';
+import { createCanvasRenderer, type CanvasRenderer } from './canvasRenderer';
 import { createLocalMotion, localRadius } from './localMotion';
-import { resolveLinks } from './resolveLinks';
 
 /** Компоновщик Canvas-сцены; раскладка и обновление графа остаются независимы от отрисовки. */
 

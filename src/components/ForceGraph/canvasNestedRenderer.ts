@@ -1,6 +1,4 @@
-import type { GraphData, GraphNode, GraphNodeType } from '../../types/graph';
-import { tintToWhite } from './canvasColorUtils';
-import { drawSubNodeIcon } from './canvasSubNodeIcon';
+import { tintToWhite } from '../../graph/nodeColors';
 import {
     CLOUD_RADIUS,
     DESCRIPTION_FONT_SIZE,
@@ -12,7 +10,9 @@ import {
     WARNING_COLOR,
     WARNING_DOT_RADIUS,
     type CloudLayout,
-} from './forceGraphCloud';
+} from '../../graph/nodeGeometry';
+import type { GraphData, GraphNode, GraphNodeType } from '../../types/graph';
+import { drawSubNodeIcon } from './canvasSubNodeIcon';
 
 const LINK_COLOR = '#999';
 const TITLE_COLOR = '#1a1a1a';

@@ -1,4 +1,4 @@
-import type { GraphData, GraphNode } from '../../types/graph';
+import type { GraphData, GraphNode } from '../types/graph';
 import { GROUP_FOCUS_SIZE, groupFocusSize } from './groupMetrics';
 
 export { GROUP_FOCUS_SIZE, GROUP_FOCUS_SIZE_AT_40, GROUP_FOCUS_SIZE_EXPONENT, groupFocusSize } from './groupMetrics';

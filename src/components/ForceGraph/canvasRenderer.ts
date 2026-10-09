@@ -1,22 +1,16 @@
-import type { DrawnLink, GraphData, GraphNode, GraphNodeType } from '../../types/graph';
-import { drawNestedGraph } from './canvasNestedRenderer';
-import { drawCanvasNode, type CanvasNodeEntry } from './canvasNodeRenderer';
-import { createCanvasPointerHandlers } from './canvasPointerHandlers';
 import {
     createFocusedGroupLayout,
     GROUP_DETAIL_SCALE,
     GROUP_FOCUS_SIZE,
     type CloudLayout,
     type NestedGraphBounds,
-} from './forceGraphCloud';
+} from '../../graph/nodeGeometry';
+import { GRAPH_HEIGHT, GRAPH_WIDTH } from '../../graph/sceneSize';
+import type { DrawnLink, GraphData, GraphNode, GraphNodeType } from '../../types/graph';
+import { drawNestedGraph } from './canvasNestedRenderer';
+import { drawCanvasNode, type CanvasNodeEntry } from './canvasNodeRenderer';
+import { createCanvasPointerHandlers } from './canvasPointerHandlers';
 import { nodeTooltip } from './nodePresentation';
-
-/**
- * Размер окна сцены; viewBox вокруг нуля — все силы целятся в ноль.
- * логический размер базовой сцены, то есть эталонная область координат графа
- */
-export const GRAPH_WIDTH = 928;
-export const GRAPH_HEIGHT = 680;
 
 const LINK_COLOR = '#999';
 const LINK_FORCE_DEFAULT = 2;
