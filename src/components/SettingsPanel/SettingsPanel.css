@@ -1,244 +1,244 @@
 .settings-panel {
-	display: flex;
-	flex-direction: column;
-	gap: 1rem;
-	box-sizing: border-box;
-	max-height: 100%;
-	padding: 1rem;
-	overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    box-sizing: border-box;
+    max-height: 100%;
+    padding: 1rem;
+    overflow-y: auto;
 }
 
 .settings-panel__title {
-	margin: 0;
-	padding-bottom: 0.65rem;
-	font-size: 1.05rem;
-	line-height: 1.2;
-	color: #2b3a4a;
-	border-bottom: 1px solid rgb(0 0 0 / 12%);
+    margin: 0;
+    padding-bottom: 0.65rem;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    color: #2b3a4a;
+    border-bottom: 1px solid rgb(0 0 0 / 12%);
 }
 
 /* sticky: панель прокручивается, а «+» и «назад» должны оставаться доступными на любом скролле */
 .settings-panel__header {
-	position: sticky;
-	top: 0;
-	z-index: 1;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 0.6rem;
-	background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    background: #fff;
 }
 
 .settings-panel__corner {
-	flex: none;
-	width: 1.9rem;
-	height: 1.9rem;
-	font: inherit;
-	font-size: 1.1rem;
-	line-height: 1;
-	color: #2b3a4a;
-	cursor: pointer;
-	background: #fff;
-	border: 1px solid rgb(0 0 0 / 18%);
-	border-radius: 50%;
-	transition:
-		background 0.15s ease,
-		border-color 0.15s ease;
+    flex: none;
+    width: 1.9rem;
+    height: 1.9rem;
+    font: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: #2b3a4a;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid rgb(0 0 0 / 18%);
+    border-radius: 50%;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .settings-panel__corner:hover {
-	background: #eef1f5;
-	border-color: rgb(0 0 0 / 30%);
+    background: #eef1f5;
+    border-color: rgb(0 0 0 / 30%);
 }
 
 .settings-panel__corner:focus-visible {
-	outline: 2px solid rgb(31 119 180 / 35%);
-	outline-offset: 1px;
+    outline: 2px solid rgb(31 119 180 / 35%);
+    outline-offset: 1px;
 }
 
 .settings-panel__field {
-	display: flex;
-	flex-direction: column;
-	gap: 0.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
 }
 
 .settings-panel__option {
-	display: flex;
-	align-items: center;
-	gap: 0.6rem;
-	cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
 }
 
 .settings-panel__label {
-	font-size: 0.9rem;
-	color: #2b3a4a;
+    font-size: 0.9rem;
+    color: #2b3a4a;
 }
 
 /* range без цифры бесполезен для подгонки карты */
 .settings-panel__value {
-	margin-left: 0.4rem;
-	font-variant-numeric: tabular-nums;
-	font-size: 0.8rem;
-	color: #5a6b7c;
+    margin-left: 0.4rem;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8rem;
+    color: #5a6b7c;
 }
 
 .settings-panel__range {
-	width: 100%;
-	accent-color: #1f77b4;
-	cursor: pointer;
+    width: 100%;
+    accent-color: #1f77b4;
+    cursor: pointer;
 }
 
 .settings-panel__range:focus-visible {
-	outline: 2px solid rgb(31 119 180 / 35%);
-	outline-offset: 2px;
+    outline: 2px solid rgb(31 119 180 / 35%);
+    outline-offset: 2px;
 }
 
 /* сам чекбокс в разметке остаётся ради доступности и фокуса, но рисуется его подмена */
 .settings-panel__input {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	margin: 0;
-	opacity: 0;
-	pointer-events: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
 }
 
 /* фокус с клавиатуры показываем на подмене, потому что настоящий чекбокс прозрачный */
 .settings-panel__input:focus-visible + .settings-panel__toggle,
 .settings-panel__input:focus-visible + .settings-panel__checkbox {
-	outline: 2px solid rgb(31 119 180 / 35%);
-	outline-offset: 2px;
+    outline: 2px solid rgb(31 119 180 / 35%);
+    outline-offset: 2px;
 }
 
 .settings-panel__select {
-	box-sizing: border-box;
-	width: 100%;
-	padding: 0.4rem 0.5rem;
-	font: inherit;
-	font-size: 0.9rem;
-	color: #2b3a4a;
-	background: #fff;
-	border: 1px solid rgb(0 0 0 / 18%);
-	border-radius: 4px;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    font: inherit;
+    font-size: 0.9rem;
+    color: #2b3a4a;
+    background: #fff;
+    border: 1px solid rgb(0 0 0 / 18%);
+    border-radius: 4px;
 }
 
 .settings-panel__select:focus-visible {
-	border-color: #1f77b4;
-	outline: 2px solid rgb(31 119 180 / 25%);
-	outline-offset: 1px;
+    border-color: #1f77b4;
+    outline: 2px solid rgb(31 119 180 / 25%);
+    outline-offset: 1px;
 }
 
 /* тоггл: трек с бегунком, состояние читается из соседнего чекбокса */
 .settings-panel__toggle {
-	position: relative;
-	flex: none;
-	width: 2.25rem;
-	height: 1.25rem;
-	background: #c3cad4;
-	border-radius: 1rem;
-	transition: background 0.15s ease;
+    position: relative;
+    flex: none;
+    width: 2.25rem;
+    height: 1.25rem;
+    background: #c3cad4;
+    border-radius: 1rem;
+    transition: background 0.15s ease;
 }
 
 .settings-panel__toggle::after {
-	position: absolute;
-	top: 0.15rem;
-	left: 0.15rem;
-	width: 0.95rem;
-	height: 0.95rem;
-	content: '';
-	background: #fff;
-	border-radius: 50%;
-	box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
-	transition: transform 0.15s ease;
+    position: absolute;
+    top: 0.15rem;
+    left: 0.15rem;
+    width: 0.95rem;
+    height: 0.95rem;
+    content: '';
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+    transition: transform 0.15s ease;
 }
 
 .settings-panel__input:checked + .settings-panel__toggle {
-	background: #1f77b4;
+    background: #1f77b4;
 }
 
 .settings-panel__input:checked + .settings-panel__toggle::after {
-	transform: translateX(1rem);
+    transform: translateX(1rem);
 }
 
 /* квадрат с галочкой из двух граней */
 .settings-panel__checkbox {
-	position: relative;
-	flex: none;
-	width: 1.25rem;
-	height: 1.25rem;
-	background: #fff;
-	border: 1px solid rgb(0 0 0 / 25%);
-	border-radius: 4px;
-	transition:
-		background 0.15s ease,
-		border-color 0.15s ease;
+    position: relative;
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    background: #fff;
+    border: 1px solid rgb(0 0 0 / 25%);
+    border-radius: 4px;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .settings-panel__checkbox::after {
-	position: absolute;
-	top: 0.15rem;
-	left: 0.4rem;
-	width: 0.3rem;
-	height: 0.58rem;
-	content: '';
-	border-right: 2px solid #fff;
-	border-bottom: 2px solid #fff;
-	opacity: 0;
-	transform: rotate(45deg);
-	transition: opacity 0.15s ease;
+    position: absolute;
+    top: 0.15rem;
+    left: 0.4rem;
+    width: 0.3rem;
+    height: 0.58rem;
+    content: '';
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    opacity: 0;
+    transform: rotate(45deg);
+    transition: opacity 0.15s ease;
 }
 
 .settings-panel__input:checked + .settings-panel__checkbox {
-	background: #1f77b4;
-	border-color: #1f77b4;
+    background: #1f77b4;
+    border-color: #1f77b4;
 }
 
 .settings-panel__input:checked + .settings-panel__checkbox::after {
-	opacity: 1;
+    opacity: 1;
 }
 
 .settings-panel__actions {
-	display: flex;
-	gap: 0.5rem;
-	padding-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
 }
 
 .settings-panel__button {
-	flex: 1 1 0;
-	padding: 0.45rem 0.75rem;
-	font: inherit;
-	font-size: 0.9rem;
-	color: #fff;
-	cursor: pointer;
-	background: #1f77b4;
-	border: 1px solid #1f77b4;
-	border-radius: 4px;
-	transition:
-		background 0.15s ease,
-		border-color 0.15s ease;
+    flex: 1 1 0;
+    padding: 0.45rem 0.75rem;
+    font: inherit;
+    font-size: 0.9rem;
+    color: #fff;
+    cursor: pointer;
+    background: #1f77b4;
+    border: 1px solid #1f77b4;
+    border-radius: 4px;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .settings-panel__button:hover {
-	background: #1a6396;
-	border-color: #1a6396;
+    background: #1a6396;
+    border-color: #1a6396;
 }
 
 .settings-panel__button:active {
-	transform: translateY(1px);
+    transform: translateY(1px);
 }
 
 .settings-panel__button:focus-visible {
-	outline: 2px solid rgb(31 119 180 / 35%);
-	outline-offset: 1px;
+    outline: 2px solid rgb(31 119 180 / 35%);
+    outline-offset: 1px;
 }
 
 .settings-panel__button--ghost {
-	color: #2b3a4a;
-	background: #fff;
-	border-color: rgb(0 0 0 / 18%);
+    color: #2b3a4a;
+    background: #fff;
+    border-color: rgb(0 0 0 / 18%);
 }
 
 .settings-panel__button--ghost:hover {
-	background: #eef1f5;
-	border-color: rgb(0 0 0 / 30%);
+    background: #eef1f5;
+    border-color: rgb(0 0 0 / 30%);
 }

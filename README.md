@@ -46,6 +46,6 @@ debounce; при уменьшении масштаба список сбрасы
 
 ## Стиль
 
-Prettier (табы, без `;`, одинарные кавычки, 120) и ESLint (airbnb + airbnb-typescript) — значения в
+Prettier и ESLint (airbnb + airbnb-typescript) — значения в
 `.prettierrc.mjs` и `.eslintrc.cjs`. Для `src/data/**` лимит `max-lines` отключён: там сгенерированные
 данные, а не логика.

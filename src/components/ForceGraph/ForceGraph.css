@@ -1,87 +1,87 @@
 .force-graph {
-	position: relative;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	flex: 1 1 0;
-	gap: 0.5rem;
-	box-sizing: border-box;
-	min-width: 0;
-	min-height: 0;
-	margin: 0;
-	box-shadow: 0px 0px 5px 0px rgba(255, 255, 255, 0.65) inset;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1 1 0;
+    gap: 0.5rem;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    box-shadow: 0px 0px 5px 0px rgba(255, 255, 255, 0.65) inset;
 }
 
 .force-graph__canvas {
-	flex: 1 1 0;
-	width: 100%;
-	min-height: 0;
+    flex: 1 1 0;
+    width: 100%;
+    min-height: 0;
 }
 
 .force-graph__zoom {
-	position: absolute;
-	top: 0.75rem;
-	right: 1rem;
-	padding: 0.25rem 0.5rem;
-	background: rgb(255 255 255 / 80%);
-	font-size: 0.85rem;
-	pointer-events: none;
+    position: absolute;
+    top: 0.75rem;
+    right: 1rem;
+    padding: 0.25rem 0.5rem;
+    background: rgb(255 255 255 / 80%);
+    font-size: 0.85rem;
+    pointer-events: none;
 }
 
 .force-graph__zoom-controls {
-	position: absolute;
-	bottom: 1rem;
-	left: 1rem;
-	display: flex;
-	gap: 0.25rem;
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    display: flex;
+    gap: 0.25rem;
 }
 
 .force-graph__zoom-controls button {
-	width: 2rem;
-	height: 2rem;
-	padding: 0;
-	border: 1px solid rgb(0 0 0 / 20%);
-	border-radius: 0.25rem;
-	background: rgb(255 255 255 / 90%);
-	font-size: 1.1rem;
-	line-height: 1;
-	cursor: pointer;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid rgb(0 0 0 / 20%);
+    border-radius: 0.25rem;
+    background: rgb(255 255 255 / 90%);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
 }
 
 .force-graph__zoom-controls button:hover {
-	background: #fff;
+    background: #fff;
 }
 
 .force-graph__counter {
-	position: absolute;
-	top: 0.75rem;
-	right: 7rem;
-	box-sizing: border-box;
-	margin: 0;
-	padding: 0.25rem 0.5rem;
-	background: rgb(255 255 255 / 80%);
-	font-size: 0.85rem;
+    position: absolute;
+    top: 0.75rem;
+    right: 7rem;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0.25rem 0.5rem;
+    background: rgb(255 255 255 / 80%);
+    font-size: 0.85rem;
 }
 
 .force-graph__canvas-element {
-	display: block;
-	width: 100%;
-	height: 100%;
-	cursor: grab;
-	touch-action: none;
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    touch-action: none;
 }
 
 .force-graph__status {
-	margin: 0;
-	font-size: 0.85rem;
-	text-align: center;
-	opacity: 0.7;
+    margin: 0;
+    font-size: 0.85rem;
+    text-align: center;
+    opacity: 0.7;
 }
 
 .force-graph__loading {
-	position: absolute;
-	inset: 0;
-	display: grid;
-	place-items: center;
-	background: rgb(255 255 255 / 92%);
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgb(255 255 255 / 92%);
 }

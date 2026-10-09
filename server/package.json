@@ -1,14 +1,14 @@
 {
-	"name": "@ai-graph-map/layout-server",
-	"version": "0.1.0",
-	"private": true,
-	"type": "module",
-	"description": "HTTP-сервис расчёта координат графа для ai-graph-map",
-	"scripts": {
-		"start": "node index.mjs"
-	},
-	"dependencies": {
-		"@eslint/js": "^8.57.1",
-		"d3-force": "^3.0.0"
-	}
+    "name": "@ai-graph-map/layout-server",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "description": "HTTP-сервис расчёта координат графа для ai-graph-map",
+    "scripts": {
+        "start": "node index.mjs"
+    },
+    "dependencies": {
+        "@eslint/js": "^8.57.1",
+        "d3-force": "^3.0.0"
+    }
 }

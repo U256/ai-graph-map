@@ -1,8 +1,8 @@
-import baseConfig from './.prettierrc.mjs'
+import baseConfig from './.prettierrc.mjs';
 
 const precommitConfig = {
-	...baseConfig,
-	plugins: [...(baseConfig.plugins || []), 'prettier-plugin-organize-imports'],
-}
+    ...baseConfig,
+    plugins: [...(baseConfig.plugins || []), 'prettier-plugin-organize-imports'],
+};
 
-export default precommitConfig
+export default precommitConfig;
