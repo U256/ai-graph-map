@@ -1,12 +1,43 @@
 import { forceLink, forceManyBody, forceSimulation, forceX, forceY } from 'd3-force';
-import { calculateClusterLayout, FINE_GROUP_SIZE } from './clusterLayout.mjs';
+import { calculateClusterLayout, createClusterConfig } from './clusterLayout.mjs';
 
-const LAYOUT_SCALE = 7;
-const LINK_DISTANCE = 100;
-const LINK_STRENGTH = 0.5;
-const CHARGE_STRENGTH = -30;
-const VELOCITY_DECAY = 0.6;
-const ADD_RADIUS = 100;
+export const DEFAULT_PLACING_CONFIG = {
+    layoutScale: 8,
+    linkDistance: 120,
+    linkStrength: 0.5,
+    chargeStrength: -30,
+    velocityDecay: 0.6,
+    addRadius: 100,
+};
+
+/** Отклоняет нечисловые настройки до запуска d3 и разбиения на пачки. */
+export function resolvePlacingConfig(placingConfig = {}) {
+    if (placingConfig === null || typeof placingConfig !== 'object' || Array.isArray(placingConfig)) {
+        throw new Error('placingConfig должен быть объектом');
+    }
+    const defaults = { ...DEFAULT_PLACING_CONFIG, ...createClusterConfig() };
+    for (const [key, value] of Object.entries(placingConfig)) {
+        if (!(key in defaults) || typeof value !== 'number' || !Number.isFinite(value)) {
+            throw new Error(`Некорректный параметр placingConfig: ${key}`);
+        }
+    }
+    const result = { ...defaults, ...placingConfig };
+    if (
+        result.layoutScale <= 0 ||
+        result.linkDistance < 0 ||
+        result.linkStrength < 0 ||
+        result.velocityDecay < 0 ||
+        result.velocityDecay > 1 ||
+        result.addRadius <= 0 ||
+        !Number.isInteger(result.clusterFineGroupSize) ||
+        result.clusterFineGroupSize <= 0 ||
+        !Number.isInteger(result.clusterMaxGroupSize) ||
+        result.clusterMaxGroupSize <= 0
+    ) {
+        throw new Error('Недопустимое значение placingConfig');
+    }
+    return result;
+}
 
 /** @typedef {Object} GraphNode Узел плоского графа с необязательными координатами. */
 /** @property {string} id Уникальный идентификатор узла. */
@@ -71,7 +102,7 @@ function validPosition(node) {
     return Number.isFinite(node.x) && Number.isFinite(node.y);
 }
 
-function calculateSingleSimulation(graph, ignoreCurrentCoordinates, scale) {
+function calculateSingleSimulation(graph, ignoreCurrentCoordinates, placingConfig) {
     const nodes = graph.nodes.map((node) => {
         if (ignoreCurrentCoordinates || !validPosition(node)) {
             delete node.x;
@@ -87,16 +118,16 @@ function calculateSingleSimulation(graph, ignoreCurrentCoordinates, scale) {
             'link',
             forceLink(links)
                 .id((node) => /** @type {GraphNode} */ (node).id)
-                .distance(LINK_DISTANCE)
-                .strength(LINK_STRENGTH),
+                .distance(placingConfig.linkDistance)
+                .strength(placingConfig.linkStrength),
         )
         .force(
             'charge',
-            forceManyBody().strength(() => CHARGE_STRENGTH * LAYOUT_SCALE ** 2),
+            forceManyBody().strength(() => placingConfig.chargeStrength * placingConfig.layoutScale ** 2),
         )
         .force('x', forceX())
         .force('y', forceY())
-        .velocityDecay(VELOCITY_DECAY)
+        .velocityDecay(placingConfig.velocityDecay)
         .stop();
 
     simulation.alphaTarget(1);
@@ -122,16 +153,20 @@ function calculateSingleSimulation(graph, ignoreCurrentCoordinates, scale) {
  * @param {GraphData} graph Плоский граф для раскладки.
  * @param {boolean} [ignoreCurrentCoordinates=false] Нужно ли игнорировать начальные координаты.
  * @param {number} [scale=1] Масштаб уровня графа.
+ * @param {Record<string, number>} [placingConfig] Настройки поверх значений по умолчанию.
  * @returns {GraphNode[]} Узлы с рассчитанными координатами.
  */
-export function calculateSimulation(graph, ignoreCurrentCoordinates = false, scale = 1) {
+export function calculateSimulation(graph, ignoreCurrentCoordinates = false, scale = 1, placingConfig = {}) {
     if (!Number.isFinite(scale) || scale <= 0) throw new Error('scale должен быть положительным числом');
-    if (graph.nodes.length >= FINE_GROUP_SIZE) {
-        return calculateClusterLayout(graph, (group) =>
-            calculateSingleSimulation(group, ignoreCurrentCoordinates, scale),
+    const resolvedConfig = resolvePlacingConfig(placingConfig);
+    if (graph.nodes.length >= resolvedConfig.clusterFineGroupSize) {
+        return calculateClusterLayout(
+            graph,
+            (group) => calculateSingleSimulation(group, ignoreCurrentCoordinates, resolvedConfig),
+            resolvedConfig,
         );
     }
-    return calculateSingleSimulation(graph, ignoreCurrentCoordinates, scale);
+    return calculateSingleSimulation(graph, ignoreCurrentCoordinates, resolvedConfig);
 }
 
 /**
@@ -153,7 +188,7 @@ function linkedNodeIds(links, id) {
  * @param {GraphNode[]} nodes Узлы с координатами.
  * @returns {{x: number, y: number}} Свободная точка.
  */
-function freeRingPosition(nodes) {
+function freeRingPosition(nodes, addRadius) {
     const positioned = nodes.filter(validPosition);
     if (positioned.length === 0) return { x: 0, y: 0 };
     const center = positioned.reduce((result, node) => ({ x: result.x + node.x, y: result.y + node.y }), {
@@ -163,11 +198,11 @@ function freeRingPosition(nodes) {
     center.x /= positioned.length;
     center.y /= positioned.length;
 
-    const radius = Math.max(ADD_RADIUS, Math.sqrt(positioned.length) * ADD_RADIUS);
+    const radius = Math.max(addRadius, Math.sqrt(positioned.length) * addRadius);
     for (let index = 0; index < positioned.length * 2; index += 1) {
         const angle = (index / Math.max(1, positioned.length * 2)) * Math.PI * 2;
         const candidate = { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
-        if (positioned.every((node) => Math.hypot(node.x - candidate.x, node.y - candidate.y) >= ADD_RADIUS)) {
+        if (positioned.every((node) => Math.hypot(node.x - candidate.x, node.y - candidate.y) >= addRadius)) {
             return candidate;
         }
     }
@@ -179,15 +214,17 @@ function freeRingPosition(nodes) {
  * @param {GraphData} graph Исходный граф.
  * @param {GraphNode} node Добавляемый узел.
  * @param {GraphLink[]} [additionalLinks=[]] Связи с добавляемым узлом.
+ * @param {Record<string, number>} [placingConfig] Настройки поверх значений по умолчанию.
  * @returns {GraphData} Граф с новым узлом и связями.
  */
-export function addNode(graph, node, additionalLinks = []) {
+export function addNode(graph, node, additionalLinks = [], placingConfig = {}) {
     if (!isObject(node) || typeof node.id !== 'string') throw new Error('Для add нужен node с id');
     if (graph.nodes.some((item) => item.id === node.id)) throw new Error(`Узел уже существует: ${node.id}`);
 
     const links = [...graph.links, ...additionalLinks];
     const neighbors = linkedNodeIds(links, node.id);
     const neighborPositions = graph.nodes.filter((item) => neighbors.includes(item.id) && validPosition(item));
+    const resolvedConfig = resolvePlacingConfig(placingConfig);
     const position = neighborPositions.length
         ? neighborPositions.reduce(
               (result, item) => ({
@@ -196,7 +233,7 @@ export function addNode(graph, node, additionalLinks = []) {
               }),
               { x: 0, y: 0 },
           )
-        : freeRingPosition(graph.nodes);
+        : freeRingPosition(graph.nodes, resolvedConfig.addRadius);
 
     return {
         nodes: [...graph.nodes, { ...node, ...position }],

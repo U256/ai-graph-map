@@ -1,7 +1,9 @@
 import { forceCollide, forceSimulation, forceX, forceY } from 'd3-force';
 
-export const FINE_GROUP_SIZE = 140;
-export const MAX_GROUP_SIZE = 250;
+export const DEFAULT_CLUSTER_CONFIG = {
+    clusterFineGroupSize: 140,
+    clusterMaxGroupSize: 250,
+};
 const CLUSTER_WIDTH_FACTOR = 135;
 const CLUSTER_WIDTH_POWER = 0.63;
 const CLUSTER_GAP = 0;
@@ -20,7 +22,7 @@ const CLUSTER_LAYOUT_TICKS = 600;
  * @param {GraphData} graph Граф для разбиения.
  * @returns {GraphData[]} Графы пачек с исходными объектами узлов и связей.
  */
-function splitIntoLayoutGroups(graph) {
+function splitIntoLayoutGroups(graph, config) {
     const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
     const neighbors = new Map(graph.nodes.map((node) => [node.id, new Set()]));
     const linksByNodeId = new Map(graph.nodes.map((node) => [node.id, []]));
@@ -48,7 +50,7 @@ function splitIntoLayoutGroups(graph) {
             const id = queue[cursor];
             nodeIds.push(id);
             neighbors.get(id).forEach((neighborId) => {
-                if (visited.has(neighborId) || queue.length >= MAX_GROUP_SIZE) return;
+                if (visited.has(neighborId) || queue.length >= config.clusterMaxGroupSize) return;
                 visited.add(neighborId);
                 queue.push(neighborId);
             });
@@ -73,7 +75,7 @@ function splitIntoLayoutGroups(graph) {
     /** @type {GraphData} */
     let current = { nodes: [], links: [] };
     components.forEach((component) => {
-        if (current.nodes.length > 0 && current.nodes.length + component.nodes.length > FINE_GROUP_SIZE) {
+        if (current.nodes.length > 0 && current.nodes.length + component.nodes.length > config.clusterFineGroupSize) {
             groups.push(current);
             current = { nodes: [], links: [] };
         }
@@ -133,9 +135,15 @@ function placeLayoutGroups(groups) {
     });
 }
 
+/** Объединяет настройки размеров пачек с дефолтами. */
+export function createClusterConfig(config = {}) {
+    return { ...DEFAULT_CLUSTER_CONFIG, ...config };
+}
+
 /** Раскладывает пачки раздельно и возвращает узлы в исходном порядке. */
-export function calculateClusterLayout(graph, calculateGroup) {
-    const positionedGroups = splitIntoLayoutGroups(graph).map((group) => ({
+export function calculateClusterLayout(graph, calculateGroup, config = DEFAULT_CLUSTER_CONFIG) {
+    const clusterConfig = createClusterConfig(config);
+    const positionedGroups = splitIntoLayoutGroups(graph, clusterConfig).map((group) => ({
         ...group,
         nodes: calculateGroup(group),
     }));

@@ -56,13 +56,19 @@ async function handle(request, response) {
          * @property {GraphData} graph Граф для раскладки; допустимы пустые массивы.
          * @property {boolean} [ignoreCurrentCoordinates] Игнорировать имеющиеся x и y.
          * @property {number} [scale] Масштаб уровня графа; по умолчанию 1.
+         * @property {Record<string, number>} [placingConfig] Параметры раскладки поверх значений по умолчанию.
          */
         if (route === '/makeCoordinates') {
             const payload = /** @type {CoordinatesRequest} */ (body);
             const graph = checkIfDataValid(payload?.graph);
             const scale = 'scale' in payload && !Number.isNaN(Number(payload.scale)) ? Number(payload.scale) : 1;
             return toJsonResponse(response, 200, {
-                nodes: calculateSimulation(graph, payload.ignoreCurrentCoordinates === true, scale),
+                nodes: calculateSimulation(
+                    graph,
+                    payload.ignoreCurrentCoordinates === true,
+                    scale,
+                    payload.placingConfig,
+                ),
                 links: graph.links,
             });
         }
@@ -75,11 +81,16 @@ async function handle(request, response) {
          * @property {GraphData} graph Исходный плоский граф.
          * @property {GraphData['nodes'][number]} node Добавляемый узел с уникальным id.
          * @property {GraphData['links']} [links] Новые связи; по умолчанию пустой массив.
+         * @property {Record<string, number>} [placingConfig] Параметры раскладки поверх значений по умолчанию.
          */
         if (route === '/add') {
             const payload = /** @type {AddRequest} */ (body);
             const graph = checkIfDataValid(payload?.graph);
-            return toJsonResponse(response, 200, addNode(graph, payload.node, payload.links ?? []));
+            return toJsonResponse(
+                response,
+                200,
+                addNode(graph, payload.node, payload.links ?? [], payload.placingConfig),
+            );
         }
 
         /**

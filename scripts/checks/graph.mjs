@@ -19,8 +19,12 @@
  *   node scripts/checks/graph.mjs --seed=24,170 --alpha=0.3,0.005
  */
 import { createServer } from 'vite';
-import { calculateClusterLayout, FINE_GROUP_SIZE, MAX_GROUP_SIZE } from '../../server/clusterLayout.mjs';
-import { calculateSimulation as calculateServerSimulation } from '../../server/processData.mjs';
+import { calculateClusterLayout, DEFAULT_CLUSTER_CONFIG } from '../../server/clusterLayout.mjs';
+import {
+    addNode as addServerNode,
+    calculateSimulation as calculateServerSimulation,
+    DEFAULT_PLACING_CONFIG,
+} from '../../server/processData.mjs';
 
 let failures = 0;
 
@@ -175,6 +179,7 @@ const visibility = await server.ssrLoadModule('/src/graph/visibleGroups.ts');
 const source = await server.ssrLoadModule('/src/data/graph.ts');
 
 const { createTypeColors } = colorUtils;
+const { clusterFineGroupSize: FINE_GROUP_SIZE, clusterMaxGroupSize: MAX_GROUP_SIZE } = DEFAULT_CLUSTER_CONFIG;
 const { resolveLinks } = linksLogic;
 const { nestedGroupLinkChildren } = nestedLinks;
 const { boundaryRadius, localRadius, nearbyNodes } = motion;
@@ -222,6 +227,20 @@ const splitFixture = {
 const splitInput = structuredClone(splitFixture);
 const splitNodes = calculateServerSimulation(splitInput, true);
 check(
+    'умолчания физических параметров и порогов пачек сохранены',
+    JSON.stringify(DEFAULT_PLACING_CONFIG) ===
+        JSON.stringify({
+            layoutScale: 8,
+            linkDistance: 120,
+            linkStrength: 0.5,
+            chargeStrength: -30,
+            velocityDecay: 0.6,
+            addRadius: 100,
+        }) &&
+        FINE_GROUP_SIZE === 140 &&
+        MAX_GROUP_SIZE === 250,
+);
+check(
     'сервер раскладывает пачки, сохраняя порядок, связи и конечные координаты',
     splitNodes.length === splitFixture.nodes.length &&
         splitNodes.every(
@@ -256,6 +275,37 @@ check(
     groupLinks.flat().length === connectedFixture.links.length - 1 &&
         connectedFixture.links.length === MAX_GROUP_SIZE &&
         groupLinks.every((links) => links.every((link) => link.target !== `chain-${MAX_GROUP_SIZE}`)),
+);
+const customGroupSizes = [];
+calculateClusterLayout(
+    connectedFixture,
+    (group) => {
+        customGroupSizes.push(group.nodes.length);
+        return group.nodes.map((node) => ({ ...node, x: 0, y: 0 }));
+    },
+    { clusterFineGroupSize: 5, clusterMaxGroupSize: 7 },
+);
+check(
+    'пороги clusterFineGroupSize и clusterMaxGroupSize применяются к пачкам',
+    customGroupSizes.every((size) => size <= 7) && customGroupSizes.length > 2,
+);
+const linkedPair = {
+    nodes: [{ id: 'first' }, { id: 'second' }],
+    links: [{ source: 'first', target: 'second' }],
+};
+const defaultPair = calculateServerSimulation(structuredClone(linkedPair), true);
+const spacedPair = calculateServerSimulation(structuredClone(linkedPair), true, 1, { linkDistance: 400 });
+check(
+    'linkDistance из placingConfig меняет расстояние между нодами',
+    distance(...spacedPair) > distance(...defaultPair) + 100,
+);
+check(
+    'addRadius из placingConfig меняет свободную позицию нового узла',
+    distance(
+        { x: 0, y: 0 },
+        addServerNode({ nodes: [{ id: 'existing', x: 0, y: 0 }], links: [] }, { id: 'new' }, [], { addRadius: 300 })
+            .nodes[1],
+    ) === 300,
 );
 const bubbleFixture = {
     nodes: Array.from({ length: 8 * FINE_GROUP_SIZE }, (_, index) => ({ id: `bubble-${index}` })),

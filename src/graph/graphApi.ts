@@ -2,6 +2,18 @@ import type { GraphData, GraphNodeInput } from '../types/graph';
 
 const API_URL = import.meta.env.VITE_GRAPH_API_URL ?? 'http://127.0.0.1:5197';
 
+/** Неуказанные параметры сервер берёт из своих значений по умолчанию. */
+export interface PlacingConfig {
+    layoutScale?: number;
+    linkDistance?: number;
+    linkStrength?: number;
+    chargeStrength?: number;
+    velocityDecay?: number;
+    addRadius?: number;
+    clusterFineGroupSize?: number;
+    clusterMaxGroupSize?: number;
+}
+
 async function post<T>(path: string, body: object): Promise<T> {
     const response = await fetch(`${API_URL}${path}`, {
         method: 'POST',
@@ -42,19 +54,26 @@ export async function makeCoordinates(
     data: GraphData,
     ignoreCurrentCoordinates = false,
     scale = 1,
+    placingConfig?: PlacingConfig,
 ): Promise<GraphData> {
     const positioned = await post<GraphData>('/makeCoordinates', {
         graph: flatGraph(data),
         ignoreCurrentCoordinates,
         scale,
+        placingConfig,
     });
     return restoreLoadedChildren(data, positioned);
 }
 
 /** Добавляет узел на сервере и возвращает граф с координатами нового узла. */
-export function addNode(data: GraphData, node: GraphNodeInput, links: GraphData['links']): Promise<GraphData> {
-    return post<GraphData>('/add', { graph: flatGraph(data), node: flatNode(node), links }).then((positioned) =>
-        restoreLoadedChildren({ ...data, nodes: [...data.nodes, node] }, positioned),
+export function addNode(
+    data: GraphData,
+    node: GraphNodeInput,
+    links: GraphData['links'],
+    placingConfig?: PlacingConfig,
+): Promise<GraphData> {
+    return post<GraphData>('/add', { graph: flatGraph(data), node: flatNode(node), links, placingConfig }).then(
+        (positioned) => restoreLoadedChildren({ ...data, nodes: [...data.nodes, node] }, positioned),
     );
 }
 

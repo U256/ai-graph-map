@@ -269,8 +269,11 @@ Canvas и OpenLayers — самостоятельные адаптеры одн�
 - Кластеры заданы данными, а не физикой: если карта покажется разрозненной, сначала смотреть на форму
   данных, а не крутить `LAYOUT_SCALE`/`LINK_DISTANCE`. Плотность связок и простор между узлами — это
   подгонка по картинке, и в кластеры она узлы не собирает.
-- Константы серверной физики живут в `server/index.mjs`, локального движения — в `ForceGraph/localMotion.ts`, и не
-  хранятся в localStorage.
+- Параметры серверной физики и разбиения на пачки передаются одним необязательным `placingConfig` в запросах
+  раскладки (`layoutScale`, `linkDistance`, `linkStrength`, `chargeStrength`, `velocityDecay`, `addRadius`,
+  `clusterFineGroupSize`, `clusterMaxGroupSize`); дефолты живут в `server/processData.mjs` и
+  `server/clusterLayout.mjs`, в localStorage не хранятся. Параметры локального движения живут в
+  `ForceGraph/localMotion.ts`.
   Настройки localStorage содержат только клоны и отображение сабнод.
 - Цвет — по `type`, оттенки выдаются в порядке первого появления типа, легенда не нужна. Типов два:
   `node` — научные работы, `subNode` — цитирующие их патенты.
