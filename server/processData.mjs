@@ -1,4 +1,5 @@
 import { forceLink, forceManyBody, forceSimulation, forceX, forceY } from 'd3-force';
+import { calculateClusterLayout, FINE_GROUP_SIZE } from './clusterLayout.mjs';
 
 const LAYOUT_SCALE = 7;
 const LINK_DISTANCE = 100;
@@ -70,25 +71,7 @@ function validPosition(node) {
     return Number.isFinite(node.x) && Number.isFinite(node.y);
 }
 
-/**
- * Рассчитывает координаты графа остановленной d3-симуляцией.
- * @example
- * {
- * 	"graph": {
- * 		"nodes": [{ "id": "id1", }, { "id": "id2", }],
- * 		"links": [{ "source": "id1", "target": "id2" }]
- * 	},
- * 	"ignoreCurrentCoordinates": false,
- * 	"scale": 1
- * }
- *
- * @param {GraphData} graph Плоский граф для раскладки.
- * @param {boolean} [ignoreCurrentCoordinates=false] Нужно ли игнорировать начальные координаты.
- * @param {number} [scale=1] Масштаб уровня графа.
- * @returns {GraphNode[]} Узлы с рассчитанными координатами.
- */
-export function calculateSimulation(graph, ignoreCurrentCoordinates = false, scale = 1) {
-    if (!Number.isFinite(scale) || scale <= 0) throw new Error('scale должен быть положительным числом');
+function calculateSingleSimulation(graph, ignoreCurrentCoordinates, scale) {
     const nodes = graph.nodes.map((node) => {
         if (ignoreCurrentCoordinates || !validPosition(node)) {
             delete node.x;
@@ -116,14 +99,39 @@ export function calculateSimulation(graph, ignoreCurrentCoordinates = false, sca
         .velocityDecay(VELOCITY_DECAY)
         .stop();
 
-    // двигаем симуляцию, чтобы привести ближе к "покою" и сделать равномернее распределение
     simulation.alphaTarget(1);
     for (let tick = 0; tick < 500; tick += 1) simulation.tick();
     simulation.alphaTarget(0);
-
     while (simulation.alpha() > simulation.alphaMin()) simulation.tick();
 
     return nodes.map(({ vx: _vx, vy: _vy, index: _index, ...node }) => node);
+}
+
+/**
+ * Рассчитывает координаты графа остановленной d3-симуляцией.
+ * @example
+ * {
+ * 	"graph": {
+ * 		"nodes": [{ "id": "id1", }, { "id": "id2", }],
+ * 		"links": [{ "source": "id1", "target": "id2" }]
+ * 	},
+ * 	"ignoreCurrentCoordinates": false,
+ * 	"scale": 1
+ * }
+ *
+ * @param {GraphData} graph Плоский граф для раскладки.
+ * @param {boolean} [ignoreCurrentCoordinates=false] Нужно ли игнорировать начальные координаты.
+ * @param {number} [scale=1] Масштаб уровня графа.
+ * @returns {GraphNode[]} Узлы с рассчитанными координатами.
+ */
+export function calculateSimulation(graph, ignoreCurrentCoordinates = false, scale = 1) {
+    if (!Number.isFinite(scale) || scale <= 0) throw new Error('scale должен быть положительным числом');
+    if (graph.nodes.length >= FINE_GROUP_SIZE) {
+        return calculateClusterLayout(graph, (group) =>
+            calculateSingleSimulation(group, ignoreCurrentCoordinates, scale),
+        );
+    }
+    return calculateSingleSimulation(graph, ignoreCurrentCoordinates, scale);
 }
 
 /**

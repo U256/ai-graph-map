@@ -19,6 +19,8 @@
  *   node scripts/checks/graph.mjs --seed=24,170 --alpha=0.3,0.005
  */
 import { createServer } from 'vite';
+import { calculateClusterLayout, FINE_GROUP_SIZE, MAX_GROUP_SIZE } from '../../server/clusterLayout.mjs';
+import { calculateSimulation as calculateServerSimulation } from '../../server/processData.mjs';
 
 let failures = 0;
 
@@ -209,6 +211,73 @@ const componentFixture = {
         { source: 'missing', target: 'f' },
     ],
 };
+
+const splitFixture = {
+    nodes: Array.from({ length: 141 }, (_, index) => ({ id: `split-${index}` })),
+    links: [
+        { source: 'split-0', target: 'split-1' },
+        { source: 'split-139', target: 'split-140' },
+    ],
+};
+const splitInput = structuredClone(splitFixture);
+const splitNodes = calculateServerSimulation(splitInput, true);
+check(
+    'сервер раскладывает пачки, сохраняя порядок, связи и конечные координаты',
+    splitNodes.length === splitFixture.nodes.length &&
+        splitNodes.every(
+            (node, index) =>
+                node.id === splitFixture.nodes[index].id && Number.isFinite(node.x) && Number.isFinite(node.y),
+        ) &&
+        JSON.stringify(splitFixture.links) === JSON.stringify(splitInput.links),
+);
+const connectedFixture = {
+    nodes: Array.from({ length: MAX_GROUP_SIZE + 1 }, (_, index) => ({ id: `chain-${index}` })),
+    links: Array.from({ length: MAX_GROUP_SIZE }, (_, index) => ({
+        source: `chain-${index}`,
+        target: `chain-${index + 1}`,
+    })),
+};
+const groupSizes = [];
+const groupLinks = [];
+const clusteredNodes = calculateClusterLayout(connectedFixture, (group) => {
+    groupSizes.push(group.nodes.length);
+    groupLinks.push(group.links);
+    return group.nodes.map((node) => ({ ...node, x: 0, y: 0 }));
+});
+check(
+    'связанная компонента режется на лимите, все узлы попадают в пачки',
+    groupSizes.length === 2 &&
+        groupSizes[0] === MAX_GROUP_SIZE &&
+        groupSizes[1] === 1 &&
+        clusteredNodes.every((node, index) => node.id === connectedFixture.nodes[index].id),
+);
+check(
+    'связи через границу пачек не передаются d3, но остаются в исходном графе',
+    groupLinks.flat().length === connectedFixture.links.length - 1 &&
+        connectedFixture.links.length === MAX_GROUP_SIZE &&
+        groupLinks.every((links) => links.every((link) => link.target !== `chain-${MAX_GROUP_SIZE}`)),
+);
+const bubbleFixture = {
+    nodes: Array.from({ length: 8 * FINE_GROUP_SIZE }, (_, index) => ({ id: `bubble-${index}` })),
+    links: [],
+};
+const bubbleNodes = calculateClusterLayout(bubbleFixture, (group) =>
+    group.nodes.map((node) => ({ ...node, x: 0, y: 0 })),
+);
+const bubbleCenters = Array.from({ length: 8 }, (_, index) => bubbleNodes[index * FINE_GROUP_SIZE]);
+check(
+    'пачки распределены вокруг центра без шеренги и не налезают друг на друга',
+    Math.max(...bubbleCenters.map((node) => node.y)) - Math.min(...bubbleCenters.map((node) => node.y)) > 1000 &&
+        bubbleCenters.every((node, index) =>
+            bubbleCenters.slice(index + 1).every((other) => distance(node, other) > 1000),
+        ),
+);
+check(
+    'сервер рассчитывает конечные координаты всех частей крупной компоненты',
+    calculateServerSimulation(structuredClone(connectedFixture), true).every(
+        (node) => Number.isFinite(node.x) && Number.isFinite(node.y),
+    ),
+);
 
 console.log('\n== полный расчёт раскладки ==');
 

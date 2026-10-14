@@ -35,28 +35,33 @@ export function drawCanvasNode(
     const { node, layout, x, y, selected } = entry;
     const baseColor = selected ? SELECTED_COLOR : colorOf(node.type);
     const isCloud = node.type !== 'subNode';
+    const detailScale = layout.focusedGroup ? 0.2 : 1;
     const left = x - layout.width / 2;
     const top = y - layout.height / 2;
-    const radius = Math.min(isCloud ? CLOUD_RADIUS : SUB_NODE_CORNER, layout.width / 2, layout.height / 2);
+    const radius = Math.min(
+        (isCloud ? CLOUD_RADIUS : SUB_NODE_CORNER) * detailScale,
+        layout.width / 2,
+        layout.height / 2,
+    );
 
     context.fillStyle = tintToWhite(baseColor);
     context.strokeStyle = baseColor;
-    context.lineWidth = BODY_STROKE_WIDTH;
+    context.lineWidth = BODY_STROKE_WIDTH * detailScale;
     context.beginPath();
     context.roundRect(left, top, layout.width, layout.height, radius);
     context.fill();
     context.stroke();
     context.textBaseline = 'middle';
     context.textAlign = 'left';
-    context.font = `${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
+    context.font = `${TITLE_FONT_SIZE * detailScale}px ${FONT_FAMILY}`;
     context.fillStyle = TITLE_COLOR;
     context.fillText(layout.title, x + layout.textX, y + layout.titleY);
-    context.font = `${DESCRIPTION_FONT_SIZE}px ${FONT_FAMILY}`;
+    context.font = `${DESCRIPTION_FONT_SIZE * detailScale}px ${FONT_FAMILY}`;
     context.fillStyle = DESCRIPTION_COLOR;
     context.fillText(layout.description, x + layout.textX, y + layout.descriptionY);
     if (layout.warning) {
         context.beginPath();
-        context.arc(x + layout.warning.x, y + layout.warning.y, WARNING_DOT_RADIUS, 0, Math.PI * 2);
+        context.arc(x + layout.warning.x, y + layout.warning.y, WARNING_DOT_RADIUS * detailScale, 0, Math.PI * 2);
         context.fillStyle = WARNING_COLOR;
         context.fill();
     }
@@ -67,7 +72,7 @@ export function drawCanvasNode(
         context.fillStyle = baseColor;
         for (let index = 0; index < 3; index += 1) {
             context.beginPath();
-            context.arc(x + (index - 1) * 6, y, 2, 0, Math.PI * 2);
+            context.arc(x + (index - 1) * 6 * detailScale, y, 2 * detailScale, 0, Math.PI * 2);
             context.fill();
         }
     }
